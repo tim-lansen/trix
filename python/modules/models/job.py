@@ -116,7 +116,7 @@ class Job(Record):
 
     def __init__(self):
         super().__init__()
-        self.info = Job.Info()
+        self.info = self.Info()
         self.type = None
         self.status = None
         # float: Overall job progress, 0.0 at start, 1.0 at end
@@ -127,7 +127,7 @@ class Job(Record):
         # if type(job_data) is list or type(job_data) is tuple:
         #     # The variant for data captured from database (dangerous)
         #     # Create dict
-        #     fields = [f[0] for f in TRIX_CONFIG.dbase.tables['Job']['fields']]
+        #     fields = [f[0] for f in TRIX_CONFIG.dBase.tables['Job']['fields']]
         #     upd = dict(zip(fields, job_data))
         #     self.update_json(upd)
         if type(job_data) is dict:

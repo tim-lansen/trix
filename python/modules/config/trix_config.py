@@ -7,34 +7,31 @@ from ..utils.log_console import Logger, DebugLevel, tracer
 from ..utils.jsoner import JSONer
 
 
-class ConfigConnection(JSONer):
-    def __init__(self):
-        super().__init__()
-        self.host = None
-        self.port = None
-        self.dbname = None
-
-
-class ConfigDBase(JSONer):
-    def __init__(self):
-        super().__init__()
-        self.connection = ConfigConnection()
-        self.users = None
-        self.tables = None
-
-
-class ApiServer(JSONer):
-    def __init__(self):
-        super().__init__()
-        self.host = None
-        self.port = None
-
-
 class TrixConfig(JSONer):
+    class DBase(JSONer):
+        class Connection(JSONer):
+            def __init__(self):
+                super().__init__()
+                self.host = None
+                self.port = None
+                self.dbname = None
+
+        def __init__(self):
+            super().__init__()
+            self.connection = self.Connection()
+            self.users = None
+            self.tables = None
+
+    class ApiServer(JSONer):
+        def __init__(self):
+            super().__init__()
+            self.host = None
+            self.port = None
+
     def __init__(self):
         super().__init__()
-        self.dbase = ConfigDBase()
-        self.api_server = ApiServer()
+        self.dBase = self.DBase()
+        self.apiServer = self.ApiServer()
 
 
 TRIX_CONFIG = TrixConfig()
@@ -57,12 +54,12 @@ def check_config_conformity():
         return None
 
     failed = False
-    for t in TRIX_CONFIG.dbase.tables:
+    for t in TRIX_CONFIG.dBase.tables:
         c = str_to_class(t)
         if c is None:
             Logger.warning('No python model found for table {}\n'.format(t))
             continue
-        ct = TRIX_CONFIG.dbase.tables[t]
+        ct = TRIX_CONFIG.dBase.tables[t]
         cfields = {f[0] for f in ct['fields']}
         pfields = c().get_members()
         diff = cfields.symmetric_difference(pfields)
@@ -80,4 +77,4 @@ check_config_conformity()
 
 if __name__ == '__main__':
     import pprint
-    pprint.pprint(TRIX_CONFIG.dbase.__dict__)
+    pprint.pprint(TRIX_CONFIG.dBase.__dict__)

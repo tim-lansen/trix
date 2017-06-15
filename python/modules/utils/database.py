@@ -82,17 +82,20 @@ def request_db_return_dl(cur, tdata, fields, condition):
 
 
 class DBInterface:
-    CONN = None
+    # CONN = None
+    CONNECTIONS = {}
+    USER = 'backend'
+    SUPERUSER = 'superuser'
 
     @staticmethod
     def initialize():
         # Try to connect to DB as superuser
         params = {
-            'host': TRIX_CONFIG.dbase.connection.host,
-            'port': TRIX_CONFIG.dbase.connection.port,
-            'dbname': TRIX_CONFIG.dbase.connection.dbname,
-            'user': TRIX_CONFIG.dbase.users['superuser']['login'],
-            'password': TRIX_CONFIG.dbase.users['superuser']['password']
+            'host': TRIX_CONFIG.dBase.connection.host,
+            'port': TRIX_CONFIG.dBase.connection.port,
+            'dbname': TRIX_CONFIG.dBase.connection.dbname,
+            'user': TRIX_CONFIG.dBase.users[DBInterface.SUPERUSER]['login'],
+            'password': TRIX_CONFIG.dBase.users[DBInterface.SUPERUSER]['password']
         }
         conn = connect_to_db(params)
         if conn is None:
@@ -105,8 +108,8 @@ class DBInterface:
         rows = cur.fetchall()
         db_users = {u[0] for u in rows}
         config_users = {}
-        for u in TRIX_CONFIG.dbase.users:
-            cu = TRIX_CONFIG.dbase.users[u]
+        for u in TRIX_CONFIG.dBase.users:
+            cu = TRIX_CONFIG.dBase.users[u]
             config_users[u] = cu['login']
             if u != 'superuser':
                 if cu['login'] not in db_users:
@@ -125,8 +128,8 @@ class DBInterface:
         request_db(cur, request, exit_on_fail=True)
         rows = cur.fetchall()
         db_tables = {t[0] for t in rows}
-        for t in TRIX_CONFIG.dbase.tables:
-            ct = TRIX_CONFIG.dbase.tables[t]
+        for t in TRIX_CONFIG.dBase.tables:
+            ct = TRIX_CONFIG.dBase.tables[t]
             if ct['relname'] in db_tables:
                 # Check table's columns
                 request = "SELECT * FROM {relname} WHERE false;".format(relname=ct['relname'])
@@ -154,19 +157,25 @@ class DBInterface:
         conn.close()
 
     @staticmethod
-    def connect(params=None):
-        if DBInterface.CONN is None:
-            if params is None:
-                params = {
-                    'host': TRIX_CONFIG.dbase.connection.host,
-                    'port': TRIX_CONFIG.dbase.connection.port,
-                    'dbname': TRIX_CONFIG.dbase.connection.dbname,
-                    'user': TRIX_CONFIG.dbase.users['backend']['login'],
-                    'password': TRIX_CONFIG.dbase.users['backend']['password']
-                }
-            DBInterface.CONN = connect_to_db(params)
-        Logger.log('DBInterface.connect(): {}\n'.format(DBInterface.CONN))
-        return DBInterface.CONN
+    def connect(user=USER):
+        if user not in DBInterface.CONNECTIONS or DBInterface.CONNECTIONS[user] is None:
+            params = {
+                'host': TRIX_CONFIG.dBase.connection.host,
+                'port': TRIX_CONFIG.dBase.connection.port,
+                'dbname': TRIX_CONFIG.dBase.connection.dbname,
+                'user': TRIX_CONFIG.dBase.users[user]['login'],
+                'password': TRIX_CONFIG.dBase.users[user]['password']
+            }
+            DBInterface.CONNECTIONS[user] = connect_to_db(params)
+        Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
+        return DBInterface.CONNECTIONS[user]
+
+    @staticmethod
+    def disconnect(user=USER):
+        if user in DBInterface.CONNECTIONS and DBInterface.CONNECTIONS[user] is not None:
+            DBInterface.CONNECTIONS[user].close()
+            DBInterface.CONNECTIONS[user] = None
+            Logger.log("DBInterface.disconnect('{}')\n".format(user))
 
     # Get records from table filtered by status
     @staticmethod
@@ -180,19 +189,20 @@ class DBInterface:
                 condition = ' WHERE status={}'.format(status)
             if sort is not None:
                 condition += ' ORDER BY {}'.format(', '.join(sort))
-            result = request_db_return_dl(cur, TRIX_CONFIG.dbase.tables[table_name], fields, condition)
+            result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], fields, condition)
             cur.close()
         Logger.info(pformat(result) + '\n')
         return result
 
     # Get records from table filtered by status
     @staticmethod
-    def get_record(table_name, uid):
+    def get_record(table_name, uid, conn=None):
         result = None
-        conn = DBInterface.connect()
+        if conn is None:
+            conn = DBInterface.connect()
         if conn is not None:
             cur = conn.cursor()
-            result = request_db_return_dl(cur, TRIX_CONFIG.dbase.tables[table_name], None, " WHERE id='{}'".format(uid))
+            result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], None, " WHERE id='{}'".format(uid))
             cur.close()
         Logger.info(pformat(result) + '\n')
         return result
@@ -219,37 +229,18 @@ class DBInterface:
         #     return {'result': interactions}
 
     class Node:
-        CONN = None
+        USER = 'node'
 
         @staticmethod
-        def connect(params=None):
-            if DBInterface.Node.CONN is None:
-                if params is None:
-                    params = {
-                        'host': TRIX_CONFIG.dbase.connection.host,
-                        'port': TRIX_CONFIG.dbase.connection.port,
-                        'dbname': TRIX_CONFIG.dbase.connection.dbname,
-                        'user': TRIX_CONFIG.dbase.users['node']['login'],
-                        'password': TRIX_CONFIG.dbase.users['node']['password']
-                    }
-                DBInterface.Node.CONN = connect_to_db(params)
-            return DBInterface.Node.CONN
-
-        @staticmethod
-        def disconnect():
-            if DBInterface.Node.CONN is not None:
-                DBInterface.Node.CONN.close()
-                DBInterface.Node.CONN = None
+        def get(uid):
+            return DBInterface.get_record('Node', uid, DBInterface.connect(DBInterface.Node.USER))
 
         # Register node in db
         @staticmethod
-        def register(_node: Node, backend=True):
-            if backend:
-                conn = DBInterface.connect()
-            else:
-                conn = DBInterface.Node.connect()
+        def register(_node: Node):
+            conn = DBInterface.connect(DBInterface.Node.USER)
             if conn is None:
-                Logger.warning('DBInterface.Node.register({}): DBInterface.CONN is None\n'.format(_node.name))
+                Logger.warning('DBInterface.Node.register({}): connection is None\n'.format(_node.name))
                 return False
             # Ask server time
             cur = conn.cursor()
@@ -264,19 +255,10 @@ class DBInterface:
                 fields = [f for f in _node.get_members_list() if ndict[f] is not None]
 
                 request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
-                    relname=TRIX_CONFIG.dbase.tables['Node']['relname'],
+                    relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
                     fields=', '.join(fields),
                     values=', '.join(["'{}'".format(ndict[m]) for m in fields])
                 )
-                # request = rtmpl.format(
-                #
-                #     **_node.__dict__
-                # )
-                #     id=node_id,
-                #     name=name,
-                #     status=status,
-                #     ct=ct
-                # )
                 result = request_db(cur, request)
             cur.close()
             return result
@@ -285,34 +267,47 @@ class DBInterface:
         @staticmethod
         def unregister(_node: Node, backend=True):
             if backend:
-                conn = DBInterface.connect()
+                conn = DBInterface.connect(DBInterface.USER)
             else:
-                conn = DBInterface.Node.connect()
+                conn = DBInterface.connect(DBInterface.Node.USER)
+            if conn is None:
+                Logger.warning('DBInterface.Node.register({}): connection is None\n'.format(_node.name))
+                return False
+            # Ask server time
+            cur = conn.cursor()
+            request = "DELETE FROM {relname} WHERE id='{id}';".format(
+                relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
+                id=_node.id
+            )
+            result = request_db(cur, request)
+            cur.close()
+            if not backend:
+                DBInterface.disconnect(DBInterface.Node.USER)
+            return result
+
+        # Register node in db
+        @staticmethod
+        def pong(_node: Node):
+            conn = DBInterface.connect(DBInterface.Node.USER)
             if conn is None:
                 Logger.warning('DBInterface.Node.register({}): DBInterface.CONN is None\n'.format(_node.name))
                 return False
             # Ask server time
             cur = conn.cursor()
-            request = "DELETE FROM {relname} WHERE id='{id}';".format(
-                relname=TRIX_CONFIG.dbase.tables['Node']['relname'],
-                id=_node.id
-            )
-            # request = rtmpl.format(
-            #
-            #     **_node.__dict__
-            # )
-            #     id=node_id,
-            #     name=name,
-            #     status=status,
-            #     ct=ct
-            # )
-            result = request_db(cur, request)
+            request = 'SELECT localtimestamp;'
+            result = False
+            if request_db(cur, request):
+                rows = cur.fetchall()
+                _node.mtime = rows[0][0]
+                # Update node's mtime
+                request = "UPDATE {relname} SET mtime='{mtime}' WHERE id='{node_id}';".format(
+                    relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
+                    mtime=_node.mtime,
+                    node_id=_node.id
+                )
+                result = request_db(cur, request)
             cur.close()
             return result
-
-        # @staticmethod
-        # def get_all():
-        #     return DBInterface.get_records('Node')
 
         @staticmethod
         def records(status=None):
@@ -323,7 +318,7 @@ class DBInterface:
 
         @staticmethod
         def listen(_node: Node):
-            conn = DBInterface.Node.connect()
+            conn = DBInterface.connect(DBInterface.Node.USER)
             if conn is None:
                 Logger.warning('DBInterface.Node.register({}): DBInterface.CONN is None\n'.format(_node.name))
                 return None
@@ -342,20 +337,10 @@ class DBInterface:
             return notifications
 
     class Job:
-        CONN = None
+        USER = 'node'
 
         @staticmethod
-        def connect(params=None):
-            if DBInterface.Job.CONN is None:
-                if params is None:
-                    params = {
-                        'host': TRIX_CONFIG.dbase.connection.host,
-                        'port': TRIX_CONFIG.dbase.connection.port,
-                        'dbname': TRIX_CONFIG.dbase.connection.dbname,
-                        'user': TRIX_CONFIG.dbase.users['node']['login'],
-                        'password': TRIX_CONFIG.dbase.users['node']['password']
-                    }
-                DBInterface.Job.CONN = connect_to_db(params)
-            return DBInterface.Job.CONN
+        def get(uid):
+            return DBInterface.get_record('Job', uid, DBInterface.connect(DBInterface.Job.USER))
 
 

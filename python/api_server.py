@@ -317,10 +317,10 @@ def ws_handle_message(client, server, message):
 
 
 if __name__ == "__main__":
-    # table_asset = TRIX_CONFIG.dbase.tables['Asset']
-    # table_job = TRIX_CONFIG.dbase.tables['Job']
-    # table_node = TRIX_CONFIG.dbase.tables['Node']
-    # table_interaction = TRIX_CONFIG.dbase.tables['Interaction']
+    # table_asset = TRIX_CONFIG.dBase.tables['Asset']
+    # table_job = TRIX_CONFIG.dBase.tables['Job']
+    # table_node = TRIX_CONFIG.dBase.tables['Node']
+    # table_interaction = TRIX_CONFIG.dBase.tables['Interaction']
 
     server = WebsocketServer(port=TRIX_CONFIG.api_server.port, host=TRIX_CONFIG.api_server.host, clientClass=ApiClientProfile)
     server.set_fn_new_client(ws_handle_connection)
