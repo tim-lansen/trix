@@ -60,7 +60,6 @@ class Task(JSONer):
 
 class Job(Record):
     class Info(JSONer):
-
         class Step(JSONer):
             class Chain(JSONer):
                 class Progress(JSONer):
