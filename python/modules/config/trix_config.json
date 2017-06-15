@@ -1,0 +1,117 @@
+{
+  "dbase": {
+    "connection": {
+      "host": "localhost",
+      "port": 5432,
+      "dbname": "trix_db"
+    },
+    "users": {
+      "superuser": {
+        "login": "trix",
+        "password": "trix"
+      },
+      "backend": {
+        "login": "trix_backend",
+        "password": "backend"
+      },
+      "node": {
+        "login": "trix_node",
+        "password": "node"
+      }
+    },
+    "tables": {
+      "Asset": {
+        "relname": "trix_assets",
+        "fields": [
+          ["id", "uuid NOT NULL"],
+          ["name", "name NOT NULL"],
+          ["ctime", "timestamp without time zone"],
+          ["mtime", "timestamp without time zone"],
+          ["info", "json NOT NULL"]
+        ],
+        "fields_extra": [
+          ["PRIMARY KEY", "id"]
+        ],
+        "creation": [
+          "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
+          "ALTER TABLE public.{relname} OWNER to {superuser};",
+          "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
+          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+      },
+      "Job": {
+        "relname": "trix_jobs",
+        "comment": "Use list structure for fields to guarantee declared order",
+        "fields": [
+          ["id", "uuid NOT NULL"],
+          ["name", "name NOT NULL"],
+          ["ctime", "timestamp without time zone"],
+          ["mtime", "timestamp without time zone"],
+          ["info", "json NOT NULL"],
+          ["status", "integer NOT NULL"],
+          ["progress", "double precision"],
+          ["condition", "json"]
+        ],
+        "fields_extra": [
+          ["PRIMARY KEY", "id"]
+        ],
+        "creation": [
+          "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
+          "ALTER TABLE public.{relname} OWNER to {superuser};",
+          "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
+          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+      },
+      "Node": {
+        "relname": "trix_nodes",
+        "fields": [
+          ["id", "uuid NOT NULL"],
+          ["name", "name NOT NULL"],
+          ["ctime", "timestamp without time zone"],
+          ["mtime", "timestamp without time zone"],
+          ["status", "integer NOT NULL"],
+          ["channel", "name NOT NULL"],
+          ["job", "uuid"],
+          ["progress", "double precision"]
+        ],
+        "fields_extra": [
+          ["PRIMARY KEY", "id"],
+          ["CONSTRAINT name_is_unique UNIQUE", "name"]
+        ],
+        "creation": [
+          "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
+          "ALTER TABLE public.{relname} OWNER to {superuser};",
+          "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+      },
+      "Interaction": {
+        "relname": "trix_interactions",
+        "fields": [
+          ["id", "uuid NOT NULL"],
+          ["name", "name NOT NULL"],
+          ["ctime", "timestamp without time zone"],
+          ["mtime", "timestamp without time zone"],
+          ["info", "json NOT NULL"],
+          ["status", "integer NOT NULL"]
+        ],
+        "fields_extra": [
+          ["PRIMARY KEY", "id"]
+        ],
+        "creation": [
+          "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
+          "ALTER TABLE public.{relname} OWNER to {superuser};",
+          "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
+          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+      }
+    }
+  },
+  "api_server": {
+    "host": "127.0.0.1",
+    "port": 9001
+  }
+}

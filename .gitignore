@@ -1,0 +1,17 @@
+.idea/
+.config/
+.ssh/
+.vs/
+*.pyc
+*.opf
+*.sdf
+*.suo
+*.db
+*.opendb
+*.vcxproj.user
+*.tmp
+*.DBK
+*.HEX
+*.SDI
+*.LST
+
