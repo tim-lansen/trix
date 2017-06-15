@@ -7,6 +7,7 @@ import modules.utils.combined_info
 import modules.utils.execute_chain
 # from modules.config import *
 from modules.models import *
+import modules.utils.resolve_job_aliases
 
 
 # DBInterface.initialize()
@@ -28,4 +29,6 @@ from modules.models import *
 
 # modules.utils.combined_info.test()
 
-modules.utils.execute_chain.test()
+# modules.utils.execute_chain.test()
+
+modules.utils.resolve_job_aliases.test()

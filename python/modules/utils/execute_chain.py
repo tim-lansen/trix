@@ -101,7 +101,7 @@ def execute_chain(chain: Job.Info.Step.Chain, output: List[Queue], chain_enter_e
                     Logger.warning('Bad retcode in op#{0}: {1}\n'.format(i, rc))
                     chain_error_event.set()
                 proc[i] = None
-        time.sleep(0.1)
+        time.sleep(0.4)
     Logger.info('Chain finished\n')
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))

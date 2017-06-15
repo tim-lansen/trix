@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
 
+import re
 import uuid
+import json
 from typing import List
 from .record import *
 
@@ -110,7 +112,7 @@ class Job(Record):
             #   "jname": "Fox.Epic",
             #   "p_fv1": "${temp}/${jname}.fv1.sox",
             #   "p_fv2": "${temp}/${jname}.fv2.sox" }
-            self.variables = None
+            self.aliases = None
             self.steps: List[Job.Info.Step] = []
 
     def __init__(self):
@@ -134,30 +136,3 @@ class Job(Record):
         else:
             self.update_str(job_data)
 
-
-
-# def create_record(r, name, hdict, rtype, keyset=None):
-#     # 'keyset' is name of set accumulating names of hashes being created
-#     s, m = r.time()
-#     t = float(s) + float(m)/1000000.0
-#     hdict.update({
-#         'type' : rtype,
-#         'ctime': t,
-#         'mtime': t
-#     })
-#     pipe = r.pipeline()
-#     pipe.hmset(name, hdict)
-#     if keyset:
-#         pipe.sadd(keyset, name)
-#     pipe.execute()
-#     return True
-#
-#
-# def update_record(r, name, hdict):
-#     s, m = r.time()
-#     t = float(s) + float(m)/1000000.0
-#     hdict.update({'mtime': t})
-#     r.hmset(name, hdict)
-
-
-JOB_PHASES = ['wait', 'cue', 'offered', 'process', 'finished', 'failed']
