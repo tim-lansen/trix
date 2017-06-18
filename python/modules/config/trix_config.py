@@ -3,6 +3,7 @@
 
 import os
 import sys
+from modules.models import *
 from ..utils.log_console import Logger, DebugLevel, tracer
 from ..utils.jsoner import JSONer
 
@@ -48,9 +49,9 @@ def check_config_conformity():
 
     def str_to_class(s):
         if s in globals():
-            c = globals()[s]
-            if isinstance(c, type(object)):
-                return c
+            gc = globals()[s]
+            if isinstance(gc, type(object)):
+                return gc
         return None
 
     failed = False
@@ -61,7 +62,7 @@ def check_config_conformity():
             continue
         ct = TRIX_CONFIG.dBase.tables[t]
         cfields = {f[0] for f in ct['fields']}
-        pfields = c().get_members()
+        pfields = c().get_members_set()
         diff = cfields.symmetric_difference(pfields)
         if len(diff):
             Logger.error('{table}: config and code not conformed, check these members/fields:\n{fields}\n'.format(table=t, fields=' '.join(diff)))

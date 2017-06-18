@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# tim.lansen@gmail.com
+
+# Worker node
+# Run 'python worker.py <node name>' on target computer
+# Interface: DB channel for offering a complex job or immediate execution
 
 
 import sys
@@ -11,25 +16,30 @@ from modules.models import *
 
 class Worker:
 
-    def exit(self):
+    def exit(self, params):
         Logger.warning('Exiting\n')
         DBInterface.Node.unregister(self.node, False)
         # TODO: stop running processes
         sys.exit(0)
 
-    def ping(self):
+    def ping(self, params):
         Logger.info('pong\n')
         DBInterface.Node.pong(self.node)
         # TODO: update status, job status/progress
 
-    def offer(self):
-        Logger.info('offer\n')
+    def offer(self, params):
+        Logger.info('Offered job: {}\n'.format(params[1]))
+        # Get job from DB
+
 
     def __init__(self, _name):
         self.node = Node()
         self.node.name = _name
         self.node.id = str(uuid.uuid4())
         self.node.channel = 'channel_{}'.format(self.node.id.replace('-', '_'))
+
+        # TODO: set self.node.hardware
+        self.node.hardware.cpu = 'i7 2700k'
 
         self.vectors = {
             'exit': Worker.exit,
@@ -51,8 +61,9 @@ class Worker:
                 break
             for n in notifications:
                 Logger.info("Got NOTIFY: {} {} {}\n".format(n.pid, n.channel, n.payload))
-                if n.payload in self.vectors:
-                    self.vectors[n.payload](self)
+                params = n.payload.split(' ')
+                if params[0] in self.vectors:
+                    self.vectors[params[0]](self, params)
                 else:
                     Logger.warning("unknown command: {}\n".format(n.payload))
 

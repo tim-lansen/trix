@@ -65,7 +65,7 @@ def test():
 {
   "id": "3631f021-8dd0-4197-a29d-27fc3180a242",
   "name": "Test job",
-  "type": "audio_convert",
+  "type": "encode",
   "info": {
     "src_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc1",
     "dst_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc3",

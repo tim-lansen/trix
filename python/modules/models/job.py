@@ -8,23 +8,12 @@ from typing import List
 from .record import *
 
 
-class JobStatus:
-    NEW = 1
-    WAITING = 2
-    OFFERED = 3
-    EXECUTING = 4
-    FINISHED = 5
-    FAILED = 6
-
-
-class JobType:
-    PROBE = 1
-    PROXY = 2
-    ARCHIVE = 3
-    PRODUCTION = 4
-
-
 class Task(JSONer):
+    class Type:
+        PROXY = 1
+        ARCHIVE = 2
+        PRODUCTION = 3
+
     def __init__(self, task_info=None):
         super().__init__()
         self.id = None
@@ -61,6 +50,20 @@ class Task(JSONer):
 
 
 class Job(Record):
+    class Type:
+        PROBE = 1
+        ENCODE = 2
+        DOWNMIX = 3
+        ENCRYPT = 4
+
+    class Status:
+        NEW = 1
+        WAITING = 2
+        OFFERED = 3
+        EXECUTING = 4
+        FINISHED = 5
+        FAILED = 6
+
     class Info(JSONer):
         class Step(JSONer):
             class Chain(JSONer):
@@ -104,35 +107,116 @@ class Job(Record):
 
         def __init__(self):
             super().__init__()
-            # str: Asset UIDs
-            self.src_asset = None
-            self.dst_asset = None
-            # dict(str: str): List of variables that may be used in params or in other variables, example:
+            # dict(str: str): Aliases that may be used in params or in other aliases, example:
             # { "temp": "/tmp/${asset}",
             #   "jname": "Fox.Epic",
             #   "p_fv1": "${temp}/${jname}.fv1.sox",
             #   "p_fv2": "${temp}/${jname}.fv2.sox" }
             self.aliases = None
             self.steps: List[Job.Info.Step] = []
+            # list(MediaChunk|MediaFile): List of expected results
+            # Node that executes this job should update MediaChunk or MediaFile(s) listed here
+            # [
+            #   {"type": "MediaChunk", "info": {"ownerId": "<uid>", "ownerIndex": "<chunk order>"}}
+            # ]
+            # OR
+            # [
+            #   {"type": "MediaFile", "info": {"id": "<media_uid>"}},
+            #   {"type": "MediaFile", "info": {"id": "<media_proxy_uid>"}},
+            #   {"type": "Asset", "info": {
+            #       "id": "<asset_uid>",
+            #       "proxyId": "<asset_proxy_uid>",
+            #       "streams": [
+            #           {"source": {"mediaFileId": "<media_uid>", "streamKind": "VIDEO", "streamKindIndex": 0}},
+            #           {"destination": {"streamKind": "VIDEO"}}
+            #       ]
+            #   }},
+            #   {"type": "Asset", "info": {
+            #       "id": "<asset_proxy_uid>",
+            #       "streams": [
+            #           {"source": {"mediaFileId": "<media_proxy_uid>", "streamKind": "VIDEO", "streamKindIndex": 0}},
+            #           {"destination": {"streamKind": "VIDEO"}}
+            #       ]
+            #   }}
+            # ]
+            # OR
+            # [
+            #   {"type": "MediaFile", "info": {"id": "<media_uid>"}},
+            #   {"type": "MediaFile", "info": {"id": "<media_proxy_uid0>"}},
+            #   {"type": "MediaFile", "info": {"id": "<media_proxy_uid1>"}},
+            #   {"type": "Asset", "info": {
+            #       "id": "<asset_uid>",
+            #       "streams": [
+            #           {"source": {"mediaFileId": "<media_uid>", "streamKind": "AUDIO", "streamKindIndex": 0}},
+            #           {"destination": {"streamKind": "VIDEO"}}
+            #       ]
+            #   }}
+            # ]
+            self.results = None
 
     def __init__(self):
         super().__init__()
         self.info = self.Info()
         self.type = None
-        self.status = None
+        self.status = self.Status.NEW
+        self.priority = 0
+        self.fails = 0
+        self.offers = 0
         # float: Overall job progress, 0.0 at start, 1.0 at end
         self.progress = 0.0
         self.condition = None
+        self.results = None
 
-    def update(self, job_data):
-        # if type(job_data) is list or type(job_data) is tuple:
-        #     # The variant for data captured from database (dangerous)
-        #     # Create dict
-        #     fields = [f[0] for f in TRIX_CONFIG.dBase.tables['Job']['fields']]
-        #     upd = dict(zip(fields, job_data))
-        #     self.update_json(upd)
-        if type(job_data) is dict:
-            self.update_json(job_data)
-        else:
-            self.update_str(job_data)
+
+def test() -> Job:
+    job = Job()
+    job_obj = {
+        # "id": "3631f021-8dd0-4197-a29d-27fc3180a242",
+        "name": "Test job",
+        "type": Job.Type.DOWNMIX,
+        "info": {
+            "aliases": {
+                "src_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc1",
+                "dst_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc3",
+                "temp": "C:/temp/${dst_asset}",
+                "alias": "Disney.Frozen",
+                "f_src": "F:/music/The Art Of Noise/1987 - In No Sence - Nonsence!/15 - Crusoe.mp3",
+                "f_dst": "F:/temp/test.sox",
+                "new_media_id": "b0db8575-94b2-4202-804e-6cbda0ff5ee3",
+                "asset_id": "49cf7a5b-02ed-453a-8562-32c5b34d471a"
+            },
+            "results": [
+                {"type": "MediaFile", "info": {"id": "${new_media_id}", "source": {"url": "${f_dst}"}}},
+                {"type": "Asset", "info": {"id": "${asset_id}", "streams": [
+                    {
+                        "source": {"mediaFileId": "${new_media_id}", "streamKind": "AUDIO", "streamKindIndex": 0},
+                        "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}
+                    }
+                ]}}
+            ],
+            "steps": [
+                {
+                    "name": "Convert audio stereo -> 5.1",
+                    "weight": 1.0,
+                    "chains": [
+                        {
+                            "procs": [
+                                ["ffmpeg", "-y", "-i", "${f_src}", "-c:a", "pcm_s32le", "-f", "sox", "-"],
+                                ["sox", "-t", "sox", "-", "-t", "sox", "${f_dst}", "remix", "1v0.5,2v-0.5", "sinc", "-p", "10", "-t", "5", "100-3500", "-t", "10"]
+                            ],
+                            "return_codes": [[0, 2], [0]],
+                            "progress": {
+                                "capture": 0,
+                                "parser": "ffmpeg",
+                                "top": 600.0
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    job.update_json(job_obj)
+    # print(job.dumps(indent=2))
+    return job
 

@@ -14,7 +14,7 @@ class Record(JSONer):
         self.mtime = None
 
 
-if __name__ == '__main__':
-    test = Record()
-    test.update_str('{"id": "a53b316b-461f-4662-8168-8d849bb4060d", "name": "test"}')
-    print(test.dumps())
+def test():
+    rec = Record()
+    rec.update_str('{"id": "a53b316b-461f-4662-8168-8d849bb4060d", "name": "test"}')
+    print(rec.dumps(indent=2))

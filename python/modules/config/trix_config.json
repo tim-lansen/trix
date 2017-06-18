@@ -27,7 +27,11 @@
           ["name", "name NOT NULL"],
           ["ctime", "timestamp without time zone"],
           ["mtime", "timestamp without time zone"],
-          ["info", "json NOT NULL"]
+          ["videoStreams", "json"],
+          ["audioStreams", "json"],
+          ["subStreams", "json"],
+          ["proxyId", "uuid"],
+          ["programId", "uuid"]
         ],
         "fields_extra": [
           ["PRIMARY KEY", "id"]
@@ -37,7 +41,53 @@
           "ALTER TABLE public.{relname} OWNER to {superuser};",
           "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
           "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+      },
+      "MediaFile": {
+        "relname": "trix_files",
+        "fields": [
+          ["id", "uuid NOT NULL"],
+          ["name", "name NOT NULL"],
+          ["ctime", "timestamp without time zone"],
+          ["mtime", "timestamp without time zone"],
+          ["source", "json NOT NULL"],
+          ["format", "json"],
+          ["videoTracks", "json"],
+          ["audioTracks", "json"],
+          ["subTracks", "json"]
+        ],
+        "fields_extra": [
+          ["PRIMARY KEY", "id"]
+        ],
+        "creation": [
+          "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
+          "ALTER TABLE public.{relname} OWNER to {superuser};",
+          "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
+          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+      },
+      "MediaChunk": {
+        "relname": "trix_chunks",
+        "fields": [
+          ["id", "uuid NOT NULL"],
+          ["name", "name"],
+          ["ctime", "timestamp without time zone"],
+          ["mtime", "timestamp without time zone"],
+          ["ownerId", "uuid NOT NULL"],
+          ["ownerIndex", "integer NOT NULL"],
+          ["frameCount", "integer NOT NULL"]
+        ],
+        "fields_extra": [
+          ["PRIMARY KEY", "id"]
+        ],
+        "creation": [
+          "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
+          "ALTER TABLE public.{relname} OWNER to {superuser};",
+          "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
         ]
       },
       "Job": {
@@ -48,10 +98,15 @@
           ["name", "name NOT NULL"],
           ["ctime", "timestamp without time zone"],
           ["mtime", "timestamp without time zone"],
+          ["type", "integer NOT NULL"],
           ["info", "json NOT NULL"],
           ["status", "integer NOT NULL"],
+          ["fails", "integer NOT NULL"],
+          ["offers", "integer NOT NULL"],
+          ["priority", "integer NOT NULL"],
           ["progress", "double precision"],
-          ["condition", "json"]
+          ["condition", "json"],
+          ["results", "json"]
         ],
         "fields_extra": [
           ["PRIMARY KEY", "id"]
@@ -61,7 +116,7 @@
           "ALTER TABLE public.{relname} OWNER to {superuser};",
           "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
           "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
         ]
       },
       "Node": {
@@ -74,7 +129,8 @@
           ["status", "integer NOT NULL"],
           ["channel", "name NOT NULL"],
           ["job", "uuid"],
-          ["progress", "double precision"]
+          ["progress", "double precision"],
+          ["hardware", "json"]
         ],
         "fields_extra": [
           ["PRIMARY KEY", "id"],
@@ -85,7 +141,7 @@
           "ALTER TABLE public.{relname} OWNER to {superuser};",
           "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
           "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
         ]
       },
       "Interaction": {
@@ -105,7 +161,7 @@
           "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
           "ALTER TABLE public.{relname} OWNER to {superuser};",
           "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;",
-          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
         ]
       }
     }

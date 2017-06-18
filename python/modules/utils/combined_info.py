@@ -4,13 +4,14 @@
 import re
 import os
 import sys
+import uuid
 import json
 from pprint import pprint
 from subprocess import Popen, PIPE
 
 # from modules.utils.jsoner import JSONer
 # from modules.models.record import Record
-from modules.models.asset import Asset
+from modules.models.mediafile import MediaFile
 
 
 def get_ffprobe_info(filename, refine_duration=True):
@@ -662,11 +663,12 @@ def combine_ffprobe_mediainfo(ffstr, mistr):
     return result
 
 
-def combined_info(filename):
-    ffstr = get_ffprobe_info(filename)
-    mistr = get_media_info(filename)
+def combined_info(mf: MediaFile, url):
+    ffstr = get_ffprobe_info(url)
+    mistr = get_media_info(url)
     combined = combine_ffprobe_mediainfo(ffstr, mistr)
-    return combined
+    mf.update_json(combined)
+    mf.source.url = url
 
 
 #
@@ -696,12 +698,8 @@ def combined_info(filename):
 
 
 def test():
-    ci = combined_info(r'E:\temp\p1\Pororo_S01_E01_576@25i.sample.mxf')
-    ass = Asset()
+    media_file = MediaFile()
+    media_file.id = str(uuid.uuid4())
+    combined_info(media_file, r'E:\temp\p1\Pororo_S01_E01_576@25i.sample.mxf')
 
-    media_file = Asset.MediaFile()
-    media_file.update_json(ci)
-
-    ass.mediaFiles.append(media_file)
-
-    print(ass.dumps(indent=2, expose_unmentioned=True))
+    print(media_file.dumps(indent=2, expose_unmentioned=True))
