@@ -11,26 +11,66 @@ import uuid
 from modules.config import *
 from modules.utils.log_console import Logger
 from modules.utils.database import DBInterface
+from modules.utils.executor import JobExecutor
 from modules.models import *
 
 
 class Worker:
 
     def exit(self, params):
-        Logger.warning('Exiting\n')
+        Logger.warning('Exiting ({})\n'.format(params))
         DBInterface.Node.unregister(self.node, False)
         # TODO: stop running processes
+        self.job_executor.stop()
         sys.exit(0)
 
     def ping(self, params):
         Logger.info('pong\n')
         DBInterface.Node.pong(self.node)
         # TODO: update status, job status/progress
+        if self.node.status == Node.Status.BUSY:
+            progress = self.job_executor.progress()
+            DBInterface.Job.set_fields(self.job.id, {'progress': progress})
+
+    def _revert_(self, msg, revert_job=True):
+        Logger.error(msg)
+        if revert_job:
+            # Try to revert job status
+            if not DBInterface.Job.set_status(self.node.job, Job.Status.OFFERED):
+                Logger.error("Failed to revert job status {}\n".format(self.node.job))
+        # Try to revert node status
+        if not DBInterface.Node.set_status(self.node.id, Node.Status.IDLE):
+            Logger.critical("Failed to revert node status {}\n".format(self.node.job))
+            self.exit('failed to revert node status')
+        self.node.status = Node.Status.IDLE
 
     def offer(self, params):
         Logger.info('Offered job: {}\n'.format(params[1]))
-        # Get job from DB
+        if self.node.status != Node.Status.IDLE:
+            Logger.error("Worker is busy\n")
+            return
 
+        self.node.job = params[1]
+        # Set node status to BUSY
+        if not DBInterface.Node.set_status(self.node.id, Node.Status.BUSY):
+            Logger.error("Failed to get BUSY\n")
+            return
+        self.node.status = Node.Status.BUSY
+
+        # Change job status
+        if not DBInterface.Job.set_status(self.node.job, Job.Status.EXECUTING):
+            self._revert_("Failed change job status\n", False)
+            return
+
+        # Get job
+        self.job = DBInterface.Job.get(self.node.job)
+        if self.job is None:
+            self._revert_("Failed to get job {}\n".format(self.node.job))
+            return
+
+        # Start execution
+        if not self.job_executor.run(self.job):
+            self._revert_("Failed to start job execution {}\n".format(self.node.job))
 
     def __init__(self, _name):
         self.node = Node()
@@ -40,6 +80,9 @@ class Worker:
 
         # TODO: set self.node.hardware
         self.node.hardware.cpu = 'i7 2700k'
+
+        self.job: Job = None
+        self.job_executor = JobExecutor()
 
         self.vectors = {
             'exit': Worker.exit,

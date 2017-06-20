@@ -113,6 +113,8 @@ class Job(Record):
             #   "p_fv1": "${temp}/${jname}.fv1.sox",
             #   "p_fv2": "${temp}/${jname}.fv2.sox" }
             self.aliases = None
+            # List of directories to create
+            self.paths: List[str] = []
             self.steps: List[Job.Info.Step] = []
             # list(MediaChunk|MediaFile): List of expected results
             # Node that executes this job should update MediaChunk or MediaFile(s) listed here

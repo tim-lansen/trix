@@ -345,6 +345,21 @@ class DBInterface:
             return result
 
         @staticmethod
+        def set_fields(uid, fields: dict):
+            fields['mtime'] = 'localtimestamp'
+            setup = ','.join(['{}={}'.format(k, fields[k]) for k in fields])
+            request = "UPDATE {relname} SET {setup} WHERE id='{uid}';".format(
+                relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
+                setup=setup,
+                uid=uid
+            )
+            return DBInterface.request_db(request)
+
+        @staticmethod
+        def set_status(uid, status):
+            return DBInterface.Node.set_fields(uid, {'status': status})
+
+        @staticmethod
         def pong(node: Node):
             conn = DBInterface.connect(DBInterface.Node.USER)
             if conn is None:
