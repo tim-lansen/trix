@@ -7,8 +7,11 @@ import os
 import sys
 import time
 from typing import List
-from queue import Queue, Empty
-from threading import Thread, Event
+
+# from queue import Queue, Empty
+# from threading import Thread, Event
+from multiprocessing import Queue, Process, Event
+
 from subprocess import Popen, PIPE
 from modules.models.job import Job
 from modules.utils.log_console import Logger
@@ -24,7 +27,7 @@ def flush_queue(que: Queue):
         c2 = c1
         try:
             c1 = que.get_nowait()
-        except Empty:
+        except:
             break
     return c2
 
@@ -35,7 +38,7 @@ def flush_queue(que: Queue):
 # where STDOUT of every process is attached to STDIN of next process
 def execute_chain(chain: Job.Info.Step.Chain, output: List[Queue], chain_enter_event: Event, chain_error_event: Event):
     chain_enter_event.set()
-    if chain_error_event.isSet():
+    if chain_error_event.is_set():
         Logger.error('Error event is already set\n')
         return
     proc = []
@@ -69,7 +72,7 @@ def execute_chain(chain: Job.Info.Step.Chain, output: List[Queue], chain_enter_e
     print(retcodes)
     while not all_completed:
         all_completed = True
-        if chain_error_event.isSet():
+        if chain_error_event.is_set():
             for i, p in enumerate(proc):
                 if p is not None:
                     Logger.warning('Stopping proc #{0}\n'.format(i))
@@ -114,18 +117,29 @@ def test():
 
     test_chain = Job.Info.Step.Chain()
     test_chain.return_codes = [[0], [0]]
+
+    # test_chain.procs = [
+    #     "ffmpeg -y -loglevel error -stats -i F:\Kinozal\Der.gezaehmte.Widerspenstige.1980.720p.BluRay.mkv -t 60 -map v:0 -c:v libx264 -b:v 1000k -preset slow -g 50 -refs 2 -f mp4 nul".split(' ')
+    # ]
+    # test_chain.progress.capture = 0
     test_chain.procs = [
-        ["ffmpeg", "-y", "-i", "F:\\music\\The Art Of Noise\\1987 - In No Sence - Nonsence!\\15 - Crusoe.mp3", "-c:a", "pcm_s32le", "-f", "sox", "-"],
-        ["sox", "-t", "sox", "-", "-t", "sox", "C:\\temp\\test.sox", "remix", "1v0.5,2v-0.5", "sinc", "-p", "10", "-t", "5", "100-3500", "-t", "10"]
+        r"ffmpeg -y -loglevel error -stats -i F:\Kinozal\Der.gezaehmte.Widerspenstige.1980.720p.BluRay.mkv -t 90 -map a:0 -c:a pcm_s32le -f sox -".split(' '),
+        r"sox -t sox - -t sox - remix 1v0.5,2v-0.5 sinc -p 10 -t 5 100-3500 -t 10".split(' '),
+        r"ffmpeg -y -loglevel error -stats -f sox -i - -c:a aac -b:a 128k -strict -2 C:\temp\test_chain_audio.mp4".split(' ')
     ]
-    test_chain.progress.capture = 0
+    test_chain.progress.capture = 2
+
     test_chain.progress.parser = 'ffmpeg'
 
-    test_output: List[Queue] = [Queue(), Queue()]
-    # monitors.append(chain['progress'])
+    test_output: List[Queue] = [Queue()] * len(test_chain.procs)
+
+    # que = multiprocessing.Queue()
+    # que.get_nowait()
+
     # Multi-capture chain
-    test_thread = Thread(target=execute_chain, args=(test_chain, test_output, test_chain_enter, test_chain_error))
-    test_thread.start()
+    test_process = Process(target=execute_chain, args=(test_chain, test_output, test_chain_enter, test_chain_error))
+    time.sleep(1.0)
+    test_process.start()
 
     test_chain_enter.wait()
     test_chain_enter.clear()
@@ -133,10 +147,11 @@ def test():
     def dummy_parser(c):
         return None
 
-    parser = dummy_parser if test_chain.progress.parser is None or test_chain.progress.parser not in PARSERS else PARSERS[test_chain.progress.parser]
+    parser = dummy_parser if test_chain.progress.parser is None or test_chain.progress.parser not in PARSERS else \
+    PARSERS[test_chain.progress.parser]
 
     while True:
-        if not test_thread.is_alive():
+        if not test_process.is_alive():
             break
         # Compile info from chains
         for j, q in enumerate(test_output):
@@ -145,4 +160,5 @@ def test():
                 p = parser(c)
                 Logger.log('{}\n'.format(p))
             time.sleep(0.1)
+
 

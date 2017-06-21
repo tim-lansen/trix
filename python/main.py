@@ -13,32 +13,38 @@ import modules.models.node
 import modules.models.job
 import datetime
 
+import multiprocessing
 
-modules.utils.database.DBInterface.initialize()
 
-# DBInterface.Node.records()
-# DBInterface.Node.records(Node.Status.IDLE)
+if __name__ == '__main__':
+    # modules.utils.database.DBInterface.initialize()
 
-# node = modules.models.node.Node()
+    # DBInterface.Node.records()
+    # DBInterface.Node.records(Node.Status.IDLE)
 
-# node = modules.utils.database.DBInterface.get_record_to_class('Node', '73b8af7a-72e5-40a7-a97e-1c6dac8e0f97')
-# print(node.dumps(indent=2))
+    # node = modules.models.node.Node()
 
-# job = Job()
-#
-# job.update_str('{"type":1,"info": {"variables": {"var1":"val1"}, "steps": [{"name": "step1", "chains": [{"progress": {"capture":0, "top": 50.0}}]}, {"name": "step2"}] }}')
-#
-# print(job.dumps())
-#
-# print(job.info.steps[0].name)
-# print(job.info.steps[0].chains[0].progress.top)
+    # node = modules.utils.database.DBInterface.get_record_to_class('Node', '73b8af7a-72e5-40a7-a97e-1c6dac8e0f97')
+    # print(node.dumps(indent=2))
 
-# modules.utils.combined_info.test()
+    # job = Job()
+    #
+    # job.update_str('{"type":1,"info": {"variables": {"var1":"val1"}, "steps": [{"name": "step1", "chains": [{"progress": {"capture":0, "top": 50.0}}]}, {"name": "step2"}] }}')
+    #
+    # print(job.dumps())
+    #
+    # print(job.info.steps[0].name)
+    # print(job.info.steps[0].chains[0].progress.top)
 
-# modules.utils.execute_chain.test()
+    # modules.utils.combined_info.test()
 
-# modules.utils.resolve_job_aliases.test()
-# modules.models.job.test()
+    # modules.utils.execute_chain.test()
 
-job = modules.models.job.test()
-modules.utils.database.DBInterface.Job.register(job)
+    # modules.utils.resolve_job_aliases.test()
+    # modules.models.job.test()
+
+    # job = modules.models.job.test()
+    # modules.utils.database.DBInterface.Job.register(job)
+
+    multiprocessing.freeze_support()
+    modules.utils.execute_chain.test()

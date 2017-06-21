@@ -9,8 +9,9 @@ import time
 import json
 import shutil
 from typing import List
-from queue import Queue, Empty
-from threading import Thread, Event
+# from queue import Queue, Empty
+# from threading import Thread, Event
+from multiprocessing import Process, Queue, Event
 from subprocess import Popen, PIPE
 from modules.models.job import Job
 from modules.utils.log_console import Logger
@@ -27,15 +28,15 @@ class JobExecutor:
         self.start = Event()
         self.error = Event()
         self.finish = Event()
-        self.thread = Thread(self._thread)
+        self.process = Process(self._process)
         self.started = Event()
         # self._progress = 0.0
         self.force_exit = Event()
         self._last_captured_progress = 0.0
 
-        self.thread.start()
+        self.process.start()
 
-    def _thread(self):
+    def _process(self):
         chain_enter = Event()
         chain_error = Event()
         while not self.force_exit.is_set():
@@ -60,7 +61,7 @@ class JobExecutor:
                     os.mkfifo(pipe)
                 step_queues = []
                 monitors: List[Job.Info.Step.Chain] = []
-                threads: List[Thread] = []
+                threads: List[Process] = []
 
                 # Initialize and start step's chains execution, each chain in own thread
                 for ci, chain in enumerate(step.chains):
@@ -71,7 +72,7 @@ class JobExecutor:
                     # Multi-capture chain
                     queues = [Queue()] * len(chain.procs)
                     step_queues.append(queues)
-                    t = Thread(target=execute_chain, args=(chain, queues, chain_enter, chain_error))
+                    t = Process(target=execute_chain, args=(chain, queues, chain_enter, chain_error))
                     t.start()
                     threads.append(t)
                     chain_enter.wait()
@@ -106,7 +107,7 @@ class JobExecutor:
                     m.progress.done = 1.0
                 for pipe in step.pipes:
                     os.remove(pipe)
-                if chain_error.isSet():
+                if chain_error.is_set():
                     chain_error.clear()
                     Logger.error("Job failed on step {}\n".format(ai))
                     self.error.set()
@@ -124,7 +125,7 @@ class JobExecutor:
         return self._last_captured_progress
 
     def run(self, job: Job):
-        if self.thread is not None:
+        if self.process is not None:
             Logger.error("ExecuteStep.run: busy\n")
             return False
         self.job = job
@@ -137,11 +138,11 @@ class JobExecutor:
             Logger.info("Job execution started\n")
             return True
         Logger.error("Failed to start job execution\n")
-        if not self.thread.is_alive():
+        if not self.process.is_alive():
             Logger.warning("Thread is dead, starting it\n")
-            self.thread = Thread(self._thread)
+            self.process = Process(self._process)
         return False
 
     def stop(self):
         self.force_exit.set()
-        self.thread.join(timeout=5)
+        self.process.join(timeout=5)
