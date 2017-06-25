@@ -4,7 +4,7 @@
 import os
 import sys
 from modules.models import *
-from ..utils.log_console import Logger, DebugLevel, tracer
+from ..utils.log_console import Logger, LogLevel, tracer
 from ..utils.jsoner import JSONer
 
 
@@ -22,6 +22,26 @@ class TrixConfig(JSONer):
             self.connection = self.Connection()
             self.users = None
             self.tables = None
+            self.templates = None
+
+        def conform_tables(self):
+            # Update tables that use template
+            if type(self.tables) is dict:
+                for table_name in self.tables:
+                    table = self.tables[table_name]
+                    try:
+                        template = self.templates[table['template']]
+                        for key in template:
+                            val = template[key]
+                            if key not in table:
+                                table[key] = val
+                            else:
+                                if type(val) is list:
+                                    table[key] = val + table[key]
+                                else:
+                                    Logger.error("Table template value type {} not supported\n".format(type(val)))
+                    except Exception as e:
+                        Logger.warning("Table {} template error\n{}\n".format(table_name, e))
 
     class ApiServer(JSONer):
         def __init__(self):
@@ -29,10 +49,17 @@ class TrixConfig(JSONer):
             self.host = None
             self.port = None
 
+    class Machines(JSONer):
+        def __init__(self):
+            super().__init__()
+            self.comment = None
+            self.default = None
+
     def __init__(self):
         super().__init__()
         self.dBase = self.DBase()
         self.apiServer = self.ApiServer()
+        self.machines = self.Machines()
 
 
 TRIX_CONFIG = TrixConfig()
@@ -42,6 +69,7 @@ TRIX_CONFIG = TrixConfig()
 with open(os.path.join(os.path.dirname(__file__), 'trix_config.json'), 'r') as config_file:
     config_string = config_file.read()
     TRIX_CONFIG.update_str(config_string)
+    TRIX_CONFIG.dBase.conform_tables()
 
 
 # Check that tables config equals class definitions

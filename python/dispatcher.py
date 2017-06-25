@@ -10,20 +10,6 @@ from modules.utils.log_console import Logger
 from modules.utils.database import DBInterface
 
 
-def test_job_condition(job):
-    if job['condition'] is None:
-        return True
-    # TODO: test job['condition']
-    return True
-
-
-def archive_job(uid):
-    # TODO: Archive job
-    #
-    # Remove job from DB
-    DBInterface.Job.delete(uid)
-
-
 # 1. Get all NEW jobs
 # 1. Get all nodes -> nodes1
 # 3. Offer jobs to idle nodes
@@ -36,10 +22,30 @@ def archive_job(uid):
 
 
 def run(period=5):
+    def test_job_condition(_job_):
+        # First, check dependencies
+        if _job_['depends'] is not None:
+            # Job depends on group
+            # Request jobs included to the group and have status != FINISHED
+            _jobs_ = DBInterface.get_records('Job', fields=['status'], cond=["group='{}'".format(_job_['depends']), 'status<>{}'.format(Job.Status.FINISHED)])
+            if len(_jobs_):
+                return False
+        # Check condition
+        # if 'condition' in _job_:
+        #     _c_ = _job_['condition']
+        #     if _c_ is None:
+        #         return True
+        return True
+
+    def archive_job(uid):
+        # TODO: Archive job
+        # Remove job from DB
+        DBInterface.Job.delete(uid)
+
     while True:
 
         # Get all NEW jobs, change their status to WAITING if condition test is True
-        jobs = DBInterface.get_records('Job', fields=['id', 'condition'], status=Job.Status.NEW)
+        jobs = DBInterface.get_records('Job', fields=['id', 'depends', 'condition'], status=Job.Status.NEW)
         for job in jobs:
             if test_job_condition(job):
                 DBInterface.Job.set_status(job['id'], Job.Status.WAITING)
@@ -63,6 +69,7 @@ def run(period=5):
 
         # Get all WAITING jobs sorted by priority and creation time, and IDLE nodes
         jobs = DBInterface.get_records('Job', fields=['id'], status=Job.Status.WAITING, sort=['priority', 'ctime'])
+        # jobs_dict = DBInterface.get_records_dict('Job', fields=['id', 'status'])
         nodes = DBInterface.get_records('Node', fields=['id', 'channel'], status=Node.Status.IDLE)
 
         # Dispatch jobs

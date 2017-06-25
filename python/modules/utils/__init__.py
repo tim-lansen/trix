@@ -2,5 +2,5 @@
 # tim.lansen@gmail.com
 
 # from .database import DBInterface
-# from .log_console import Logger, DebugLevel, tracer
+# from .log_console import Logger, LogLevel, tracer
 

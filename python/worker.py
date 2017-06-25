@@ -2,7 +2,9 @@
 # tim.lansen@gmail.com
 
 # Worker node
-# Run 'python worker.py <node name>' on target computer
+# Run 'python worker.py' on target computer
+# The worker will use it's IP address as part of name: "<IP address>#<index>"
+# The worker will first try to get from DB list of
 # Interface: DB channel for offering a complex job or immediate execution
 
 
@@ -12,6 +14,7 @@ from modules.config import *
 from modules.utils.log_console import Logger
 from modules.utils.database import DBInterface
 from modules.utils.executor import JobExecutor
+from modules.utils.cpuinfo import get_cpu_info
 from modules.models import *
 
 
@@ -79,7 +82,7 @@ class Worker:
         self.node.channel = 'channel_{}'.format(self.node.id.replace('-', '_'))
 
         # TODO: set self.node.hardware
-        self.node.hardware.cpu = 'i7 2700k'
+        # self.node.hardware.cpu = 'i7 2700k'
 
         self.job: Job = None
         self.job_executor = JobExecutor()
@@ -112,8 +115,33 @@ class Worker:
 
 
 if __name__ == '__main__':
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect((TRIX_CONFIG.dBase.connection.host, 1))
+    ip_address = s.getsockname()[0]
+    mach = DBInterface.Machine.get_by_ip(ip_address)
+    if mach is None:
+        # No machine with this IP is registered in DB, get setup from config and register
+        if ip_address in TRIX_CONFIG.machines.unmentioned:
+            tmpl = TRIX_CONFIG.machines.unmentioned[ip_address]
+        else:
+            tmpl = TRIX_CONFIG.machines.default
+        mach = Machine()
+        mach.update_json(tmpl)
+        mach.hardware.cpu = get_cpu_info()
+        if mach.name is None:
+            mach.name = 'Machine {}'.format(ip_address)
+        mach.ip = ip_address
+        DBInterface.Machine.register(mach)
+    host_nodes_list = DBInterface.Node.list_by_ip(ip_address)
+
+    print(mach.dumps(indent=2))
+
+    # name = '{ip}#{idx}'.format(ip=ip_address)
+    # print(local_ip_address)
+
     # First argument is a name of node
-    name = sys.argv[1]
-    worker = Worker(name)
-    worker.run()
+    # name = sys.argv[1]
+    # worker = Worker(name)
+    # worker.run()
 

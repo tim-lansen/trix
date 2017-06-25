@@ -3,6 +3,7 @@
 
 # PostgreSQL interface
 # Users, tables, etc.: look trix_config.json
+# CLI interface: "C:\Program Files\PostgreSQL\9.6\bin\psql.exe" --username=trix --host=localhost trix_db
 
 
 import sys
@@ -12,9 +13,9 @@ from typing import List
 from pprint import pformat
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from .log_console import Logger, DebugLevel, tracer
+from .log_console import Logger, LogLevel, tracer
 from ..config.trix_config import TRIX_CONFIG
-from ..models import Asset, Interaction, Job, MediaChunk, MediaFile, Node, Record
+from ..models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record
 
 
 # Establish a connection to db using args
@@ -68,6 +69,37 @@ def request_db_return_dl(cur, tdata, fields, condition):
         rows = cur.fetchall()
         for row in rows:
             result.append(dict(zip(fields, row)))
+    return result
+
+
+# Execute a request using supplied cursor, table data (from config, including fields list) and condition string
+# Condition has SQL form, for example 'WHERE status=1'
+# return {'row[fields[0]]': {field:value, ...}, ...}
+def request_db_return_dict(cur, tdata, key=None, fields=None, condition=''):
+    # We must have list of column names to build dict
+    # if fields is None:
+    #     fields = [f[0] for f in tdata['fields']]
+    # request = "SELECT {fields} FROM {relname}{cond};".format(fields=', '.join(fields), relname=tdata['relname'], cond=condition)
+    if fields is None:
+        fstr = '*'
+        fields = [f[0] for f in tdata['fields']]
+    else:
+        fstr = ','.join(fields)
+    if key not in fields:
+        Logger.warning('Key {} not in requested field list {}\n'.format(key, fields))
+        key = fields[0]
+    request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
+    Logger.info('Request:\n{}\n'.format(request))
+    result = {}
+    try:
+        cur.execute(request)
+    except psycopg2.Error as e:
+        Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
+    else:
+        rows = cur.fetchall()
+        for row in rows:
+            d = dict(zip(fields, row))
+            result[d[key]] = d
     return result
 
 
@@ -132,7 +164,7 @@ class DBInterface:
                     if len(answ) != 1 and answ[0][0] == cu['login']:
                         print('Failed to add user {}({}) to DB', u, cu['login'])
         # Retrieve/create tables
-        request = "SELECT relname FROM pg_class WHERE relname LIKE 'trix%';"
+        request = "SELECT relname FROM pg_class WHERE relname LIKE 'trix%' AND reltype<>0;"
         request_db(cur, request, exit_on_fail=True)
         rows = cur.fetchall()
         db_tables = {t[0] for t in rows}
@@ -162,6 +194,30 @@ class DBInterface:
                 request = '\n'.join(ct['creation']).format(relname=ct['relname'], fields=', '.join(fields), **config_users)
                 # Logger.info(request + '\n')
                 request_db(cur, request, exit_on_fail=True)
+        cur.close()
+        conn.close()
+
+    @staticmethod
+    def _drop_all_tables():
+        params = {
+            'host': TRIX_CONFIG.dBase.connection.host,
+            'port': TRIX_CONFIG.dBase.connection.port,
+            'dbname': TRIX_CONFIG.dBase.connection.dbname,
+            'user': TRIX_CONFIG.dBase.users[DBInterface.SUPERUSER]['login'],
+            'password': TRIX_CONFIG.dBase.users[DBInterface.SUPERUSER]['password']
+        }
+        conn = connect_to_db(params)
+        if conn is None:
+            sys.exit(1)
+
+        cur = conn.cursor()
+        # Retrieve/create tables
+        request = "SELECT relname FROM pg_class WHERE relname LIKE 'trix%' AND reltype<>0;"
+        request_db(cur, request, exit_on_fail=True)
+        rows = cur.fetchall()
+        if len(rows):
+            request = "DROP TABLE {};".format(','.join([t[0] for t in rows]))
+            request_db(cur, request, exit_on_fail=True)
         cur.close()
         conn.close()
 
@@ -218,6 +274,27 @@ class DBInterface:
         Logger.info(pformat(result) + '\n')
         return result
 
+    # Get records from table filtered by status or status list
+    @staticmethod
+    def get_records_dict(table_name, key=None, fields=None, status=None, cond=None, user=USER):
+        result = None
+        conn = DBInterface.connect(user)
+        if conn is not None:
+            cur = conn.cursor()
+            if cond is None:
+                cond = []
+            if type(status) is int:
+                cond.append('status={}'.format(status))
+            elif type(status) is list:
+                cond.append(' OR '.join(['status={}'.format(s) for s in status]))
+            condition = ''
+            if len(cond):
+                condition = ' WHERE ' + ' AND '.join(cond)
+            result = request_db_return_dict(cur, TRIX_CONFIG.dBase.tables[table_name], key, fields, condition)
+            cur.close()
+        Logger.info(pformat(result) + '\n')
+        return result
+
     # Get records from table filtered by status
     @staticmethod
     def get_record(table_name, uid, user=USER):
@@ -231,10 +308,36 @@ class DBInterface:
         return result
 
     @staticmethod
+    def get_record_by_field(table_name, field, value, user=USER):
+        result = None
+        conn = DBInterface.connect(user)
+        if conn is not None:
+            cur = conn.cursor()
+            result = request_db_return_dl(
+                cur,
+                TRIX_CONFIG.dBase.tables[table_name],
+                None,
+                " WHERE {}='{}'".format(field, value)
+            )
+            cur.close()
+        Logger.info(pformat(result) + '\n')
+        return result
+
+    @staticmethod
     def get_record_to_class(table_name, uid, user=USER):
         # table_name is also the class name
         data = DBInterface.get_record(table_name, uid, user)
-        if data is None:
+        if data is None or len(data) != 1:
+            return None
+        instance = globals()[table_name]()
+        instance.update_json(data[0])
+        return instance
+
+    @staticmethod
+    def get_record_by_field_to_class(table_name, field, value, user=USER):
+        # table_name is also the class name
+        data = DBInterface.get_record_by_field(table_name, field, value, user)
+        if data is None or len(data) != 1:
             return None
         instance = globals()[table_name]()
         instance.update_json(data[0])
@@ -256,6 +359,7 @@ class DBInterface:
         return result
 
     @staticmethod
+    @tracer
     def register_record(rec: Record, user=USER):
         result = False
         conn = DBInterface.connect(user)
@@ -264,8 +368,8 @@ class DBInterface:
             request = 'SELECT localtimestamp;'
             if request_db(cur, request):
                 rows = cur.fetchall()
-                rec.ctime = rows[0][0]
-                rec.mtime = rows[0][0]
+                rec.ctime = str(rows[0][0])
+                rec.mtime = str(rows[0][0])
                 if rec.id is None:
                     rec.id = str(uuid.uuid4())
                 # Select table and fields
@@ -313,12 +417,33 @@ class DBInterface:
         #     interactions = redis_data.get_stuff_sorted(ia)
         #     return {'result': interactions}
 
+    class Machine:
+        USER = 'node'
+
+        @staticmethod
+        def get(uid) -> Machine:
+            return DBInterface.get_record_to_class('Machine', uid)
+
+        @staticmethod
+        def get_by_ip(ip: str) -> Machine:
+            return DBInterface.get_record_by_field_to_class('Machine', 'ip', ip)
+
+        @staticmethod
+        def register(machine: Machine):
+            return DBInterface.register_record(machine, user=DBInterface.Machine.USER)
+
     class Node:
         USER = 'node'
 
         @staticmethod
         def get(uid) -> Node:
             return DBInterface.get_record_to_class('Node', uid)
+
+        # @staticmethod
+        # def list_by_ip(ip: str) -> List[str]:
+        #     # Retrieve all registered nodes which name is like '<ip>#%'
+        #     cond = "name LIKE '{}#%'".format(ip)
+        #     return DBInterface.get_records('Node', fields=['id', 'name'], cond=[cond])
 
         # Register node in db
         @staticmethod

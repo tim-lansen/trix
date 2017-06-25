@@ -1,0 +1,37 @@
+# RTSP SEND
+ffmpeg -y -i E:\temp\test.src.mp4 -vsync 0 -map v:0 -c:v copy -rtsp_transport tcp -f rtsp rtsp://127.0.0.1:1234/video/xxx
+
+# RTSP RECEIVE
+ffmpeg -y -rtsp_transport tcp -rtsp_flags listen -f rtsp -r 30/1 -i rtsp://127.0.0.1:1234/video/xxx -copytb 1 -map v:0 -vf scale=640:360 -b:v 800k -c:v libx264 -refs 2 -g 24 E:\temp\VOD_Como_Episode02_Russia_rtsp.mp4
+
+# CORRECT POSSIBLE PTS PROBLEMS AND CHANGE PTS
+ffmpeg -loglevel error -y -rtsp_transport tcp -rtsp_flags listen -f rtsp -i rtsp://127.0.0.1:1234/video/xxx -map v:0 -vsync cfr -c:v rawvideo -f rawvideo - ^
+ | ffmpeg -y -s 1920:1080 -pix_fmt yuv420p -f rawvideo -r 30/1 -i - -vf scale=640:360 -b:v 800k -c:v libx264 -refs 2 -g 24 E:\temp\test.rtsp.30.mp4
+
+# Listener must be started first
+
+
+# Неравномерный PTS
+# Подготовка тестового контента:
+# генерируем файл со скачком по PTS на 11-й секунде
+ffmpeg -i E:\temp\test.src.mp4 -c:a copy -c:v libx264 -refs 2 -copyts -vf "select='not(between(t\,10\,12))',scale=640:360" -b:v 800k -g 20 -t 20 -f mpegts E:\temp\test.cut.mp4
+# Воспроизведение проблемы:
+# кодируем с интерпретацией fps
+ffmpeg -r 30/1 -i E:\temp\test.cut.mp4 -map v:0 -vsync 0 -c:v libx264 -b:v 800k -refs 2 -g 20 E:\temp\test.cut.r30.vsync0.mp4
+ffmpeg -r 30/1 -i E:\temp\test.cut.mp4 -map v:0 -vsync 1 -c:v libx264 -b:v 800k -refs 2 -g 20 E:\temp\test.cut.r30.vsync1.mp4
+# в результирующем видео нет замирания на 11-й секунде, так что видео рассинхронизируется со звуком
+# Решение проблемы (hard):
+# позволяем ffmpeg декодировать с исходным timebase, включаем vsync cfr для автоматического добавления/сброса кадров, отправляем по pipe
+ffmpeg -y -loglevel error -i E:\temp\test.cut.mp4 -map v:0 -vsync 1 -c:v rawvideo -f rawvideo - | ffmpeg -y -s 640:360 -pix_fmt yuv420p -r 30/1 -f rawvideo -i - -c:v libx264 -b:v 800k -refs 2 -g 20 E:\temp\test.cut.vsync1.pipe.r30.mp4
+# видим, что в результирующем видео есть замирание на 11-й секунде, что хорошо для этого примера
+
+# Возможно, существует решение с использованием сложного фильтра, но вот такой пример не работает:
+ffmpeg -y -loglevel error -i E:\temp\test.cut.mp4 -map v:0 -vsync 1 -vf "setpts=N/(30*TB),settb=1/30" -c:v libx264 -b:v 800k -refs 2 -g 20 E:\temp\test.cut.vsync1.setpts.r30.mp4
+
+# TODO: найти способ определять джиттер для выбора способа преобразования fps
+# тестовый файл с джиттером:
+ffmpeg -y -i E:\temp\test.src.mp4 -t 20 -c:a copy -c:v libx264 -refs 2 -b:v 800k -vf "setpts=(PTS+(0.02*sin(N/30)/TB))" E:\temp\test.jitter.mp4
+# плохой вариант (hard):
+ffmpeg -i E:\temp\test.jitter.mp4 -vsync 1 -c:a copy -c:v libx264 -refs 2 -b:v 800k E:\temp\test.dejitter_bad.mp4
+# хороший вариант:
+ffmpeg -r 30000/1001 -i E:\temp\test.jitter.mp4 -c:a copy -c:v libx264 -refs 2 -b:v 800k E:\temp\test.dejitter.mp4

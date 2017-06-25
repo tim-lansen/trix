@@ -17,7 +17,8 @@ import multiprocessing
 
 
 if __name__ == '__main__':
-    # modules.utils.database.DBInterface.initialize()
+    modules.utils.database.DBInterface.initialize()
+    # modules.utils.database.DBInterface._drop_all_tables()
 
     # DBInterface.Node.records()
     # DBInterface.Node.records(Node.Status.IDLE)
@@ -46,5 +47,5 @@ if __name__ == '__main__':
     # job = modules.models.job.test()
     # modules.utils.database.DBInterface.Job.register(job)
 
-    multiprocessing.freeze_support()
-    modules.utils.execute_chain.test()
+    # multiprocessing.freeze_support()
+    # modules.utils.execute_chain.test()

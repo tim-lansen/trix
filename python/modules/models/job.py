@@ -51,10 +51,24 @@ class Task(JSONer):
 
 class Job(Record):
     class Type:
-        PROBE = 1
-        ENCODE = 2
-        DOWNMIX = 3
-        ENCRYPT = 4
+        # Get info about media[, partially scan it to detect in/out/padding/...]
+        PROBE        = 0x01
+        # Create proxy video and audio tracks by channels, extract audio to separate tracks,
+        #  scan A/V to detect in/out/padding/loudness/..., save frames info including hashes
+        CREATE_PROXY = 0x02
+        # Encode video
+        ENCODE_VIDEO = 0x04
+        # Encode audio
+        ENCODE_AUDIO = 0x08
+        MUX          = 0x10
+        DOWNMIX      = 0x20
+        UPMIX        = 0x40
+        ENCRYPT      = 0x80
+        ASSEMBLE     = 0x100
+        NVENC        = 0x200
+
+        # Presets:
+        SIMPLE_TYPE = PROBE | ENCODE_VIDEO | ENCODE_AUDIO | MUX | DOWNMIX | UPMIX | ENCRYPT
 
     class Status:
         NEW = 1
@@ -167,6 +181,7 @@ class Job(Record):
         # float: Overall job progress, 0.0 at start, 1.0 at end
         self.progress = 0.0
         self.condition = None
+        self.depends = None
         self.results = None
 
 
