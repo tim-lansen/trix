@@ -63,7 +63,7 @@ def test():
     job = Job()
     initial = '''
 {
-  "id": "3631f021-8dd0-4197-a29d-27fc3180a242",
+  "guid": "3631f021-8dd0-4197-a29d-27fc3180a242",
   "name": "Test job",
   "type": "encode",
   "info": {

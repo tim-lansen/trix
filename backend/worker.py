@@ -33,7 +33,7 @@ class Worker:
         # TODO: update status, job status/progress
         if self.node.status == Node.Status.BUSY:
             progress = self.job_executor.progress()
-            DBInterface.Job.set_fields(self.job.id, {'progress': progress})
+            DBInterface.Job.set_fields(self.job.guid, {'progress': progress})
 
     def _revert_(self, msg, revert_job=True):
         Logger.error(msg)
@@ -42,7 +42,7 @@ class Worker:
             if not DBInterface.Job.set_status(self.node.job, Job.Status.OFFERED):
                 Logger.error("Failed to revert job status {}\n".format(self.node.job))
         # Try to revert node status
-        if not DBInterface.Node.set_status(self.node.id, Node.Status.IDLE):
+        if not DBInterface.Node.set_status(self.node.guid, Node.Status.IDLE):
             Logger.critical("Failed to revert node status {}\n".format(self.node.job))
             self.exit('failed to revert node status')
         self.node.status = Node.Status.IDLE
@@ -55,7 +55,7 @@ class Worker:
 
         self.node.job = params[1]
         # Set node status to BUSY
-        if not DBInterface.Node.set_status(self.node.id, Node.Status.BUSY):
+        if not DBInterface.Node.set_status(self.node.guid, Node.Status.BUSY):
             Logger.error("Failed to get BUSY\n")
             return
         self.node.status = Node.Status.BUSY
@@ -78,8 +78,8 @@ class Worker:
     def __init__(self, _name):
         self.node = Node()
         self.node.name = _name
-        self.node.id = str(uuid.uuid4())
-        self.node.channel = 'channel_{}'.format(self.node.id.replace('-', '_'))
+        self.node.guid = str(uuid.uuid4())
+        self.node.channel = 'channel_{}'.format(self.node.guid.replace('-', '_'))
 
         # TODO: set self.node.hardware
         # self.node.hardware.cpu = 'i7 2700k'
@@ -97,7 +97,7 @@ class Worker:
         if not DBInterface.Node.register(self.node):
             Logger.warning('Failed to register the node {}\n'.format(self.node.name))
             sys.exit(1)
-        Logger.info("Registered self as '{}' ({})\n".format(self.node.name, self.node.id))
+        Logger.info("Registered self as '{}' ({})\n".format(self.node.name, self.node.guid))
         # Starting loop
         while 1:
             # Listen to individual channel

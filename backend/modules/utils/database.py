@@ -30,7 +30,7 @@ def connect_to_db(args):
     return conn
 
 
-# Execute a request using supplied cursor
+# Execute a request using cursor supplied
 def request_db(cur, req, exit_on_fail=False):
     Logger.info('Request:\n{}\n'.format(req))
     result = True
@@ -101,24 +101,6 @@ def request_db_return_dict(cur, tdata, key=None, fields=None, condition=''):
             d = dict(zip(fields, row))
             result[d[key]] = d
     return result
-
-
-# Execute a request using supplied cursor, table data, fields list and condition string
-# Condition has SQL form, for example 'WHERE status=1'
-# return [[value, ...], ...]
-# def request_db_return_list(cur, tdata, fields, condition):
-#     request = "SELECT {fields} FROM {relname}{cond};".format(fields=fields, relname=tdata['relname'], cond=condition)
-#     Logger.info('Request:\n{}\n'.format(request))
-#     result = []
-#     try:
-#         cur.execute(request)
-#     except psycopg2.Error as e:
-#         Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
-#     else:
-#         rows = cur.fetchall()
-#         for row in rows:
-#             result.append(row)
-#     return result
 
 
 class DBInterface:
@@ -302,7 +284,7 @@ class DBInterface:
         conn = DBInterface.connect(user)
         if conn is not None:
             cur = conn.cursor()
-            result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], None, " WHERE id='{}'".format(uid))
+            result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], None, " WHERE guid='{}'".format(uid))
             cur.close()
         Logger.info(pformat(result) + '\n')
         return result
@@ -350,7 +332,7 @@ class DBInterface:
         if conn is not Node:
             request = "DELETE FROM {relname} WHERE {condition};".format(
                 relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
-                condition=" OR ".join(["id='{}'".format(_) for _ in ids])
+                condition=" OR ".join(["guid='{}'".format(_) for _ in ids])
             )
 
             cur = conn.cursor()
@@ -370,8 +352,8 @@ class DBInterface:
                 rows = cur.fetchall()
                 rec.ctime = str(rows[0][0])
                 rec.mtime = str(rows[0][0])
-                if rec.id is None:
-                    rec.id = str(uuid.uuid4())
+                if rec.guid is None:
+                    rec.guid = str(uuid.uuid4())
                 # Select table and fields
                 rec_dict = rec.__dict__
                 table_name = rec.__class__.__name__
@@ -402,13 +384,31 @@ class DBInterface:
         @staticmethod
         def records(status=None):
             return DBInterface.get_records('Interaction',
-                                           fields=['id', 'name', 'status', 'ctime', 'mtime'],
+                                           fields=['guid', 'name', 'status', 'ctime', 'mtime'],
                                            status=status,
                                            sort=['ctime ASC', 'mtime DESC', 'status'])
 
         @staticmethod
         def get(uid):
             return DBInterface.get_record('Interaction', uid)
+
+        # Lock the interaction and return it if success
+        @staticmethod
+        def get_lock(uid):
+            conn = DBInterface.connect()
+            cur = conn.cursor()
+            # First, try to lock an interaction
+            table_name = TRIX_CONFIG.dBase.tables['Interaction']
+            new_status = Interaction.Status.LOCK
+            req = "UPDATE {tname} SET status={status} WHERE guid='{guid}' AND status<>{status};".format(
+                tname=table_name,
+                status=new_status,
+                guid=uid
+            )
+            if request_db(cur, req):
+                if cur.rowcount == 1:
+                    return DBInterface.get_record(table_name, uid)
+            return None
 
         # @staticmethod
         # def get_all_sorted():
@@ -443,7 +443,7 @@ class DBInterface:
         # def list_by_ip(ip: str) -> List[str]:
         #     # Retrieve all registered nodes which name is like '<ip>#%'
         #     cond = "name LIKE '{}#%'".format(ip)
-        #     return DBInterface.get_records('Node', fields=['id', 'name'], cond=[cond])
+        #     return DBInterface.get_records('Node', fields=['guid', 'name'], cond=[cond])
 
         # Register node in db
         @staticmethod
@@ -459,9 +459,9 @@ class DBInterface:
                 return False
             # Ask server time
             cur = conn.cursor()
-            request = "DELETE FROM {relname} WHERE id='{id}';".format(
+            request = "DELETE FROM {relname} WHERE guid='{uid}';".format(
                 relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
-                id=node.id
+                uid=node.guid
             )
             result = request_db(cur, request)
             cur.close()
@@ -473,7 +473,7 @@ class DBInterface:
         def set_fields(uid, fields: dict):
             fields['mtime'] = 'localtimestamp'
             setup = ','.join(['{}={}'.format(k, fields[k]) for k in fields])
-            request = "UPDATE {relname} SET {setup} WHERE id='{uid}';".format(
+            request = "UPDATE {relname} SET {setup} WHERE guid='{uid}';".format(
                 relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
                 setup=setup,
                 uid=uid
@@ -498,10 +498,10 @@ class DBInterface:
                 rows = cur.fetchall()
                 node.mtime = rows[0][0]
                 # Update node's mtime
-                request = "UPDATE {relname} SET mtime='{mtime}' WHERE id='{node_id}';".format(
+                request = "UPDATE {relname} SET mtime='{mtime}' WHERE guid='{node_id}';".format(
                     relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
                     mtime=node.mtime,
-                    node_id=node.id
+                    node_id=node.guid
                 )
                 result = request_db(cur, request)
             cur.close()
@@ -510,7 +510,7 @@ class DBInterface:
         @staticmethod
         def records(status=None):
             return DBInterface.get_records('Node',
-                                           fields=['id', 'name', 'status', 'ctime', 'mtime'],
+                                           fields=['guid', 'name', 'status', 'ctime', 'mtime'],
                                            status=status,
                                            sort=['ctime ASC', 'mtime DESC', 'status'])
 
@@ -553,7 +553,7 @@ class DBInterface:
         def set_fields(uid, fields: dict):
             fields['mtime'] = 'localtimestamp'
             setup = ','.join(['{}={}'.format(k, fields[k]) for k in fields])
-            request = "UPDATE {relname} SET {setup} WHERE id='{uid}';".format(
+            request = "UPDATE {relname} SET {setup} WHERE guid='{uid}';".format(
                 relname=TRIX_CONFIG.dBase.tables['Job']['relname'],
                 setup=setup,
                 uid=uid

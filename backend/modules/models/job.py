@@ -8,6 +8,23 @@ from typing import List
 from .record import *
 
 
+# Result is what Task or Job emits on completion
+class Result(JSONer):
+    class Type:
+        UNDEFINED = 0
+        MEDIAFILE = 1
+        ASSET = 2
+        INFO = 3
+        FILE = 4
+        TASK = 5
+        JOB = 6
+
+    def __init__(self):
+        super().__init__()
+        self.type = 0
+        self.path = None
+
+
 class Task(JSONer):
     class Type:
         PROXY = 1
@@ -16,13 +33,13 @@ class Task(JSONer):
 
     def __init__(self, task_info=None):
         super().__init__()
-        self.id = None
+        self.guid = Guid()
         self.jobs = None
         self.priority = None
         self.depends = None
         if task_info is None:
             # Create new task
-            self.id = str(uuid.uuid4())
+            self.guid.new()
             self.jobs = []
             self.priority = 10
         else:
@@ -33,11 +50,11 @@ class Task(JSONer):
                 self.update_str(task_info)
 
     # def update(self):
-    #     update_record(self.redis, self.id, self.data)
+    #     update_record(self.redis, self.guid, self.data)
 
     def add_job(self, job):
         self.jobs.append(job)
-        #self.data['jobs'].append(job.id)
+        #self.data['jobs'].append(job.guid)
 
     # def execute(self):
     #     # Queue up task's jobs
@@ -46,7 +63,7 @@ class Task(JSONer):
     #         pipe.smove('wait', 'cue', job_id)
     #         pipe.hset(job_id, 'phase', 'cue')
     #     pipe.execute()
-    #     job_cue_signal(self.redis, self.id)
+    #     job_cue_signal(self.redis, self.guid)
 
 
 class Job(Record):
@@ -69,14 +86,6 @@ class Job(Record):
 
         # Presets:
         SIMPLE_TYPE = PROBE | ENCODE_VIDEO | ENCODE_AUDIO | MUX | DOWNMIX | UPMIX | ENCRYPT
-
-    class Status:
-        NEW = 1
-        WAITING = 2
-        OFFERED = 3
-        EXECUTING = 4
-        FINISHED = 5
-        FAILED = 6
 
     class Info(JSONer):
         class Step(JSONer):
@@ -137,10 +146,10 @@ class Job(Record):
             # ]
             # OR
             # [
-            #   {"type": "MediaFile", "info": {"id": "<media_uid>"}},
-            #   {"type": "MediaFile", "info": {"id": "<media_proxy_uid>"}},
+            #   {"type": "MediaFile", "info": {"guid": "<media_uid>"}},
+            #   {"type": "MediaFile", "info": {"guid": "<media_proxy_uid>"}},
             #   {"type": "Asset", "info": {
-            #       "id": "<asset_uid>",
+            #       "guid": "<asset_uid>",
             #       "proxyId": "<asset_proxy_uid>",
             #       "streams": [
             #           {"source": {"mediaFileId": "<media_uid>", "streamKind": "VIDEO", "streamKindIndex": 0}},
@@ -148,7 +157,7 @@ class Job(Record):
             #       ]
             #   }},
             #   {"type": "Asset", "info": {
-            #       "id": "<asset_proxy_uid>",
+            #       "guid": "<asset_proxy_uid>",
             #       "streams": [
             #           {"source": {"mediaFileId": "<media_proxy_uid>", "streamKind": "VIDEO", "streamKindIndex": 0}},
             #           {"destination": {"streamKind": "VIDEO"}}
@@ -157,11 +166,11 @@ class Job(Record):
             # ]
             # OR
             # [
-            #   {"type": "MediaFile", "info": {"id": "<media_uid>"}},
-            #   {"type": "MediaFile", "info": {"id": "<media_proxy_uid0>"}},
-            #   {"type": "MediaFile", "info": {"id": "<media_proxy_uid1>"}},
+            #   {"type": "MediaFile", "info": {"guid": "<media_uid>"}},
+            #   {"type": "MediaFile", "info": {"guid": "<media_proxy_uid0>"}},
+            #   {"type": "MediaFile", "info": {"guid": "<media_proxy_uid1>"}},
             #   {"type": "Asset", "info": {
-            #       "id": "<asset_uid>",
+            #       "guid": "<asset_uid>",
             #       "streams": [
             #           {"source": {"mediaFileId": "<media_uid>", "streamKind": "AUDIO", "streamKindIndex": 0}},
             #           {"destination": {"streamKind": "VIDEO"}}
@@ -170,25 +179,70 @@ class Job(Record):
             # ]
             self.results = None
 
+    class Status:
+        NEW = 1
+        WAITING = 2
+        OFFERED = 3
+        EXECUTING = 4
+        FINISHED = 5
+        FAILED = 6
+
+    # Guid type support class
+    class GroupId(Guid):
+        def __init__(self):
+            super().__init__()
+
     def __init__(self):
         super().__init__()
-        self.info = self.Info()
         self.type = None
-        self.status = self.Status.NEW
-        self.priority = 0
+        self.info = self.Info()
         self.fails = 0
         self.offers = 0
+        self.status = self.Status.NEW
+        self.priority = 0
         # float: Overall job progress, 0.0 at start, 1.0 at end
         self.progress = 0.0
+        # List of groups that this job belongs to
+        self.groupIds: List[Guid] = []
+        # This job depends on jobs from group <dependsOnGroupId>, independent if self.dependsOnGroupId.is_null()
+        self.dependsOnGroupId = Guid()
+        # Condition is a pythonic expression that can be evaluated in job's context
         self.condition = None
-        self.depends = None
-        self.results = None
+        self.results: List[Result] = []
+        # ["taskId", "uuid"],
+
+    # Table description
+    TABLE_SETUP = {
+        "relname": "trix_jobs",
+        "comment1": "Each job may depend on group, and/or have launch condition",
+        "comment2": "taskId: uid of parent task",
+        "comment3": "groupId: uid of group, it's being assigned when creating a group dependent job",
+        "comment4": "depends: uid of group of jobs that must be finished before this job is started",
+        "fields": [
+            ["type", "integer NOT NULL"],
+            ["info", "json NOT NULL"],
+            ["fails", "integer NOT NULL"],
+            ["offers", "integer NOT NULL"],
+            ["status", "integer NOT NULL"],
+            ["priority", "integer NOT NULL"],
+            ["progress", "double precision"],
+            ["groupIds", "uuid[]"],
+            ["dependsOnGroupId", "uuid"],
+            ["condition", "json"],
+            ["results", "json"]
+        ],
+        "fields_extra": [],
+        "creation": [
+            "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+            "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+    }
 
 
 def test() -> Job:
     job = Job()
     job_obj = {
-        # "id": "3631f021-8dd0-4197-a29d-27fc3180a242",
+        # "guid": "3631f021-8dd0-4197-a29d-27fc3180a242",
         "name": "Test job",
         "type": Job.Type.DOWNMIX,
         "info": {
@@ -203,8 +257,8 @@ def test() -> Job:
                 "asset_id": "49cf7a5b-02ed-453a-8562-32c5b34d471a"
             },
             "results": [
-                {"type": "MediaFile", "info": {"id": "${new_media_id}", "source": {"url": "${f_dst}"}}},
-                {"type": "Asset", "info": {"id": "${asset_id}", "streams": [
+                {"type": "MediaFile", "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}},
+                {"type": "Asset", "info": {"guid": "${asset_id}", "streams": [
                     {
                         "source": {"mediaFileId": "${new_media_id}", "streamKind": "AUDIO", "streamKindIndex": 0},
                         "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}

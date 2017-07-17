@@ -19,3 +19,21 @@ class Node(Record):
         self.status = Node.Status.IDLE
         self.channel = None
         self.progress = None
+
+    TABLE_SETUP = {
+        "relname": "trix_nodes",
+        "fields": [
+            ["status", "integer NOT NULL"],
+            ["channel", "name NOT NULL"],
+            ["job_types", "integer[]"],
+            ["job", "uuid"],
+            ["progress", "double precision"]
+        ],
+        "fields_extra": [
+            ["CONSTRAINT node_name_is_unique UNIQUE", "name"]
+        ],
+        "creation": [
+            "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+            "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+    }

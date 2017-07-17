@@ -45,32 +45,32 @@ def run(period=5):
     while True:
 
         # Get all NEW jobs, change their status to WAITING if condition test is True
-        jobs = DBInterface.get_records('Job', fields=['id', 'depends', 'condition'], status=Job.Status.NEW)
+        jobs = DBInterface.get_records('Job', fields=['guid', 'depends', 'condition'], status=Job.Status.NEW)
         for job in jobs:
             if test_job_condition(job):
-                DBInterface.Job.set_status(job['id'], Job.Status.WAITING)
+                DBInterface.Job.set_status(job['guid'], Job.Status.WAITING)
 
         # Monitor jobs: there must not be OFFERED jobs, FINISHED jobs must be archived, FAILED jobs must be relaunched?
         jobs = DBInterface.get_records(
             'Job',
-            fields=['id', 'status', 'fails', 'offers'],
+            fields=['guid', 'status', 'fails', 'offers'],
             status=[Job.Status.OFFERED, Job.Status.FINISHED, Job.Status.FAILED]
         )
         for job in jobs:
             if job['status'] == Job.Status.OFFERED:
                 # Something wrong happened during offer, reset status to WAITING
-                DBInterface.Job.set_fields(job['id'], {'status': Job.Status.WAITING, 'offers': job['offers'] + 1})
+                DBInterface.Job.set_fields(job['guid'], {'status': Job.Status.WAITING, 'offers': job['offers'] + 1})
             elif job['status'] == Job.Status.FAILED:
                 # Job execution failed, reset status to NEW
-                DBInterface.Job.set_fields(job['id'], {'status': Job.Status.NEW, 'offers': job['fails'] + 1})
+                DBInterface.Job.set_fields(job['guid'], {'status': Job.Status.NEW, 'offers': job['fails'] + 1})
             elif job['status'] == Job.Status.FINISHED:
                 # Job finished, archive it
-                archive_job(job['id'])
+                archive_job(job['guid'])
 
         # Get all WAITING jobs sorted by priority and creation time, and IDLE nodes
-        jobs = DBInterface.get_records('Job', fields=['id'], status=Job.Status.WAITING, sort=['priority', 'ctime'])
-        # jobs_dict = DBInterface.get_records_dict('Job', fields=['id', 'status'])
-        nodes = DBInterface.get_records('Node', fields=['id', 'channel'], status=Node.Status.IDLE)
+        jobs = DBInterface.get_records('Job', fields=['guid'], status=Job.Status.WAITING, sort=['priority', 'ctime'])
+        # jobs_dict = DBInterface.get_records_dict('Job', fields=['guid', 'status'])
+        nodes = DBInterface.get_records('Node', fields=['guid', 'channel'], status=Node.Status.IDLE)
 
         # Dispatch jobs
         notifications = []
@@ -78,24 +78,24 @@ def run(period=5):
             node = nodes.pop(-1)
             job = jobs.pop(0)
             if test_job_condition(job):
-                if not DBInterface.Job.set_status(job['id'], Job.Status.OFFERED):
+                if not DBInterface.Job.set_status(job['guid'], Job.Status.OFFERED):
                     Logger.warning('Failed to change job status\n')
                     continue
-                notifications.append([node['channel'], 'offer {}'.format(job['id'])])
+                notifications.append([node['channel'], 'offer {}'.format(job['guid'])])
         if len(notifications):
             DBInterface.notify_list(notifications)
 
         # Monitor nodes
-        nodes = DBInterface.get_records('Node', ['mtime', 'id', 'channel'])
+        nodes = DBInterface.get_records('Node', ['mtime', 'guid', 'channel'])
         if len(nodes):
             notifications = [[n['channel'], 'ping'] for n in nodes]
             DBInterface.notify_list(notifications)
             time.sleep(period)
             check = "EXTRACT(EPOCH FROM AGE(localtimestamp, mtime))>{timeout};".format(timeout=2*period)
-            suspicious_nodes = DBInterface.get_records('Node', fields=['id'], cond=[check])
+            suspicious_nodes = DBInterface.get_records('Node', fields=['guid'], cond=[check])
             if len(suspicious_nodes):
-                Logger.warning("Unregister node(s):\n{}\n".format('\n'.join([sn['id'] for sn in suspicious_nodes])))
-                DBInterface.delete_records('Node', [sn['id'] for sn in suspicious_nodes])
+                Logger.warning("Unregister node(s):\n{}\n".format('\n'.join([sn['guid'] for sn in suspicious_nodes])))
+                DBInterface.delete_records('Node', [sn['guid'] for sn in suspicious_nodes])
                 Logger.info("Check jobs being executed on these nodes...\n")
                 time.sleep(period)
         else:

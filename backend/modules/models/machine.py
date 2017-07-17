@@ -35,3 +35,23 @@ class Machine(Record):
         self.node_job_types = None
         self.status = Machine.Status.OFFLINE
         self.hardware = Machine.Hardware()
+
+    TABLE_SETUP = {
+        "comment": "machine info: hardware, ip, ",
+        "relname": "trix_machines",
+        "fields": [
+            ["ip", "cidr NOT NULL"],
+            ["node_count", "integer NOT NULL"],
+            ["node_job_types", "json NOT NULL"],
+            ["status", "integer NOT NULL"],
+            ["hardware", "json"]
+        ],
+        "fields_extra": [
+            ["CONSTRAINT machine_ip_is_unique UNIQUE", "ip"],
+            ["CONSTRAINT machine_name_is_unique UNIQUE", "name"]
+        ],
+        "creation": [
+            "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+            "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+    }

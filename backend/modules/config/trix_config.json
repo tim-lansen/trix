@@ -19,148 +19,15 @@
         "password": "node"
       }
     },
-    "templates": {
-      "record": {
-        "fields": [
-          ["id", "uuid NOT NULL"],
-          ["name", "name NOT NULL"],
-          ["ctime", "timestamp without time zone"],
-          ["mtime", "timestamp without time zone"]
-        ],
-        "fields_extra": [
-          ["PRIMARY KEY", "id"]
-        ],
-        "creation": [
-          "CREATE TABLE public.{relname} ({fields}) WITH (OIDS = FALSE);",
-          "ALTER TABLE public.{relname} OWNER to {superuser};",
-          "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;"
-        ]
-      }
-    },
+    "templates": {},
     "tables": {
-      "Asset": {
-        "template": "record",
-        "relname": "trix_assets",
-        "fields": [
-          ["videoStreams", "json"],
-          ["audioStreams", "json"],
-          ["subStreams", "json"],
-          ["proxyId", "uuid"],
-          ["programId", "uuid"]
-        ],
-        "fields_extra": [],
-        "creation": [
-          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
-        ]
-      },
-      "MediaFile": {
-        "template": "record",
-        "relname": "trix_files",
-        "fields": [
-          ["source", "json NOT NULL"],
-          ["format", "json"],
-          ["videoTracks", "json"],
-          ["audioTracks", "json"],
-          ["subTracks", "json"]
-        ],
-        "fields_extra": [],
-        "creation": [
-          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
-        ]
-      },
-      "MediaChunk": {
-        "template": "record",
-        "relname": "trix_chunks",
-        "fields": [
-          ["ownerId", "uuid NOT NULL"],
-          ["ownerIndex", "integer NOT NULL"],
-          ["frameCount", "integer NOT NULL"]
-        ],
-        "fields_extra": [],
-        "creation": [
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
-        ]
-      },
-      "Job": {
-        "template": "record",
-        "relname": "trix_jobs",
-        "comment1": "Each job may depend on group, and/or have launch condition",
-        "comment2": "taskId: uid of parent task",
-        "comment3": "groupId: uid of group, it's being assigned when creating a group dependent job",
-        "comment4": "depends: uid of group of jobs that must be finished before this job is started",
-        "fields": [
-          ["type", "integer NOT NULL"],
-          ["info", "json NOT NULL"],
-          ["status", "integer NOT NULL"],
-          ["fails", "integer NOT NULL"],
-          ["offers", "integer NOT NULL"],
-          ["priority", "integer NOT NULL"],
-          ["progress", "double precision"],
-          ["taskId", "uuid"],
-          ["groupId", "uuid"],
-          ["depends", "uuid"],
-          ["condition", "json"],
-          ["results", "json"]
-        ],
-        "fields_extra": [],
-        "creation": [
-          "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
-        ]
-      },
-      "Node": {
-        "template": "record",
-        "relname": "trix_nodes",
-        "fields": [
-          ["status", "integer NOT NULL"],
-          ["channel", "name NOT NULL"],
-          ["job_types", "integer[]"],
-          ["job", "uuid"],
-          ["progress", "double precision"]
-        ],
-        "fields_extra": [
-          ["CONSTRAINT node_name_is_unique UNIQUE", "name"]
-        ],
-        "creation": [
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
-        ]
-      },
-      "Machine": {
-        "template": "record",
-        "comment": "machine info: hardware, ip, ",
-        "relname": "trix_machines",
-        "fields": [
-          ["ip", "cidr NOT NULL"],
-          ["node_count", "integer NOT NULL"],
-          ["node_job_types", "json NOT NULL"],
-          ["status", "integer NOT NULL"],
-          ["hardware", "json"]
-        ],
-        "fields_extra": [
-          ["CONSTRAINT machine_ip_is_unique UNIQUE", "ip"],
-          ["CONSTRAINT machine_name_is_unique UNIQUE", "name"]
-        ],
-        "creation": [
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
-        ]
-      },
-      "Interaction": {
-        "template": "record",
-        "relname": "trix_interactions",
-        "fields": [
-          ["info", "json NOT NULL"],
-          ["status", "integer NOT NULL"]
-        ],
-        "fields_extra": [],
-        "creation": [
-          "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
-        ]
-      }
+      "Asset": {},
+      "MediaFile": {},
+      "MediaChunk": {},
+      "Job": {},
+      "Node": {},
+      "Machine": {},
+      "Interaction": {}
     }
   },
   "api_server": {

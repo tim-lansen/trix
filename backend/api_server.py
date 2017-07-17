@@ -70,7 +70,7 @@ def get_free_interactions_sorted():
 
 def interaction_submit(data):
     example = {
-        'id': '522c8370-5689-4e1f-8169-c0ec9e905ce9',           ### Interaction id
+        'guid': '522c8370-5689-4e1f-8169-c0ec9e905ce9',           ### Interaction guid
         'movie_guid': 'e7d90f1f-48f2-4367-9ae5-c2b222240c8c',   ### Movie GUID
         'movie': '21',                                          #   Movie name
         'studio': 'Sony',                                       #   Studio
@@ -109,9 +109,9 @@ def interaction_submit(data):
     pprint.pprint(data)
     d = json.dumps(data)
     # update redis record
-    redis_data.update_record(inter_server, data['id'], {'interacted': d})
+    redis_data.update_record(inter_server, data['guid'], {'interacted': d})
     # publish
-    inter_server.publish(data['id'], d)
+    inter_server.publish(data['guid'], d)
     return {'result': 'success'}
 
 
@@ -120,7 +120,7 @@ def interaction_get(interaction_id):
     if not inter_server.smove('inter_free', 'inter_lock', interaction_id):
         return {'result': 'fail', 'error': {'description': "The interaction is locked or doesn't exist"}}
     inter = inter_server.hgetall(interaction_id)
-    inter.update({'id': interaction_id})
+    inter.update({'guid': interaction_id})
     return {'result': inter}
 
 
@@ -149,7 +149,7 @@ def get_interactions(params, profile):
 
 
 def get_interaction(params, profile):
-    interaction = DBInterface.Interaction.get(params['id'])
+    interaction = DBInterface.Interaction.get(params['guid'])
     return {'result': interaction}
 
 
@@ -215,7 +215,7 @@ class ApiClientProfile:
             ws = websocket_client.create_connection('ws://napi.ayyo.ru')
             msg = json.dumps({
                 'method': 'connect',
-                'id': str(data['message_id']),
+                'guid': str(data['message_id']),
                 'params': {
                     'version': '2',
                     'device_token': data['device_token'],
@@ -235,17 +235,17 @@ class ApiClientProfile:
             ws.send(msg)
             result = json.loads(ws.recv())
             print(result)
-            if result['error'] is None and int(result['id']) == data['message_id']:
+            if result['error'] is None and int(result['guid']) == data['message_id']:
                 data['message_id'] += 1
                 msg = json.dumps({
                     'method': 'widgets_all',
-                    'id': str(data['message_id']),
+                    'guid': str(data['message_id']),
                     'params': {}
                 })
                 ws.send(msg)
                 result = json.loads(ws.recv())
                 print(result)
-                if result['error'] is None and int(result['id']) == data['message_id']:
+                if result['error'] is None and int(result['guid']) == data['message_id']:
                     print('Authorized {0}'.format(data['phone_number']))
                     self.data['authorized'] = True
             data['message_id'] += 1

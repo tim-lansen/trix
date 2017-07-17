@@ -5,6 +5,8 @@ import re
 
 
 PATTERN_TIMECODE = re.compile(r'^\d?\d:\d\d:\d\d.\d+$')
+
+
 def timecode_to_float(tc):
     t = 0.0
     if PATTERN_TIMECODE.match(tc):

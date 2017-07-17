@@ -8,6 +8,38 @@ from ..utils.log_console import Logger, LogLevel, tracer
 from ..utils.jsoner import JSONer
 
 
+def config_table_using_class(C, dBase):
+
+    def _store_class_(_C_, _where_):
+        for _PC_ in reversed(_C_.__mro__):
+            if 'TABLE_SETUP' in _PC_.__dict__:
+                if _PC_ is _C_:
+                    for k in _PC_.TABLE_SETUP:
+                        v = _PC_.TABLE_SETUP[k]
+                        if type(v) is str:
+                            _where_[k] = v
+                        elif type(v) is list:
+                            if k not in _where_:
+                                _where_[k] = []
+                            _where_[k] += v
+                        else:
+                            Logger.error('Bad TABLE_SETUP in class {}\n'.format(_C_.__name__))
+                            exit(1)
+                else:
+                    # It's a parent class
+                    if 'templates' not in _where_:
+                        _where_['templates'] = []
+                    _where_['templates'].append(_PC_.__name__)
+                    if _PC_.__name__ not in dBase['templates']:
+                        dBase['templates'][_PC_.__name__] = {}
+                        _store_class_(_PC_, dBase['templates'][_PC_.__name__])
+
+    # dBase is a config object defined in trix_config
+    # It should have 'tables' and 'templates' dicts
+    dBase['tables'][C.__name__] = {}
+    _store_class_(C, dBase['tables'][C.__name__])
+
+
 class TrixConfig(JSONer):
     class DBase(JSONer):
         class Connection(JSONer):
@@ -25,21 +57,28 @@ class TrixConfig(JSONer):
             self.templates = None
 
         def conform_tables(self):
+            _g_ = globals()
             # Update tables that use template
             if type(self.tables) is dict:
                 for table_name in self.tables:
+                    if table_name in _g_ and 'TABLE_SETUP' in _g_[table_name].__dict__:
+                        Logger.info('Using table {} definition from class\n'.format(table_name))
+                        self.tables[table_name] = {}
+                        config_table_using_class(_g_[table_name], self.__dict__)
                     table = self.tables[table_name]
                     try:
-                        template = self.templates[table['template']]
-                        for key in template:
-                            val = template[key]
-                            if key not in table:
-                                table[key] = val
-                            else:
-                                if type(val) is list:
-                                    table[key] = val + table[key]
+                        for template_name in table['templates']:
+                            template = self.templates[template_name]
+                            for key in template:
+                                val = template[key]
+                                if key not in table:
+                                    table[key] = val
                                 else:
-                                    Logger.error("Table template value type {} not supported\n".format(type(val)))
+                                    if type(val) is list:
+                                        table[key] = val + table[key]
+                                    else:
+                                        Logger.error("Table template value type {} not supported\n".format(type(val)))
+                        # table.pop('templates')
                     except Exception as e:
                         Logger.warning("Table {} template error\n{}\n".format(table_name, e))
 

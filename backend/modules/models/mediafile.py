@@ -3,6 +3,7 @@
 
 from typing import List
 from modules.models.record import *
+from modules.utils.types import Rational
 
 
 class MediaFile(Record):
@@ -108,25 +109,25 @@ class MediaFile(Record):
         #         # }
         #         self.tags = None
 
-        PROGRAM_COUNT = {'src': [['ff', 'nb_programs']]}
-        STREAM_COUNT = {'src': [['ff', 'nb_streams']]}
-        FORMAT_NAME = {'src': [['ff', 'format_name']]}
-        START_TIME = {'src': [['ff', 'start_time']]}
-        DURATION = {'src': [['ff', 'duration']]}
-        SIZE = {'src': [['ff', 'size']]}
-        TAGS = {'src': [['ff', 'tags']]}
+        PROGRAM_COUNT   = {'src': [['ff', 'nb_programs']]}
+        STREAM_COUNT    = {'src': [['ff', 'nb_streams']]}
+        FORMAT_NAME     = {'src': [['ff', 'format_name']]}
+        START_TIME      = {'src': [['ff', 'start_time']]}
+        DURATION        = {'src': [['ff', 'duration']]}
+        SIZE            = {'src': [['ff', 'size']]}
+        TAGS            = {'src': [['ff', 'tags']]}
 
-        FORMAT = {'src': [['mi', 'Format']]}
-        FORMAT_COMMERCIAL = {'src': [['mi', 'Format_Commercial']]}
-        FORMAT_SETTINGS = {'src': [['mi', 'Format_Settings']]}
-        FORMAT_VERSION = {'src': [['mi', 'Format_Version']]}
-        FORMAT_PROFILE = {'src': [['mi', 'Format_Profile']]}
-        ENCODED_DATE = {'src': [['mi', 'Encoded_Date']]}
+        FORMAT              = {'src': [['mi', 'Format']]}
+        FORMAT_COMMERCIAL   = {'src': [['mi', 'Format_Commercial']]}
+        FORMAT_SETTINGS     = {'src': [['mi', 'Format_Settings']]}
+        FORMAT_VERSION      = {'src': [['mi', 'Format_Version']]}
+        FORMAT_PROFILE      = {'src': [['mi', 'Format_Profile']]}
+        ENCODED_DATE        = {'src': [['mi', 'Encoded_Date']]}
         ENCODED_APPLICATION_COMPANYNAME = {'src': [['mi', 'Encoded_Application_CompanyName']]}
-        ENCODED_APPLICATION_VERSION = {'src': [['mi', 'Encoded_Application_Version']]}
-        ENCODED_APPLICATION_NAME = {'src': [['mi', 'Encoded_Application_Name']]}
-        ENCODED_LIBRARY_VERSION = {'src': [['mi', 'Encoded_Library_Version']]}
-        ENCODED_LIBRARY_NAME = {'src': [['mi', 'Encoded_Library_Name']]}
+        ENCODED_APPLICATION_VERSION     = {'src': [['mi', 'Encoded_Application_Version']]}
+        ENCODED_APPLICATION_NAME        = {'src': [['mi', 'Encoded_Application_Name']]}
+        ENCODED_LIBRARY_VERSION         = {'src': [['mi', 'Encoded_Library_Version']]}
+        ENCODED_LIBRARY_NAME            = {'src': [['mi', 'Encoded_Library_Name']]}
 
         def __init__(self):
             super().__init__()
@@ -153,23 +154,24 @@ class MediaFile(Record):
             self.Encoded_Library_Name = None
 
     class VideoTrack(JSONer):
-        INDEX  = {'src': [['ff', 'index']]}
-        CODEC  = {'src': [['ff', 'codec_name']]}
-        WIDTH  = {'src': [['mi', 'Stored_Width'], ['ff', 'width'], ['mi', 'Sampled_Width'], ['mi', 'Width']]}
-        HEIGHT = {'src': [['mi', 'Stored_Height'], ['ff', 'height'], ['mi', 'Sampled_Height'], ['mi', 'Height']]}
+        INDEX           = {'src': [['ff', 'index']]}
+        CODEC           = {'src': [['ff', 'codec_name']]}
+        WIDTH           = {'src': [['mi', 'Stored_Width'], ['ff', 'width'], ['mi', 'Sampled_Width'], ['mi', 'Width']]}
+        HEIGHT          = {'src': [['mi', 'Stored_Height'], ['ff', 'height'], ['mi', 'Sampled_Height'], ['mi', 'Height']]}
         HEIGHT_ORIGINAL = {'src': [['mi', 'Height_Original']]}
         HEIGHT_OFFSET   = {'src': [['mi', 'Height_Offset']]}
         DAR             = {'src': [['ff', 'display_aspect_ratio']]}
         # 'PixelAspectRatio': 1.0,
         # 'PixelAspectRatio_Original': 1.126,
         # 'sample_aspect_ratio': '152:135'
-        # PAR = {'src': } TODO: ignore or what???
+        # PAR = {'src': } PAR
         PIX_FMT         = {'src': [['ff', 'pix_fmt']]}
         COLOR_RANGE     = {'src': [['ff', 'color_range']]}
         COLOR_PRIMARIES = {'src': [['ff', 'color_primaries']]}
         PROGRESSIVE     = {'src': [['mi', 'ScanType']], 'map': {'Progressive': True, 'Interlaced': False}}
         FIELD_ORDER     = {'src': [['mi', 'ScanOrder']], 'def': 'PFF'}
         FPS             = {'src': [['ff', 'r_frame_rate']]}
+        FPS_AVG         = {'src': [['ff', 'avg_frame_rate']]}
         START_TIME      = {'src': [['ff', 'start_time']]}
         DELAY           = {'src': [['mi', 'Delay']]}
         DISPOSITION     = {'src': [['ff', 'disposition']]}
@@ -199,6 +201,7 @@ class MediaFile(Record):
 
         def __init__(self):
             super().__init__()
+            # Auto-captured info
             self.index = None
             self.codec = None
             self.width = None
@@ -206,17 +209,50 @@ class MediaFile(Record):
             self.height_original = 0
             self.height_offset = 0
             self.dar = None
-            # self.par = '1/1'
+            # Pixel aspect ratio is being calculated from DAR, width and height_original in "combine_ffprobe_mediainfo_track" function
+            self.par = Rational(1, 1)
             self.pix_fmt = None
             self.color_range = None
             self.color_primaries = None
             self.progressive = True
             self.field_order = 'PFF'
-            self.fps = None
+            self.fps: Rational(25, 1)
+            self.fps_avg = None
             self.start_time = 0.0
             self.delay = 0
             self.disposition = self.Disposition()
             self.tags = self.Tags()
+
+            # ID(s) of reference video(s): separate video file for every component
+            # single ID in case of mono input, two IDs for stereo
+            self.refs: List[str] = []
+
+        @staticmethod
+        def fit_video(src, dst, dw, dh, size_round=2):
+            # Fit video into given display size, rounding dimensions by 2^size_round
+            # dw, dh: display boundaries
+            sr2p = pow(2, size_round)
+            ssw = src.par.val() * src.width
+            kw = dw / ssw
+            kh = dh / src.height
+            display_width = dw
+            display_height = dh
+            if abs(kw - kh) > 0.00001:
+                mask = 0x10000 - sr2p
+                if kw < kh:
+                    display_height = mask & (min(int(kw * src.height), dh) + (sr2p >> 1))
+                else:
+                    display_width = mask & (min(int(kh * ssw), dw)  + (sr2p >> 1))
+            dst.width = display_width
+            dst.height = display_height
+
+        def ref_add(self, w=640, h=360):
+            # Create ref mediafile for this stream
+            mf = MediaFile()
+            mf.isRef = True
+            self.refs.append(mf.guid)
+            vt = MediaFile.VideoTrack()
+            MediaFile.VideoTrack.fit_video(self, vt, w, h)
 
     class AudioTrack(JSONer):
         class Tags(JSONer):
@@ -241,19 +277,19 @@ class MediaFile(Record):
                 self.attached_pic = None
                 self.timed_thumbnails = None
 
-        DURATION = {'src': [['mi', 'Duration']]}
+        DURATION         = {'src': [['mi', 'Duration'], ['ff', 'duration']]}
         CHANNELPOSITIONS = {'src': [['mi', 'ChannelPositions']]}
-        CHANNELLAYOUT = {'src': [['mi', 'ChannelLayout']]}
+        CHANNELLAYOUT    = {'src': [['mi', 'ChannelLayout']]}
 
-        INDEX = {'src': [['ff', 'index']]}
-        CODEC = {'src': [['ff', 'codec_name']]}
-        SAMPLE_FMT = {'src': [['ff', 'sample_fmt']]}
-        SAMPLE_RATE = {'src': [['ff', 'sample_rate']]}
-        CHANNELS = {'src': [['ff', 'channels']]}
-        CHANNEL_LAYOUT = {'src': [['ff', 'channel_layout']]}
-        BITS_PER_SAMPLE = {'src': [['ff', 'bits_per_sample']]}
-        DISPOSITION = {'src': [['ff', 'disposition']]}
-        TAGS = {'src': [['ff', 'tags']]}
+        INDEX            = {'src': [['ff', 'index']]}
+        CODEC            = {'src': [['ff', 'codec_name']]}
+        SAMPLE_FMT       = {'src': [['ff', 'sample_fmt']]}
+        SAMPLE_RATE      = {'src': [['ff', 'sample_rate']]}
+        CHANNELS         = {'src': [['ff', 'channels']]}
+        CHANNEL_LAYOUT   = {'src': [['ff', 'channel_layout']]}
+        BITS_PER_SAMPLE  = {'src': [['ff', 'bits_per_sample']]}
+        DISPOSITION      = {'src': [['ff', 'disposition']]}
+        TAGS             = {'src': [['ff', 'tags']]}
 
         def __init__(self):
             super().__init__()
@@ -277,6 +313,10 @@ class MediaFile(Record):
             self.disposition = self.Disposition()
             self.tags = self.Tags()
 
+            # ID(s) of reference audio(s): separate audio file for every channel
+            # single ID in case of mono input, two IDs for stereo, 6 IDs for 5.1, etc.
+            self.refs: List[str] = []
+
     class SubTrack(JSONer):
         class MiSubTrack(JSONer):
             def __init__(self):
@@ -291,11 +331,45 @@ class MediaFile(Record):
             self.miSubTrack = self.MiSubTrack()
             self.ffSubTrack = self.FfSubTrack()
 
+    # Support classes
+
+    class Master(Guid):
+        def __init__(self):
+            super().__init__()
+
+    class Asset(Guid):
+        def __init__(self):
+            super().__init__()
+
     def __init__(self):
         super().__init__()
+        # This flag is set when media file is created as reference of media component (video or audio channel)
+        self.isRef = False
+        # Master mediafile: guid of source media
+        self.master = Guid()
+        # Set of ASSETs that use this mediafile
+        self.assets: List[Guid] = []
         self.source = self.Source()
         self.format = self.Format()
         self.videoTracks: List[self.VideoTrack] = []
         self.audioTracks: List[self.AudioTrack] = []
         self.subTracks: List[self.SubTrack] = []
 
+    TABLE_SETUP = {
+        "relname": "trix_files",
+        "fields": [
+            ["isRef", "boolean NOT NULL"],
+            ["master", "uuid"],
+            ["assets", "uuid[]"],
+            ["source", "json NOT NULL"],
+            ["format", "json"],
+            ["videoTracks", "json"],
+            ["audioTracks", "json"],
+            ["subTracks", "json"]
+        ],
+        "fields_extra": [],
+        "creation": [
+            "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+            "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+    }

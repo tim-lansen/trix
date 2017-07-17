@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 # from modules.utils.jsoner import JSONer
 # from modules.models.record import Record
 from modules.models.mediafile import MediaFile
+from .types import Guid, Rational, guess_type
 
 
 def get_ffprobe_info(filename, refine_duration=True):
@@ -73,20 +74,6 @@ def get_media_info(filename):
     proc = Popen(proc_data, stdout=PIPE, stderr=PIPE)
     output, error = proc.communicate()
     return output.decode()
-
-
-def guess_type(v):
-    try:
-        x = int(v)
-        return x
-    except:
-        pass
-    try:
-        x = float(v)
-        return x
-    except:
-        pass
-    return v
 
 
 def object_hook(obj):
@@ -559,7 +546,7 @@ def object_hook(obj):
 #   'Audio': [{...}, ...],                                              == ffprobe's codec_type 'audio'
 #   'Text': [{...}, ...],                                               == ffprobe's codec_type 'subtitle'
 #   'Menu': [{...}, ...] }                                              == ffprobe's codec_type 'data'
-def mediaInfo2dict(mistr):
+def mediainfo2dict(mistr):
 
     header = re.compile(r'^(\w+)\s?#?(\d+)?$')
     record = re.compile(r'^(\w+)\s+:\s+(.*)$')
@@ -586,7 +573,7 @@ def mediaInfo2dict(mistr):
     return result
 
 
-# Combine video info dicts captured by FFProbe and MediaInfo
+# Combine video info dicts captured by FFProbe and MediaInfo using baseclass' definitions
 def combine_ffprobe_mediainfo_track(ffv, miv, baseclass):
 
     inst = baseclass()
@@ -595,7 +582,7 @@ def combine_ffprobe_mediainfo_track(ffv, miv, baseclass):
 
     # Enumerate baseclass' members
     for k in inst.__dict__:
-        # Get source model for member
+        # Get source model for member: the static var named <member>.upper()
         model_name = k.upper()
         if model_name not in baseclass.__dict__:
             continue
@@ -619,29 +606,38 @@ def combine_ffprobe_mediainfo_track(ffv, miv, baseclass):
                     result['height_original'], result['height_offset'], result['height'], result['height_original'] - result['height_offset']
                 ))
                 result['height'] = result['height_original'] - result['height_offset']
+    if 'width' in result and 'height' in result:
+        # Final pass for PAR: calculate PAR from DAR
+        if 'par' not in result:
+            if 'dar' in result:
+                # dar must be Rational
+                vdar = result['dar'].val()
+                par_str = Rational.search_numerator_denominator(vdar * result['height'] / result['width'], delta=0.001)
+            else:
+                par_str = '1:1'
+            result['par'] = Rational(par_str)
     return result
 
 
 # Combine info captured by FFProbe and MediaInfo
-#
 def combine_ffprobe_mediainfo(ffstr, mistr):
     ffi = json.loads(ffstr, object_hook=object_hook)
-    mii = mediaInfo2dict(mistr)
+    mii = mediainfo2dict(mistr)
     guide = [
         {
-            'dst': {'section': 'format', 'list': False, 'class': Asset.MediaFile.Format},
+            'dst': {'section': 'format', 'list': False, 'class': MediaFile.Format},
             'src': {'mi': 'General', 'ff': 'format'}
         },
         {
-            'dst': {'section': 'videoTracks', 'list': True, 'class': Asset.MediaFile.VideoTrack},
+            'dst': {'section': 'videoTracks', 'list': True, 'class': MediaFile.VideoTrack},
             'src': {'mi': 'Video', 'index': 'StreamOrder', 'ff':  'streams'}
         },
         {
-            'dst': {'section': 'audioTracks', 'list': True, 'class': Asset.MediaFile.AudioTrack},
+            'dst': {'section': 'audioTracks', 'list': True, 'class': MediaFile.AudioTrack},
             'src': {'mi': 'Audio', 'index': 'StreamOrder', 'ff':  'streams'}
         },
         {
-            'dst': {'section': 'subTracks', 'list': True, 'class': Asset.MediaFile.SubTrack},
+            'dst': {'section': 'subTracks', 'list': True, 'class': MediaFile.SubTrack},
             'src': {'mi': 'Text', 'index': 'StreamOrder', 'ff':  'streams'}
         },
     ]
@@ -699,7 +695,7 @@ def combined_info(mf: MediaFile, url):
 
 def test():
     media_file = MediaFile()
-    media_file.id = str(uuid.uuid4())
+    media_file.guid = str(uuid.uuid4())
     combined_info(media_file, r'E:\temp\p1\Pororo_S01_E01_576@25i.sample.mxf')
 
-    print(media_file.dumps(indent=2, expose_unmentioned=True))
+    print(media_file.dumps(indent=2))
