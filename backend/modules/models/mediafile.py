@@ -210,13 +210,13 @@ class MediaFile(Record):
             self.height_offset = 0
             self.dar = None
             # Pixel aspect ratio is being calculated from DAR, width and height_original in "combine_ffprobe_mediainfo_track" function
-            self.par = Rational(1, 1)
+            self.par: Rational = Rational(1, 1)
             self.pix_fmt = None
             self.color_range = None
             self.color_primaries = None
             self.progressive = True
             self.field_order = 'PFF'
-            self.fps: Rational(25, 1)
+            self.fps: Rational = Rational(25, 1)
             self.fps_avg = None
             self.start_time = 0.0
             self.delay = 0
@@ -253,6 +253,8 @@ class MediaFile(Record):
             self.refs.append(mf.guid)
             vt = MediaFile.VideoTrack()
             MediaFile.VideoTrack.fit_video(self, vt, w, h)
+            mf.videoTracks.append(vt)
+            return mf
 
     class AudioTrack(JSONer):
         class Tags(JSONer):
