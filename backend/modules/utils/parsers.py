@@ -3,6 +3,7 @@
 
 import re
 from typing import List
+from .log_console import Logger
 
 
 PATTERN_TIMECODE = re.compile(r'^\d?\d:\d\d:\d\d.\d+$')
@@ -21,64 +22,81 @@ class Parsers:
     # Every parser outputs a dictionary object that may have any captured parameter
     # The mandatory value is 'pos': <float>, that represents captured time position
     PATTERN_CLEAN_FFMPEG = re.compile(r'= +')
+
     # Universal pattern to parse various info
-    # For example
-    # "[Parsed_cropdetect_0 @ 000000000500d520] x1:0 x2:1919 y1:0 y2:1039 w:1920 h:1040 x:0 y:0 pts:12513 t:12.513000 crop=1920:1040:0:0"
-    # becomes
-    # [('x1', '0'), ('x2', '1919'), ('y1', '0'), ('y2', '1039'), ('w', '1920'), ('h', '1040'), ('x', '0'), ('y', '0'), ('pts', '12513'), ('t', '12.513000'), ('crop', '1920:1040:0:0')]
-    # and then dict()
-    # {'x1': '0', 'x2': '1919', 'y1': '0', 'y2': '1039', 'w': '1920', 'h': '1040', 'x': '0', 'y': '0', 'pts': '12513', 't': '12.513000', 'crop': '1920:1040:0:0'}
-    PATTERN_PARSE_FILTER = re.compile(r' ([\w]+?)[:=]([\d\.:]+)')
-
-    # HOW TO PARSE "... plane_checksum:[5DE5F53F 6479EEE4 8FAB2589] mean:[51 144 125] stdev:[23.7 10.5 4.6]"
-
-    # PATTERN_PARSE_NAME = re.compile(r'^\[(\w+) @ .+\] ')
-    # From
-    # "[Parsed_cropdetect_0 @ 000000000500d520] ....."
-    # captures ['cropdetect']
+    # Space filter
+    PSP = re.compile(r'\s+')
+    # Brackets selector
+    PTR = re.compile(r'\[[^@^\[\]]+\]')
+    # Extract name
     PATTERN_PARSE_NAME = re.compile(r'^\[(?:Parsed_)?(\w+?)(?:_\d)? @ .+\] ')
+    # Extract info
+    PATTERN_PARSE_FILTER = re.compile(r' ([\w]+?)[:=]([,:\.\w\[\]\(\)]+)')
+    # For example
+    #   "[Parsed_cropdetect_0 @ 000000000500d520] x1:0 x2:1919 t:12.513 crop=1920:1040:0:0 plane_checksum:[5DE5F53F 6479EEE4 8FAB2589] stdev:[23.7 10.5 4.6]"
+    # 1. extract name: PATTERN_PARSE_NAME.findall(line)
+    #    ['cropdetect']
+    # 2. replace spaces: PTR.sub(lambda m: PSP.sub(',', m.group()), line)
+    #   "[Parsed_cropdetect_0 @ 000000000500d520] x1:0 x2:1919 t:12.513 crop=1920:1040:0:0 plane_checksum:[5DE5F53F,6479EEE4,8FAB2589] stdev:[23.7,10.5,4.6]"
+    # 3. capture info: PATTERN_PARSE_FILTER.findall(lt)
+    #    [('x1', '0'), ('x2', '1919'), ('t', '12.513'), ('crop', '1920:1040:0:0'), ('plane_checksum', '[5DE5F53F,6479EEE4,8FAB2589]'), ('stdev', '[23.7,10.5,4.6]')]
+    # 4.*and then dict(cap)
+    #    {'x1': '0', 'x2': '1919', 't': '12.513', 'crop': '1920:1040:0:0', 'plane_checksum': '[5DE5F53F,6479EEE4,8FAB2589]', 'stdev': '[23.7,10.5,4.6]'}
 
     @staticmethod
-    def parse_line(line, result: List[tuple]):
+    def parse_line(line):
+        """
+        Universal ffmpeg info parser
+        :param line: a string to parse
+        :return: a tuple (<info source name>, [(<key>, <val>), (<key>, <val>), ...])
+        """
+        # Extract name
         capture = Parsers.PATTERN_PARSE_NAME.findall(line)
         if len(capture) == 1:
             filter_name = capture[0]
-            capture = Parsers.PATTERN_PARSE_FILTER.findall(line)
+            # Transform '... xxx:[aaa bbb ccc] ...' => '... xxx:[aaa,bbb,ccc] ...'
+            lt = Parsers.PTR.sub(lambda m: Parsers.PSP.sub(',', m.group()), line)
+            # Capture info
+            capture = Parsers.PATTERN_PARSE_FILTER.findall(lt)
             if len(capture) == 1:
-                result.append((filter_name, capture))
-                return True
-        return False
+                return filter_name, capture
+        return None, None
 
     @staticmethod
     def parse_auto(line):
-        p = []
-        if Parsers.parse_line(line, p):
-            if p[0] in Parsers.VECTORS:
-                return Parsers.VECTORS[p[0]](dict(p[1]))
-        return None
+        """
+        Auto-select handler
+        :param line: a string to parse
+        :return: tuple (<handler>, <handler output>)
+        """
+        fn, fc = Parsers.parse_line(line)
+        if fn:
+            if fn in Parsers.VECTORS:
+                return fn, Parsers.VECTORS[fn](fc)
+        return None, None
 
     @staticmethod
-    def ffmpeg_cropdetect(line):
-        l = line
-        if type(line) is str:
-            p = []
-            if not Parsers.parse_line(line, p):
+    def ffmpeg_cropdetect(cap):
+        if type(cap) is str:
+            fn, cap = Parsers.parse_line(cap)
+            if fn != 'cropdetect':
                 return None
-            if p[0] != 'cropdetect':
-                return None
-            l = dict(p[1])
+        cap = dict(cap)
         res = {}
         try:
-            x1, x2, y1, y2 = [int(l['x1']), int(l['x2']), int(l['y1']), int(l['y2'])]
+            x1, x2, y1, y2 = int(cap['x1']), int(cap['x2']), int(cap['y1']), int(cap['y2'])
             if x2 > x1:
                 res.update({'x': x1, 'w': x2 + 1 - x1})
             if y2 > y1:
                 res.update({'y': y1, 'h': y2 + 1 - y1})
-        except:
+            res['pts'] = int(cap['pts'])
+        except KeyError as e:
+            Logger.warning(str(e), **cap)
+        except ValueError as e:
+            Logger.warning(str(e), **cap)
+        if len(res) < 3:
+            Logger.warning('Cropdetect info ignored completely\n', **cap)
             return None
-        if len(res) == 0:
-            return None
-        res['pts'] = int(l['pts'])
         return res
 
     @staticmethod
@@ -86,7 +104,7 @@ class Parsers:
         return None
 
     @staticmethod
-    def parser_ffmpeg(line):
+    def ffmpeg_progress(line):
         line = Parsers.PATTERN_CLEAN_FFMPEG.sub('=', line)
         d = None
         try:
@@ -106,7 +124,7 @@ class Parsers:
 
 
 PARSERS = {
-    'ffmpeg': Parsers.parser_ffmpeg
+    'ffmpeg': Parsers.ffmpeg_progress
 }
 
 

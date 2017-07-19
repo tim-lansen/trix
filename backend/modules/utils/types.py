@@ -44,6 +44,9 @@ class Guid:
     def is_null(self):
         return self.guid == self.Zero
 
+    def full_instance(self):
+        pass
+
 
 class Rational:
     RECAP = re.compile(r'^(\d+)([/:])(\d+)$')
@@ -99,12 +102,10 @@ class Rational:
         # print(v)
         return v
 
-    """
-    args may be:
-    - a string, example: '24000/1001'
-    - numerator, denominator
-    - numerator, denominator, separator
-    """
+    ## args may be:
+    #    a string, example: '24000/1001'
+    #    numerator, denominator
+    #    numerator, denominator, separator
     def __init__(self, *args):
         self._n = 1
         self._d = 1

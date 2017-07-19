@@ -21,11 +21,20 @@ class JSONer(object):
             if not expose_empty:
                 if (isinstance(v, list) or isinstance(v, dict) or isinstance(v, JSONer)) and len(v) == 0:
                     continue
-            # Use object's custom JSON representation
-            try:
-                v = v.dump_alt()
-            except:
-                pass
+            if isinstance(v, list):
+                vv = []
+                for x in v:
+                    try:
+                        vv.append(x.dump_alt())
+                    except:
+                        vv.append(x)
+                # v = [_.dump_alt() for _ in v]
+                v = vv
+            else:
+                try:
+                    v = v.dump_alt()
+                except:
+                    pass
             res[k] = v
         return res
 

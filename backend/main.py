@@ -33,7 +33,7 @@ if __name__ == '__main__':
     # modules.utils.database.config_table_using_class(modules.models.asset.Asset, dBase)
     # print(json.dumps(dBase, indent=2))
 
-    modules.utils.database.DBInterface.initialize()
+    # modules.utils.database.DBInterface.initialize()
     # modules.utils.database.DBInterface._drop_all_tables()
 
     # DBInterface.Node.records()
@@ -60,7 +60,10 @@ if __name__ == '__main__':
     # })
     # modules.utils.class_py2coffee.class_py2coffee(Record)
     #
-    # modules.utils.class_py2coffee.class_py2coffee(MediaFile)
+    m = MediaFile()
+    m.full_instance()
+    print(m.dumps(indent=2))
+    modules.utils.class_py2coffee.class_py2coffee(MediaFile)
 
 
 
