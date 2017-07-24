@@ -1,0 +1,196 @@
+﻿.interaction.left_side
+    #panel.interaction.player_panel(ondrop="", ondragover="")
+        #video-container
+            video#interaction-video.interaction.player_player(mediagroup="preview")
+            #crop-lines.crop-lines
+                #crop-x1.interaction.fold_x1
+                #crop-x2.interaction.fold_x2
+                #crop-y1.interaction.fold_y1
+                #crop-y2.interaction.fold_y2
+        #timeline-back.interaction.player_timeline-back
+            #selection-bar-back.interaction.player_selection-bar-back
+                #program-selection-bar.interaction.player_program-selection-bar
+            #timeline-pb.interaction.player_timeline-pb
+
+    button#interaction_player_play &rtrif; 
+    button#interaction_player_pause &mid;&#8202;&mid;
+    br
+    button#interaction_player_cueBlockIn.playerButton_block &larrb;
+    button#interaction_player_setBlockIn.playerButton_block {
+    button#interaction_player_setBlockRemove.playerButton_block &otimes;
+    button#interaction_player_setBlockOut.playerButton_block }
+    button#interaction_player_cueBlockOut.playerButton_block &rarrb;
+    button#interaction_player_cueProgramIn.playerButton_program &larrb;
+    button#interaction_player_setProgramIn.playerButton_program [
+    button#interaction_player_setProgramOut.playerButton_program ]
+    button#interaction_player_cueProgramOut.playerButton_program &rarrb;
+
+    br
+    button#interaction_player_decreaseDelay &LeftTeeArrow; -50ms
+    button#interaction_player_increaseDelay +50ms &map;
+    #audio-delay 0.0
+    #current-time 0.0
+    br
+    .interactions
+        button#interaction-refresh Interactions refresh
+        table#interaction-table.interaction(frame="border", border="0")
+            tr#interaction-table-headers
+                th studio
+                th movie
+                th movie_guid
+        #interaction-info
+            text#interaction-id interaction id
+
+.interaction.right_side
+    .setup_container
+        table.setup
+            tr.setup
+                th.setup.d1 Source map
+                th.setup.d2 Proposed data
+                th.setup.d3 Destination
+
+            tr.setup
+                td.setup.d1
+                    table#src-map.src
+                        tr.src
+                            td#src-00.src.row0.col0(rowspan="5") file
+                            td#src-00-t00.src.row0.col1 video
+                            td#src-00-t00-c00.src.row0.col2 mono
+                        tr.src
+                            td#src-00-t01.src.row1.col1(rowspan="2") audio
+                            td#src-00-t01-c00.src.row1.col2 c00 (FL)
+                        tr.src
+                            td#src-00-t01-c02.src.row0.col2 c01 (FR)
+                        tr.src
+                            td#src-00-t02.src.row0.col1(rowspan="2") audio
+                            td#src-00-t02-c00.src.row1.col2 c00 (FL)
+                        tr.src
+                            td#src-00-t02-c02.src.row0.col2 c01 (FR)
+                        tr.src
+                            td#src-01.src.row1.col0(rowspan="6") file
+                            td#src-01-t00.src.row1.col1(rowspan="6") audio
+                            td#src-01-t00-c00.src.row1.col2 c00 (FL)
+                        tr.src
+                            td#src-01-t00-c01.src.row0.col2 c01 (FC)
+                        tr.src
+                            td#src-01-t00-c02.src.row1.col2 c02 (FR)
+                        tr.src
+                            td#src-01-t00-c03.src.row0.col2 c03 (BL)
+                        tr.src
+                            td#src-01-t00-c04.src.row1.col2 c04 (LFE)
+                        tr.src
+                            td#src-01-t00-c05.src.row0.col2 c05 (BR)
+                        tr.src
+                            td#src-02.src.row0.col0 file
+                            td#src-02-t00.src.row0.col1 audio
+                            td#src-02-t00-c00.src.row1.col2 c00 (mono)
+                        tr.src
+                            td#src-03.src.row1.col0 file
+                            td#src-03-t00.src.row1.col1 audio
+                            td#src-03-t00-c00.src.row0.col2 c00 (mono)
+                        tr.src
+                            td#src-04.src.row0.col0 file
+                            td#src-04-t00.src.row0.col1 audio
+                            td#src-04-t00-c00.src.row1.col2 c00 (mono)
+                        tr.src
+                            td#src-05.src.row1.col0 file
+                            td#src-05-t00.src.row1.col1 audio
+                            td#src-05-t00-c00.src.row0.col2 c00 (mono)
+                        tr.src
+                            td#src-06.src.row0.col0 file
+                            td#src-06-t00.src.row0.col1 audio
+                            td#src-06-t00-c00.src.row1.col2 c00 (mono)
+                        tr.src
+                            td#src-07.src.row1.col0 file
+                            td#src-07-t00.src.row1.col1 audio
+                            td#src-07-t00-c00.src.row0.col2 c00 (mono)
+
+                td.setup.d2
+                    table.propose
+                        tr.propose.row0
+                            td#napi-register.propose.col0.clickable Movie
+                            td.propose.col1
+                                select#pro-movie-select
+                                    option(value="1234") Some movie (Some studio)
+                                    option(value="332") Movie #2 (Studio)
+                        tr.propose.row1
+                            td.propose.col0 Video layout
+                            td.propose.col1
+                                select#pro-video-layout
+                                    option(value="mono") Mono
+                                    option(value="stereo") Stereo
+                        tr.propose.row0
+                            td.propose.col0 Video crop
+                            td#pro-video-crop.propose.col1 0:0:1920:1080
+                        tr.propose.row1
+                            td.propose.col0 Audio language
+                            td.propose.col1
+                                select#pro-audio-lang
+                                    option(value="rus") Russian
+                                    option(value="eng") English
+                                    option(value="blank") Music &amp; Effects
+                                    option(value="fra") French
+                                    option(value="spa") Spanish
+                                    option(value="swe") Swedish
+                                    option(value="por") Portuguese
+                                    option(value="zho") Chinese
+                                    option(value="deu") German
+                                    option(value="nor") Norwegian
+                                    option(value="ita") Italian
+                                    option(value="ind") Indonesian
+                                    option(value="hin") Hindi
+                                    option(value="jpn") Japanese
+                                    option(value="fin") Finnish
+                                    option(value="ukr") Ukrainian
+                                    option(value="pol") Polish
+                                    option(value="ell") Modern Greek
+                        tr.propose.row0
+                            td#pro-audio-layout-add.propose.col0.clickable Audio layout
+                            td#pro-audio-layout.propose.col1
+                                select#pro-audio-layout-select
+                                table#pro-audio-layout-map.audio-out
+                                    tr.audio-out.row1
+                                        td.audio-out.col0 FC
+                                        td.audio-out.col1
+                                            select#map-FC
+                                                option(value="0") 01-t00-c00
+                                                option(value="1") 02-t00-c00
+                        tr.propose.row1
+                            td.pro-audio-layout-pull.propose.col1.clickable(colspan="2") ==&gt; pull channels ==^
+
+                td.setup.d3
+                    table.dst
+                        tr.dst.row0
+                            td.dst.col0 Movie
+                            td#dst-movie-title.dst.col1 Some title
+                        tr.dst.row1
+                            td.dst.col0 Studio
+                            td#dst-movie-studio.dst.col1 Some rightholder
+                        tr.dst.row0
+                            td.dst.col0 Video
+                            td.dst.col1 Video info
+                        tr.dst.row1
+                            td.dst.col0 Audio
+                            td.dst.colX
+                                table#audio-out-table.audio-out
+                                    tr.audio-out.row0
+                                        td.audio-out.col0 rus
+                                        td.audio-out.col1 5.1 (1 2 3 4 5 6)
+                                    tr.audio-out.row1
+                                        td.audio-out.col0 rus
+                                        td.audio-out.col1 Stereo (7 8)
+                                    tr.audio-out.row0
+                                        td.audio-out.col0 eng
+                                        td.audio-out.col1 Stereo (10 11)
+                                    tr.audio-out.row1
+                                        td.audio-out.col0 eng
+                                        td.audio-out.col1
+                                            div(style="position: relative; top: 0; left: 0; z-index: 1;")
+                                                span Quadro (side) (12 13 14 15)
+                                                span.audio-out-btnDelete &times;
+                        tr.dst.row1 
+                            td#interaction-submit.submit.clickable(colspan="2") Submit
+                        tr.dst.row1 
+                            td#interaction-cancel.submit.clickable(colspan="2") Cancel
+                        tr.dst.row1 
+                            td#interactions-unlock.submit.clickable(colspan="2") Unlock All

@@ -1,0 +1,72 @@
+.cell {
+    overflow: hidden;
+}
+
+table.content {
+    table-layout: fixed;
+    width: 750px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+table.content td { border-style: hidden; }
+/* Studio */     table.content th:nth-of-type(1), tr.content td:nth-of-type(1) { width:11%; }
+/* Title */      table.content th:nth-of-type(2), tr.content td:nth-of-type(2) { width:17%; }
+/* Title (RU) */ table.content th:nth-of-type(3), tr.content td:nth-of-type(3) { width:14%; }
+/* slug */       table.content th:nth-of-type(4), tr.content td:nth-of-type(4) { width:8%; }
+/* id */         table.content th:nth-of-type(5), tr.content td:nth-of-type(5) { width:5%; text-align: center; }
+/* guid */       table.content th:nth-of-type(6), tr.content td:nth-of-type(6) { width:27%; text-align: center; }
+/* duration */   table.content th:nth-of-type(7), tr.content td:nth-of-type(7) { width:9%; text-align: center; }
+/* status */     table.content th:nth-of-type(8), tr.content td:nth-of-type(8) { width:9%; text-align: center; }
+tr.content.row {
+    cursor: pointer;
+    height: 16px;
+    background-image: none;
+    background-repeat: repeat;
+    background-attachment: scroll;
+    background-position: 0% 0%;
+    background-clip: border-box;
+    background-origin: padding-box;
+    background-size: auto auto;
+}
+tr.content.row:hover { color: #C06030; }
+
+tr.content.row.row0 { background-color: #282828; }
+
+tr.content.row.row1 { background-color: #303030; }
+th, td { overflow: hidden; }
+
+.content-raw-list {
+    width: 720px;
+    height: 120px;
+    background-color: #A0A0A0;
+}
+
+table.filters div {white-space: nowrap; overflow: hidden;}
+/* Studio */      table.filters th:nth-of-type(1), table.filters td:nth-of-type(1) { width:120px; }
+/* Status */      table.filters th:nth-of-type(2), table.filters td:nth-of-type(2) { width:80px; }
+/* Video files */ table.filters th:nth-of-type(3), table.filters td:nth-of-type(3) { width:200px; }
+/* Audio */       table.filters th:nth-of-type(4), table.filters td:nth-of-type(4) { width:60px; }
+/* Subtitles */   table.filters th:nth-of-type(5), table.filters td:nth-of-type(5) { width:60px; }
+
+
+tr.match {
+    color:#606060;
+}
+tr.nomatch {
+    color:#A06030;
+}
+tr.selected {
+    color: #E07020;
+}
+
+table.movie-data {
+    table-layout: fixed;
+    width: 800px;
+    white-space: nowrap;
+    overflow: hidden;
+    border-style: hidden;
+}
+table.movie-data td { border-style: hidden; }
+table.movie-data th:nth-of-type(1), table.movie-data td:nth-of-type(1) { width:120px; }
+table.movie-data th:nth-of-type(2), table.movie-data td:nth-of-type(2) { width:380px; }

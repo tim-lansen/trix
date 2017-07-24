@@ -1,0 +1,66 @@
+.player_container {
+    background: gray;
+    height: 660px;
+    width: 960px;
+    position: relative;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.panel {
+    background: gray;
+    padding-top: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.player {
+    height: 100%;
+    width: 100%;
+}
+
+.timeline-back {
+    position: relative;
+    height: 16px;
+    width: 100%;
+    background: rgba(40,40,40,.6);
+}
+
+.timeline-pb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 100%;
+    background: rgba(200, 200, 200, .4);
+    pointer-events: none;
+}
+
+.selection-bar-back {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    background: #606060;
+}
+
+.sample-selection-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 50%;
+    background: @sampleBarBG;
+    pointer-events: none;
+}
+
+.program-selection-bar {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    background: @programBarBG;
+    pointer-events: none;
+}
+

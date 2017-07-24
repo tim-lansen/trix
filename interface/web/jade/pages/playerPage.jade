@@ -1,0 +1,26 @@
+﻿#player_container.player_container
+    #panel.panel
+        video#vid1.player
+            source(src="http://video-js.zencoder.com/oceans-clip.mp4")
+        #timeline-back.timeline-back
+            #selection-bar-back.selection-bar-back
+                #program-selection-bar.program-selection-bar
+            #timeline-pb.timeline-pb
+    br
+    #audio-map
+    button#player_play play
+    button#player_pause pause
+    br
+    button#player_setBlockIn block In
+    button#player_setBlockRemove remove block
+    button#player_setBlockOut block Out
+    button#player_setProgramIn program In
+    button#player_setProgramOut program Out
+    br
+    button#player_cueBlockIn jump b-In
+    button#player_cueBlockOut jump b-Out
+    button#player_cueProgramIn jump p-In
+    button#player_cueProgramOut jump p-Out
+    br
+    p Time: 
+    p #currentTime 0

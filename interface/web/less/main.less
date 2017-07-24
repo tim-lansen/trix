@@ -1,0 +1,105 @@
+body > .sections > section:not(.active) {
+    display:none;
+}
+
+body {
+    font-size: 12px;
+    padding: 0px 0px 0px 0px;
+    margin: 0px 0px 0px 0px;
+    font-family: sans-serif;
+    color: #333;
+    background: #202020;
+}
+
+@sampleBarBG:  #80e080;
+@programBarBG: #40a0c0;
+
+.top {
+    width: 100%;
+    height: 22px;
+    padding-top: 6px;
+    padding-bottom: 4px;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+
+    &.closed {
+        background: #701010;
+    }
+    &.opened {
+        background: #C06030;
+    }
+    &.connected {
+        background: #105080;
+    }
+    &.authorized {
+        background: #107030;
+    }
+
+    &_status {
+        display: inline;
+        font-size: 18px;
+        color: #F0F0F0;
+    }
+
+}
+
+.selections {
+    padding: 0px 0px 0px 0px;
+    margin: 0px 0px 0px 0px;
+    height: 100%;
+    cursor: pointer;
+    float: left;
+
+    &.current {
+        background: #303030;
+    }
+}
+
+.select_page {
+    color: #80A0A0;
+    padding: 2px 12px 2px 12px;
+    margin-left: 8px;
+    font-size: 16px;
+    background-color: rgba(0,0,0,0);
+}
+.select_page:hover {
+    color: #B0D0D0;
+}
+.select_page.current {
+    cursor: text;
+    color: #F07020;
+}
+
+p3 {
+    color: #80A0A0;
+    padding: 2px 12px 2px 12px;
+    display: block;
+    font-size: 16px;
+}
+p3:hover {
+    color: #B0D0D0;
+    background: #383838;
+}
+p3.current {
+    cursor: text;
+    color: #A0C0C0;
+    background: #202020;
+}
+
+.sections {
+    color: #A0A0A0;
+    position: absolute;
+    top: 32px;
+    left: 0;
+    z-index: 1;
+    height: 100%;
+    width: 100%;
+    /*float: left;
+    margin-left: 2px;*/
+}
+
+@import "content";
+@import "interaction";
+@import "player";
+@import "series";

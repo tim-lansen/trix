@@ -80,7 +80,7 @@ class Logger:
         LogLevel.LOG:       {'color': Console.Colormap.white, 'invert': False, 'hi': 0},
         LogLevel.WARNING:   {'color': Console.Colormap.yellow, 'invert': False, 'hi': 1},
         LogLevel.ERROR:     {'color': Console.Colormap.red, 'invert': False, 'hi': 1},
-        LogLevel.CRITICAL:  {'color': Console.Colormap.red, 'invert': True, 'hi': 2},
+        LogLevel.CRITICAL:  {'color': Console.Colormap.red, 'invert': True, 'hi': 1},
         LogLevel.EXCEPTION: {'color': Console.Colormap.magenta, 'invert': True, 'hi': 2},
     }
 

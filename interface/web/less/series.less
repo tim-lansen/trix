@@ -1,0 +1,63 @@
+td.series-container {
+    overflow: hidden;
+    vertical-align: top;
+}
+
+table.series-container {
+    table-layout: fixed;
+    width: 1200px;
+    white-space: nowrap;
+    vertical-align: top;
+}
+
+table.series th:nth-of-type(1) td:nth-of-type(1) { width:240px; }  /* Studio */
+table.series th:nth-of-type(2) td:nth-of-type(2) { width:240px; } /* Title name (international) */
+table.series th:nth-of-type(3) td:nth-of-type(3) { width:240px; } /* Title name (russian) */
+table.series th:nth-of-type(4) td:nth-of-type(4) { width:60px; }  /* slug */
+table.series th:nth-of-type(5) td:nth-of-type(5) { width:40px; }  /* id */
+table.series th:nth-of-type(6) td:nth-of-type(6) { width:60px; }  /* guid */
+table.series th:nth-of-type(7) td:nth-of-type(7) { width:50px; }  /* duration */
+table.series th:nth-of-type(8) td:nth-of-type(8) { width:12px; }  /* status */
+table.series th:nth-of-type(9) td:nth-of-type(9) { width:12px; }  /* link */
+table.series th:nth-of-type(10) td:nth-of-type(10) { width:12px; }  /* link */
+table.series th:nth-of-type(11) td:nth-of-type(11) { width:12px; }  /* link */
+table.series th:nth-of-type(12) td:nth-of-type(12) { width:12px; }  /* link */
+table.series th:nth-of-type(13) td:nth-of-type(13) { width:12px; }  /* link */
+table.series th:nth-of-type(14) td:nth-of-type(14) { width:12px; }  /* link */
+table.series th:nth-of-type(15) td:nth-of-type(15) { width:12px; }  /* link */
+table.series th:nth-of-type(16) td:nth-of-type(16) { width:12px; }  /* link */
+table.series th:nth-of-type(17) td:nth-of-type(17) { width:12px; }  /* link */
+
+tr.series.row {
+    cursor: pointer;
+    height: 16px;
+    background-image: none;
+    background-repeat: repeat;
+    background-attachment: scroll;
+    background-position: 0% 0%;
+    background-clip: border-box;
+    background-origin: padding-box;
+    background-size: auto auto;
+}
+tr.series.row:hover { color: #C06030; }
+
+tr.series.row.row0 { background-color: #EDF3FE; }
+/*tr.series.row.row0:hover { background-color: #F4FAFF; }*/
+
+tr.series.row.row1 { background-color: #FFF; }
+/*tr.series.row.row1:hover { color: #C06030; }*/
+
+.series-raw-list {
+    width: 720px;
+    height: 120px;
+    background-color: #A0A0A0;
+}
+
+tr.match {
+
+    color:#606060;
+}
+tr.nomatch {
+
+    color:#A06030;
+}
