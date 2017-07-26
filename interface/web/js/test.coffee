@@ -1,4 +1,4 @@
-
+'use strict'
 $ = require('jquery')
 
 class Utils
@@ -22,7 +22,7 @@ class App
     #@$: require('jquery')
     @serial_number: null
     @device_token: null
-    @run: ->
+    @run_static: ->
         @serial_number = Utils.UUID.generate()
         @device_token = Utils.UUID.generate()
         console.log App.serial_number
@@ -33,8 +33,11 @@ class App
         console.log match
         return
 
+    run: ->
+        @serial_number = Utils.UUID.generate()
+        @device_token = Utils.UUID.generate()
+
 
 do (window) ->
-    'use strict'
     App.run()
     return

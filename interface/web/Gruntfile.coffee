@@ -1,4 +1,6 @@
 ﻿module.exports = (grunt)->
+    grunt.file.defaultEncoding = 'utf8'
+    grunt.file.preserveBOM = false
     grunt.loadNpmTasks 'grunt-contrib-less'
     grunt.loadNpmTasks 'grunt-contrib-jade'
     grunt.loadNpmTasks 'grunt-contrib-watch'

@@ -1,6 +1,6 @@
 'use strict'
 $ = require('jquery')
-SelectionBar = require('../../models/SelectionBar')
+Timeline = require('./Timeline')
 
 class InteractionPlayer
     constructor: (video_object, video_elements, audio_elements, interaction_channelMerger) ->
@@ -22,7 +22,7 @@ class InteractionPlayer
         @timeline_pb = document.getElementById('timeline-pb')
         @timeline_back = document.getElementById('timeline-back')
         @bars = []
-        # Program in/out data to use SelectionBar.update()
+        # Program in/out data to use Timeline.update()
         @timeStart = 0.0
         @id = 'program-selection-bar'
         @doc_currentTime = document.getElementById('current-time')
@@ -69,7 +69,7 @@ class InteractionPlayer
                 @bars[i].setTimeStart currentTime
                 return
             i++
-        @bars.push new SelectionBar('sel_' + @bars.length, @video.duration)
+        @bars.push new Timeline('sel_' + @bars.length, @video.duration)
         @bars[@bars.length - 1].setTimeStartEnd currentTime, duration
         return
 
