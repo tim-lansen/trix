@@ -54,6 +54,7 @@ if __name__ == '__main__':
     # print(job.info.steps[0].chains[0].progress.top)
 
 
+    # Use modules.utils.class_py2coffee.class_py2coffee(<class name>) to convert Python class to CoffeeScript class
     # r = Record()
     # r.update_json({
     #     'guid': 'e5d17809-e9db-4923-a7d4-001614b998d3'
@@ -63,7 +64,7 @@ if __name__ == '__main__':
     m = MediaFile()
     m.full_instance()
     print(m.dumps(indent=2))
-    modules.utils.class_py2coffee.class_py2coffee(MediaFile)
+    print(modules.utils.class_py2coffee.class_py2coffee(MediaFile))
 
 
 

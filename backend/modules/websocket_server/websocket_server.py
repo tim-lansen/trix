@@ -9,10 +9,7 @@ from base64 import b64encode
 from hashlib import sha1
 import logging
 
-if sys.version_info[0] < 3:
-    from SocketServer import ThreadingMixIn, TCPServer, StreamRequestHandler
-else:
-    from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
+from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
@@ -50,16 +47,27 @@ OPCODE_PONG         = 0xA
 # ------------------------------- Client -------------------------------
 
 
-class DefaultClientClass:
+class ApiClientClassBase:
 
     def __init__(self, handler):
         self.ws_session_id = str(uuid.uuid4())
         self.ws_handler = handler
 
 
+class ApiClassBase:
+
+    def new_client(self, client: ApiClientClassBase, server):
+        pass
+
+    def client_left(self, client: ApiClientClassBase, server):
+        pass
+
+    def message_received(self, client: ApiClientClassBase, server, msg):
+        pass
+
 # -------------------------------- API ---------------------------------
 
-class API():
+class API:
 
     def run_forever(self):
         try:
@@ -99,7 +107,7 @@ class API():
 
 # ------------------------- Implementation -----------------------------
 
-class WebsocketServer(ThreadingMixIn, TCPServer, API):
+class WebsocketServer(ThreadingMixIn, TCPServer):
     """
 	A websocket server waiting for clients to connect.
 
@@ -124,16 +132,20 @@ class WebsocketServer(ThreadingMixIn, TCPServer, API):
     allow_reuse_address = True
     daemon_threads = True  # comment to keep threads alive until finished
 
-    clients = []
+    # clients = []
+    # Maps WebSocketHandler.guid to clientClass' instance
+    handler_to_client_map = {}
 
-    def __init__(self, port, host='127.0.0.1',  clientClass=DefaultClientClass, loglevel=logging.WARNING):
+    def __init__(self, port, host='127.0.0.1', apiClass=ApiClassBase, clientClass=ApiClientClassBase, loglevel=logging.WARNING):
         logger.setLevel(loglevel)
+        self.api = apiClass()
         self.clientClass = clientClass
         self.port = port
         TCPServer.__init__(self, (host, port), WebSocketHandler)
 
     def _message_received_(self, handler, msg):
-        self.message_received(self.handler_to_client(handler), self, msg)
+        client = self.handler_to_client_map[handler.guid]
+        self.api.message_received(client, self, msg)
 
     def _ping_received_(self, handler, msg):
         handler.send_pong(msg)
@@ -143,32 +155,32 @@ class WebsocketServer(ThreadingMixIn, TCPServer, API):
 
     def _new_client_(self, handler):
         client = self.clientClass(handler)
-        self.clients.append(client)
-        self.new_client(client, self)
+        self.handler_to_client_map[handler.guid] = client
+        self.api.new_client(client, self)
 
     def _client_left_(self, handler):
-        client = self.handler_to_client(handler)
-        self.client_left(client, self)
-        if client in self.clients:
-            self.clients.remove(client)
+        client = self.handler_to_client_map.pop(handler.guid)
+        self.api.client_left(client, self)
 
-    def _unicast_(self, to_client, msg):
-        to_client['handler'].send_message(msg)
+    # def _unicast_(self, to_client, msg):
+    #     to_client['handler'].send_message(msg)
 
     def _multicast_(self, msg):
-        for client in self.clients:
-            self._unicast_(client, msg)
+        for hid in self.handler_to_client_map:
+            client = self.handler_to_client_map[hid]
+            client.ws_handler.send_message(msg)
 
-    def handler_to_client(self, handler):
-        for client in self.clients:
-            if client['handler'] == handler:
-                return client
+    # def handler_to_client(self, handler):
+    #     for client in self.clients:
+    #         if client['handler'] == handler:
+    #             return client
 
 
 class WebSocketHandler(StreamRequestHandler):
 
     def __init__(self, socket, addr, server):
         self.server = server
+        self.guid = uuid.uuid4()
         StreamRequestHandler.__init__(self, socket, addr, server)
 
     def setup(self):
@@ -185,12 +197,8 @@ class WebSocketHandler(StreamRequestHandler):
                 self.read_next_message()
 
     def read_bytes(self, num):
-        # python3 gives ordinal of byte directly
         bytes = self.rfile.read(num)
-        if sys.version_info[0] < 3:
-            return map(ord, bytes)
-        else:
-            return bytes
+        return bytes
 
     def read_next_message(self):
         try:

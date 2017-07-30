@@ -51,18 +51,16 @@ class Console:
             sys.stderr.write('\n')
 
 
-class LogLevel:
-    TRACE = 0
-    DEBUG = 1
-    INFO = 2
-    LOG = 3
-    WARNING = 4
-    ERROR = 5
-    CRITICAL = 6
-    EXCEPTION = 7
-
-
 class Logger:
+    class LogLevel:
+        TRACE = 0
+        DEBUG = 1
+        INFO = 2
+        LOG = 3
+        WARNING = 4
+        ERROR = 5
+        CRITICAL = 6
+        EXCEPTION = 7
 
     LOG_FILE = None
     LOG_FILE_LEVEL = LogLevel.DEBUG
@@ -117,35 +115,35 @@ class Logger:
 
     @staticmethod
     def trace(string, *args, **kwargs):
-        Logger._log(string, LogLevel.TRACE, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.TRACE, *args, **kwargs)
 
     @staticmethod
     def debug(string, *args, **kwargs):
-        Logger._log(string, LogLevel.DEBUG, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.DEBUG, *args, **kwargs)
 
     @staticmethod
     def info(string, *args, **kwargs):
-        Logger._log(string, LogLevel.INFO, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.INFO, *args, **kwargs)
 
     @staticmethod
     def log(string, *args, **kwargs):
-        Logger._log(string, LogLevel.LOG, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.LOG, *args, **kwargs)
 
     @staticmethod
     def warning(string, *args, **kwargs):
-        Logger._log(string, LogLevel.WARNING, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.WARNING, *args, **kwargs)
 
     @staticmethod
     def error(string, *args, **kwargs):
-        Logger._log(string, LogLevel.ERROR, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.ERROR, *args, **kwargs)
 
     @staticmethod
     def critical(string, *args, **kwargs):
-        Logger._log(string, LogLevel.CRITICAL, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.CRITICAL, *args, **kwargs)
 
     @staticmethod
     def exception(string, *args, **kwargs):
-        Logger._log(string, LogLevel.EXCEPTION, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.EXCEPTION, *args, **kwargs)
 
 
 def tracer(function):
@@ -168,7 +166,7 @@ def test_logger(a=1, b=2, *args, **kwargs):
 
 
 if __name__ == '__main__':
-    Logger.set_level(LogLevel.TRACE)
+    Logger.set_level(Logger.LogLevel.TRACE)
     Console.write_console_colored('test!\ntest1\ntest2\n', color=Console.Colormap.magenta, invert=True, hi=2)
     Console.write_console_colored('test!\ntest1\ntest2\n', color=Console.Colormap.magenta, invert=False, hi=1)
     Console.rawdemo()

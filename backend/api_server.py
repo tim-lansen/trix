@@ -1,44 +1,16 @@
 # -*- coding: utf-8 -*-
 
-
-from modules.websocket_server import WebsocketServer
+from modules.utils.api_trix import ApiTrix, ApiClient, WebsocketServer
 from modules import websocket_client
 from modules.config import TRIX_CONFIG
-from modules.utils import *
 from pprint import pprint
-
-
-# def new_client(client, server):
-#     Logger.info("New client connected and was given id {0}\n".format(client['id']))
-#     pprint(client)
-#     server.send_message_to_all("Hey all, a new client has joined us")
-#
-#
-# def client_left(client, server):
-#     print("Client({0}) disconnected".format(client['id']))
-#
-#
-# def message_received(client, server, message):
-#     if len(message) > 200:
-#         message = message[:200]+'..'
-#     print("Client({0}) said: {1}".format(client['id'], message))
-#
-#
-# server = WebsocketServer(port=TRIX_CONFIG.api_server.port, host=TRIX_CONFIG.api_server.host)
-# server.set_fn_new_client(new_client)
-# server.set_fn_client_left(client_left)
-# server.set_fn_message_received(message_received)
-# server.run_forever()
-
-
+from modules.utils.log_console import Logger, tracer
 
 import signal
 import json
 import sys
 import ssl
 import threading
-# import redis
-# import redis_data
 import uuid
 import traceback
 
@@ -142,10 +114,10 @@ def interaction_release_all():
 # Method handlers
 
 
-def get_interactions(params, profile):
-    # TODO: implement interactions filtering
-    interactions = DBInterface.Interaction.records()
-    return {'result': interactions}
+# def get_interactions(params, profile):
+#     # TODO: implement interactions filtering
+#     interactions = DBInterface.Interaction.records()
+#     return {'result': interactions}
 
 
 def get_interaction(params, profile):
@@ -169,162 +141,17 @@ def cancel_all_interactions(params, profile):
     return interaction_release_all()
 
 
-def get_tasks(params, profile):
-    return {}
-
-
-API_METHOD_VECTORS = {
-    'get_interactions'   : get_interactions,
-    'get_interaction'    : get_interaction,
-    'submit_interaction' : submit_interaction,
-    'cancel_interaction' : cancel_interaction,
-    'cancel_all_interactions' : cancel_all_interactions,
-    'get_tasks'          : get_tasks
-}
-
-
-class ApiClientProfile:
-
-    def __init__(self, ws_handler):
-        self.ws_session_id = str(uuid.uuid4())
-        self.ws_handler = ws_handler
-        # self.phone_number = None
-        # self.name = None
-        # self.id = None
-        # self.device_token = None
-        # self.serial_number = None
-        # self.authorized = False
-        # self.thread = None
-        # self.mid = 1
-        self.data = {
-            'phone_number': None,
-            'name': None,
-            'profile_id': None,
-            'device_token': None,
-            'serial_number': None,
-            'authorized': False,
-            'thread': None,
-            'message_id': 1
-        }
-
-    def set_info(self, info):
-
-        def _sync_ws_napi_request_(data):
-            print('_sync_ws_napi_request_:')
-            print(data)
-            ws = websocket_client.create_connection('ws://napi.ayyo.ru')
-            msg = json.dumps({
-                'method': 'connect',
-                'guid': str(data['message_id']),
-                'params': {
-                    'version': '2',
-                    'device_token': data['device_token'],
-                    'application': {
-                        'name': 'web_admin',
-                        'version': '4.0.1'
-                    },
-                    'device_info': {
-                        'serial_number': data['serial_number'],
-                        'type': 'pc',
-                        'name': 'PC',
-                        'model': 'PC'
-                    }
-                }
-            })
-            print(msg)
-            ws.send(msg)
-            result = json.loads(ws.recv())
-            print(result)
-            if result['error'] is None and int(result['guid']) == data['message_id']:
-                data['message_id'] += 1
-                msg = json.dumps({
-                    'method': 'widgets_all',
-                    'guid': str(data['message_id']),
-                    'params': {}
-                })
-                ws.send(msg)
-                result = json.loads(ws.recv())
-                print(result)
-                if result['error'] is None and int(result['guid']) == data['message_id']:
-                    print('Authorized {0}'.format(data['phone_number']))
-                    self.data['authorized'] = True
-            data['message_id'] += 1
-            # pprint.pprint(result)
-            data['thread'] = None
-            ws.close()
-
-        if self.data['authorized']:
-            return
-        if self.data['thread'] is not None:
-            return
-        self.data.update(info)
-        t = threading.Thread(target=_sync_ws_napi_request_, args=(self.data,))
-        t.run()
-        self.data['thread'] = t
-
-    def authorized(self):
-        return self.data['authorized']
-
-    def reset(self):
-        self.data['profile_id'] = None
-        self.data['authorized'] = False
-
-
-@tracer
-def ws_handle_connection(client, server):
-    Logger.debug('{0} connected, session_id {1}\n'.format(client.ws_handler.client_address, client.ws_session_id))
-    client.reset()
-
-
-@tracer
-def ws_handle_close(client, server):
-    Logger.debug('{0} disconnected\n'.format(client.ws_handler.client_address))
-    client.reset()
-
-
-@tracer
-def ws_handle_message(client, server, message):
-    Logger.debug('ws_handle_message({0})\n'.format(message))
-    if message is None:
-        message = ''
-    try:
-        data = json.loads(str(message))
-        params = data['params'] if 'params' in data else None
-        answer = {'error': None}
-        # error = None
-        method = data['method']
-        if method == 'connect':
-            answer['result'] = {'session_id': client.ws_session_id}
-        elif method == 'authorize':
-            if params['session_id'] == client.ws_session_id:
-                print('Authorizing {0}'.format(params['phone_number']))
-                client.set_info(params)
-            else:
-                answer['error'] = {'code': 123, 'text': 'Error while authorizing {0}: SID {1} vs {2}'.format(data['phone_number'], client.session_id, data['session_id'])}
-                print(answer['error']['text'])
-        elif client.authorized():
-            if method in API_METHOD_VECTORS:
-                answer.update(API_METHOD_VECTORS[method](params, client))
-        #else:
-        #    self.sendMessage(str(self.data))
-        if params:
-            data.pop('params')
-        data.update(answer)
-        server.send_message(client, json.dumps(data))
-    except Exception as n:
-        Logger.error('Exception: {}\n'.format(n))
-        print_traceback()
+# API_METHOD_VECTORS = {
+#     'get_interactions'   : get_interactions,
+#     'get_interaction'    : get_interaction,
+#     'submit_interaction' : submit_interaction,
+#     'cancel_interaction' : cancel_interaction,
+#     'cancel_all_interactions' : cancel_all_interactions,
+#     'get_tasks'          : get_tasks
+# }
 
 
 if __name__ == "__main__":
-    # table_asset = TRIX_CONFIG.dBase.tables['Asset']
-    # table_job = TRIX_CONFIG.dBase.tables['Job']
-    # table_node = TRIX_CONFIG.dBase.tables['Node']
-    # table_interaction = TRIX_CONFIG.dBase.tables['Interaction']
-
-    server = WebsocketServer(port=TRIX_CONFIG.api_server.port, host=TRIX_CONFIG.api_server.host, clientClass=ApiClientProfile)
-    server.set_fn_new_client(ws_handle_connection)
-    server.set_fn_client_left(ws_handle_close)
-    server.set_fn_message_received(ws_handle_message)
-
-    server.serve_forever()
+    Logger.set_level(Logger.LogLevel.TRACE)
+    api_server = WebsocketServer(port=TRIX_CONFIG.apiServer.port, host=TRIX_CONFIG.apiServer.host, apiClass=ApiTrix, clientClass=ApiClient)
+    api_server.serve_forever()

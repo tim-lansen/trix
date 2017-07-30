@@ -96,14 +96,14 @@ class SubStream(Stream):
 
 class Asset(Record):
 
-    class Source(Guid):
+    class MediaFile(Guid):
         def __init__(self):
             super().__init__()
 
     def __init__(self):
         super().__init__()
         # List of source media files (GUIDs)
-        self.sources: List[Asset.Source] = []
+        self.mediaFiles: List[Asset.MediaFile] = []
         # List of streams
         self.videoStreams: List[VideoStream] = []
         self.audioStreams: List[AudioStream] = []
@@ -116,7 +116,7 @@ class Asset(Record):
     TABLE_SETUP = {
         "relname": "trix_assets",
         "fields": [
-            ["sources", "uuid[]"],
+            ["mediaFiles", "uuid[]"],
             ["videoStreams", "json"],
             ["audioStreams", "json"],
             ["subStreams", "json"],

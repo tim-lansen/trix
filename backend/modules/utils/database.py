@@ -13,7 +13,7 @@ from typing import List
 from pprint import pformat
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from .log_console import Logger, LogLevel, tracer
+from .log_console import Logger, tracer
 from ..config.trix_config import TRIX_CONFIG
 from ..models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record
 
@@ -234,6 +234,8 @@ class DBInterface:
         return result
 
     # Get records from table filtered by status or status list
+    # status may be single value, or list of values: [1, 3, 4]
+    # cond is a list of filtering conditions: ['type=2', 'priority>3']
     @staticmethod
     def get_records(table_name, fields=None, status=None, sort=None, cond=None, user=USER):
         result = None
@@ -381,12 +383,20 @@ class DBInterface:
     class Interaction:
 
         # Request interactions filtered by status, return list sorted
+        # @staticmethod
+        # def records(status=None):
+        #     return DBInterface.get_records('Interaction',
+        #                                    fields=['guid', 'name', 'status', 'ctime', 'mtime'],
+        #                                    status=status,
+        #                                    sort=['ctime ASC', 'mtime DESC', 'status'])
+
         @staticmethod
-        def records(status=None):
+        def get_list(status, cond):
             return DBInterface.get_records('Interaction',
                                            fields=['guid', 'name', 'status', 'ctime', 'mtime'],
                                            status=status,
-                                           sort=['ctime ASC', 'mtime DESC', 'status'])
+                                           cond=cond,
+                                           sort=['priority DESC', 'ctime ASC', 'mtime DESC', 'status'])
 
         @staticmethod
         def get(uid):
@@ -416,6 +426,24 @@ class DBInterface:
         #     # Resort interactions
         #     interactions = redis_data.get_stuff_sorted(ia)
         #     return {'result': interactions}
+
+    class Asset:
+        @staticmethod
+        def get(uid):
+            return DBInterface.get_record('Asset', uid)
+
+        @staticmethod
+        def set(asset: Asset):
+            return None
+
+    class MediaFile:
+        @staticmethod
+        def get(uid):
+            return DBInterface.get_record('MediaFile', uid)
+
+        @staticmethod
+        def set(mediaFile: MediaFile):
+            return None
 
     class Machine:
         USER = 'node'

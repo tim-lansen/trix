@@ -4,7 +4,7 @@
 import os
 import sys
 from modules.models import *
-from ..utils.log_console import Logger, LogLevel, tracer
+from ..utils.log_console import Logger, tracer
 from ..utils.jsoner import JSONer
 
 
