@@ -190,7 +190,7 @@ class App extends AppInterface
             template = Templates.get(hash)
             if template
                 if $page.find('>:first-child').length == 0
-                    console.log hash, template
+                    console.log hash, Templates.templates
                     $page.html template(param)
                 @switchPage hash
             else
