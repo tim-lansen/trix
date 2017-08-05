@@ -1,7 +1,7 @@
 {
   "dBase": {
     "connection": {
-      "host": "localhost",
+      "host": "1.1.1.3",
       "port": 5432,
       "dbname": "trix_db"
     },
@@ -38,5 +38,39 @@
     "comment": "Machine templates",
     "default": {"node_count": 4, "node_job_types": [[0, 1, 2], [0, 1, 2], [0, 1, 2], [3]]},
     "127.0.0.1": {"name": "local machine", "node_count": 3, "node_job_types": [[0], [1, 2], [3]]}
+  },
+  "storage": {
+    "servers": [
+      {
+        "name": "server1",
+        "id": "server1_id",
+        "address": "1.1.1.1",
+        "shares": ["share", "render", "web"],
+        "paths": [
+          {
+            "role": "crude",
+            "download": "share/download",
+            "watch": "share/watch",
+            "in_work": "share/in_work",
+            "path": "share/done"
+          },
+          {
+            "role": "archive",
+            "path": "render/archive"
+          },
+          {
+            "role": "production",
+            "path": "render/production"
+          },
+          {
+            "role": "preview",
+            "path": "web/preview",
+            "web_access": "http://1.1.1.1/web/preview"
+          }
+        ],
+        "username": "tim",
+        "password": "1604001"
+      }
+    ]
   }
 }

@@ -3,9 +3,10 @@
 
 import os
 import sys
+from typing import List
 from modules.models import *
-from ..utils.log_console import Logger, tracer
-from ..utils.jsoner import JSONer
+from modules.utils.log_console import Logger, tracer
+from modules.utils.jsoner import JSONer
 
 
 def config_table_using_class(C, dBase):
@@ -94,11 +95,54 @@ class TrixConfig(JSONer):
             self.comment = None
             self.default = None
 
+    class Storage(JSONer):
+        class Server(JSONer):
+            class Path(JSONer):
+                class Role:
+                    UNDEFINED = 0
+                    CRUDE = 1
+                    ARCHIVE = 2
+                    PRODUCTION = 3
+                    PREVIEW = 4
+
+                def __init__(self):
+                    super().__init__()
+                    self.role: self.Role = self.Role.UNDEFINED
+                    self.download = None
+                    self.watch = None
+                    self.in_work = None
+                    self.path = None
+                    self.web_access = None
+
+            def __init__(self):
+                super().__init__()
+                self.name = None
+                self.id = None
+                self.address = None
+                self.shares = []
+                self.paths: List[self.Path] = []
+                self.username = None
+                self.password = None
+
+            def mount_point(self, share):
+                if os.name == 'nt':
+                    return r'\\{}\{}'.format(self.address, share)
+                return '/mnt/{}/{}'.format(self.id, share)
+
+            def mount_opts(self):
+                return ['-t', 'cifs', '-o', 'username={u},password={p},dir_mode=0755,file_mode=0755'.format(u=self.username, p=self.password)]
+
+        def __init__(self):
+            super().__init__()
+            self.servers: List[self.Server] = []
+            self.crude = None
+
     def __init__(self):
         super().__init__()
         self.dBase = self.DBase()
         self.apiServer = self.ApiServer()
         self.machines = self.Machines()
+        self.storage = self.Storage()
 
 
 TRIX_CONFIG = TrixConfig()

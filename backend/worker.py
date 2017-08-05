@@ -87,11 +87,11 @@ class Worker:
         self.job: Job = None
         self.job_executor = JobExecutor()
 
-        self.vectors = {
-            'exit': Worker.exit,
-            'ping': Worker.ping,
-            'offer': Worker.offer
-        }
+    Vectors = {
+        'exit': exit,
+        'ping': ping,
+        'offer': offer
+    }
 
     def run(self):
         if not DBInterface.Node.register(self.node):
@@ -108,8 +108,8 @@ class Worker:
             for n in notifications:
                 Logger.info("Got NOTIFY: {} {} {}\n".format(n.pid, n.channel, n.payload))
                 params = n.payload.split(' ')
-                if params[0] in self.vectors:
-                    self.vectors[params[0]](self, params)
+                if params[0] in Worker.Vectors:
+                    Worker.Vectors[params[0]](self, params)
                 else:
                     Logger.warning("unknown command: {}\n".format(n.payload))
 
@@ -133,7 +133,8 @@ if __name__ == '__main__':
             mach.name = 'Machine {}'.format(ip_address)
         mach.ip = ip_address
         DBInterface.Machine.register(mach)
-    host_nodes_list = DBInterface.Node.list_by_ip(ip_address)
+
+    # host_nodes_list = DBInterface.Node.list_by_ip(ip_address)
 
     print(mach.dumps(indent=2))
 

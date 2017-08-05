@@ -214,10 +214,10 @@ class Job(Record):
     # Table description
     TABLE_SETUP = {
         "relname": "trix_jobs",
-        "comment1": "Each job may depend on group, and/or have launch condition",
-        "comment2": "taskId: uid of parent task",
-        "comment3": "groupId: uid of group, it's being assigned when creating a group dependent job",
-        "comment4": "depends: uid of group of jobs that must be finished before this job is started",
+        # Each job may depend on group, and/or have launch condition
+        # taskId: uid of parent task
+        # groupId: uid of group, it's being assigned when creating a group dependent job
+        # depends: uid of group of jobs that must be finished before this job is started
         "fields": [
             ["type", "integer NOT NULL"],
             ["info", "json NOT NULL"],
