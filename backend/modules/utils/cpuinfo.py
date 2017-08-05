@@ -69,8 +69,7 @@ def command_by_line(cmd, successful_status=(0,), stacklevel=1):
         yield line.strip()
 
 
-def key_value_from_command(cmd, sep, successful_status=(0,),
-                           stacklevel=1):
+def key_value_from_command(cmd, sep, successful_status=(0,), stacklevel=1):
     d = {}
     for line in command_by_line(cmd, successful_status=successful_status,
                                 stacklevel=stacklevel + 1):
@@ -521,31 +520,31 @@ class DarwinCPUInfo(CPUInfoBase):
 
 
 class NetBSDCPUInfo(CPUInfoBase):
-	info = None
+    info = None
 
-	def __init__(self):
-		if self.info is not None:
-			return
-		info = {}
-		info['sysctl_hw'] = key_value_from_command(['sysctl', 'hw'], sep='=')
-		info['arch'] = info['sysctl_hw'].get('hw.machine_arch', 1)
-		info['machine'] = info['sysctl_hw'].get('hw.machine', 1)
-		self.__class__.info = info
+    def __init__(self):
+        if self.info is not None:
+            return
+        info = {}
+        info['sysctl_hw'] = key_value_from_command(['sysctl', 'hw'], sep='=')
+        info['arch'] = info['sysctl_hw'].get('hw.machine_arch', 1)
+        info['machine'] = info['sysctl_hw'].get('hw.machine', 1)
+        self.__class__.info = info
 
-	def _not_impl(self): pass
+    def _not_impl(self): pass
 
-	def _getNCPUs(self):
-		return int(self.info['sysctl_hw'].get('hw.ncpu', 1))
+    def _getNCPUs(self):
+        return int(self.info['sysctl_hw'].get('hw.ncpu', 1))
 
-	def _is_Intel(self):
-		if self.info['sysctl_hw'].get('hw.model', "")[0:5] == 'Intel':
-			return True
-		return False
+    def _is_Intel(self):
+        if self.info['sysctl_hw'].get('hw.model', "")[0:5] == 'Intel':
+            return True
+        return False
 
-	def _is_AMD(self):
-		if self.info['sysctl_hw'].get('hw.model', "")[0:3] == 'AMD':
-			return True
-		return False
+    def _is_AMD(self):
+        if self.info['sysctl_hw'].get('hw.model', "")[0:3] == 'AMD':
+            return True
+        return False
 
 
 class SunOSCPUInfo(CPUInfoBase):
@@ -853,9 +852,16 @@ def get_cpu_info():
         gCPU.is_Intel()
         gCPU.is_Alpha()
 
-    pnms = {x['ProcessorNameString']: 0 for x in gCPU.info}
+    key = 'model name'
+    if key not in gCPU.info[0]:
+        key = 'ProcessorNameString'
+        if key not in gCPU.info[0]:
+            for key in gCPU.info[0]:
+                if '(R)' in gCPU.info[0][key] or '(TM)' in gCPU.info[0][key]:
+                    break
+    pnms = {x[key]: 0 for x in gCPU.info}
     for pnm in pnms:
-        pnms[pnm] = len([1 for x in gCPU.info if pnm == x['ProcessorNameString']])
+        pnms[pnm] = len([1 for x in gCPU.info if pnm == x[key]])
     result = ','.join(['{} ({} virtual core(s))'.format(pnm, pnms[pnm]) for pnm in pnms])
     return result
 

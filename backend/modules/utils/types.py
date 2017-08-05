@@ -47,6 +47,9 @@ class Guid:
     def full_instance(self):
         pass
 
+    def __str__(self):
+        return str(self.guid)
+
 
 class Rational:
     RECAP = re.compile(r'^(\d+)([/:])(\d+)$')

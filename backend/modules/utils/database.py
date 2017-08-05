@@ -365,7 +365,7 @@ class DBInterface:
                 request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
                     relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
                     fields=','.join(fields),
-                    values=','.join(["'{}'".format(rec_dict[f]) for f in fields])
+                    values=','.join(["'{}'".format(str(rec_dict[f])) for f in fields])
                 )
                 # Register node
                 result = request_db(cur, request)
@@ -543,7 +543,7 @@ class DBInterface:
                                            sort=['ctime ASC', 'mtime DESC', 'status'])
 
         @staticmethod
-        def listen(node: Node):
+        def listen(node: Node, blocking=True):
             conn = DBInterface.connect(DBInterface.Node.USER)
             if conn is None:
                 Logger.warning('DBInterface.Node.register({}): DBInterface.CONN is None\n'.format(node.name))
@@ -552,7 +552,7 @@ class DBInterface:
             request = "LISTEN {};".format(node.channel)
             cur.execute(request)
             notifications = []
-            while 1:
+            while blocking:
                 if select.select([conn], [], [], 5) == ([], [], []):
                     Logger.info('timeout\n')
                 else:

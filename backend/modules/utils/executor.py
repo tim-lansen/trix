@@ -28,7 +28,7 @@ class JobExecutor:
         self.start = Event()
         self.error = Event()
         self.finish = Event()
-        self.process = Process(self._process)
+        self.process = Process(target=self._process)
         self.started = Event()
         # self._progress = 0.0
         self.force_exit = Event()
