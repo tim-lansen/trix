@@ -8,10 +8,9 @@
 # Interface: DB channel for offering a complex job or immediate execution
 
 
-import os
-import sys
 import uuid
 import time
+import modules.utils.worker_mount_paths
 from modules.utils.non_daemonic_pool import NonDaemonicPool
 from modules.config import *
 from modules.utils.log_console import Logger, tracer
@@ -19,10 +18,6 @@ from modules.utils.database import DBInterface
 from modules.utils.executor import JobExecutor
 from modules.utils.cpuinfo import get_cpu_info
 from modules.models import *
-
-
-
-
 
 
 class Worker:
@@ -33,13 +28,14 @@ class Worker:
         DBInterface.Node.unregister(self.node, False)
         # TODO: stop running processes
         self.job_executor.stop()
-        self.working = False
-        # sys.exit(0)
+        # self.working = False
+        self.node.status = Node.Status.EXITING
 
     @tracer
     def finish(self, params):
         Logger.warning('Finishing ({})\n'.format(self.node.name))
-        self.working = False
+        # self.working = False
+        self.node.status = Node.Status.FINISHING
 
     @tracer
     def ping(self, params):
@@ -99,7 +95,7 @@ class Worker:
         # self.node.channel = 'channel_{}'.format(self.node.guid.replace('-', '_'))
         self.job: Job = None
         self.job_executor = JobExecutor()
-        self.working = False
+        # self.working = False
 
     Vectors = {
         'exit': exit,
@@ -112,13 +108,18 @@ class Worker:
     def run(self):
         if not DBInterface.Node.register(self.node):
             Logger.warning('Failed to register the node {}\n'.format(self.node.name))
-            sys.exit(1)
+            return
         Logger.info("Registered self as '{}' ({})\n".format(self.node.name, self.node.guid))
         # Starting loop
-        self.working = True
-        while self.working or self.job:
+        invalid_status_set = {
+            Node.Status.EXITING,
+            Node.Status.FINISHING,
+            Node.Status.INVALID
+        }
+        working = True
+        while working or self.job:
             # Listen to individual channel, timeout-blocking when finishing
-            notifications = DBInterface.Node.listen(self.node, blocking=self.working)
+            notifications = DBInterface.Node.listen(self.node, blocking=working)
             if notifications is None:
                 Logger.warning('Listening failed\n')
                 break
@@ -129,6 +130,7 @@ class Worker:
                     Worker.Vectors[params[0]](self, params)
                 else:
                     Logger.warning("unknown command: {}\n".format(n.payload))
+            working = self.node.status not in invalid_status_set
 
         DBInterface.Node.unregister(self.node, False)
 
@@ -160,11 +162,6 @@ def run_worker():
             mach.name = 'Machine {}'.format(ip_address)
         mach.ip = ip_address
         DBInterface.Machine.register(mach)
-    # elif len(sys.argv) == 3:
-    #     name = sys.argv[1]
-    #     job_types = [int(_) for _ in sys.argv[2].split(',')]
-    #     worker = Worker(name)
-    #     worker.run()
 
     # Starting child node with params
     with NonDaemonicPool(processes=len(mach.node_job_types)) as pool:
@@ -191,8 +188,9 @@ def run_worker():
                     DBInterface.notify_list(notes)
             time.sleep(4)
 
-    Logger.critical('WORKER IS OUT\n')
+    Logger.critical('Worker {} is done\n'.format(ip_address))
 
 
 if __name__ == '__main__':
-    run_worker()
+    if modules.utils.worker_mount_paths.mount_paths():
+        run_worker()

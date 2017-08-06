@@ -136,7 +136,10 @@ class Job(Record):
             #   "p_fv1": "${temp}/${jname}.fv1.sox",
             #   "p_fv2": "${temp}/${jname}.fv2.sox" }
             self.aliases = None
-            # List of directories to create
+            # Names are strings that may help identify program
+            self.names: List[str] = []
+            # List of directories to create,
+            # or list of input files for PROBE type
             self.paths: List[str] = []
             self.steps: List[Job.Info.Step] = []
             # list(MediaChunk|MediaFile): List of expected results
@@ -177,7 +180,7 @@ class Job(Record):
             #       ]
             #   }}
             # ]
-            self.results = None
+            self.results: List[Result] = []
 
     class Status:
         NEW = 1
@@ -208,7 +211,7 @@ class Job(Record):
         self.dependsOnGroupId = Guid()
         # Condition is a pythonic expression that can be evaluated in job's context
         self.condition = None
-        self.results: List[Result] = []
+        # self.results: List[Result] = []
         # ["taskId", "uuid"],
 
     # Table description
@@ -229,7 +232,7 @@ class Job(Record):
             ["groupIds", "uuid[]"],
             ["dependsOnGroupId", "uuid"],
             ["condition", "json"],
-            ["results", "json"]
+            # ["results", "json"]
         ],
         "fields_extra": [],
         "creation": [
@@ -242,7 +245,7 @@ class Job(Record):
 def test() -> Job:
     job = Job()
     job_obj = {
-        # "guid": "3631f021-8dd0-4197-a29d-27fc3180a242",
+        "guid": str(uuid.uuid4()),
         "name": "Test job",
         "type": Job.Type.DOWNMIX,
         "info": {
@@ -256,15 +259,6 @@ def test() -> Job:
                 "new_media_id": "b0db8575-94b2-4202-804e-6cbda0ff5ee3",
                 "asset_id": "49cf7a5b-02ed-453a-8562-32c5b34d471a"
             },
-            "results": [
-                {"type": "MediaFile", "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}},
-                {"type": "Asset", "info": {"guid": "${asset_id}", "streams": [
-                    {
-                        "source": {"mediaFileId": "${new_media_id}", "streamKind": "AUDIO", "streamKindIndex": 0},
-                        "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}
-                    }
-                ]}}
-            ],
             "steps": [
                 {
                     "name": "Convert audio stereo -> 5.1",
@@ -284,9 +278,20 @@ def test() -> Job:
                         }
                     ]
                 }
-            ]
-        }
+            ],
+            "results": [
+                {"type": "MediaFile", "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}},
+                {"type": "Asset", "info": {"guid": "${asset_id}", "streams": [
+                    {
+                        "source": {"mediaFileId": "${new_media_id}", "streamKind": "AUDIO", "streamKindIndex": 0},
+                        "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}
+                    }
+                ]}}
+            ],
+        },
     }
+    job.groupIds.append(Guid())
+    job.groupIds.append(Guid(0))
     job.update_json(job_obj)
     # print(job.dumps(indent=2))
     return job

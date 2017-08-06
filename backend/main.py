@@ -2,8 +2,11 @@
 
 # from modules.config import *
 # from pprint import pprint
-# from typing import List
+from typing import List
 import json
+
+from modules.utils.jsoner import JSONer
+from modules.utils.types import Guid
 
 import modules.utils.combined_info
 import modules.utils.types
@@ -24,7 +27,18 @@ import modules.models.job
 # import multiprocessing
 
 
+def test_jsoner():
+    class JSONerTest(JSONer):
+        def __init__(self):
+            super().__init__()
+            self.mem: List[Guid] = [Guid(0)]
+
+    jst = JSONerTest()
+    print(jst.dumps(indent=2))
+
+
 if __name__ == '__main__':
+    test_jsoner()
     # dBase = {
     #     'templates': {},
     #     'tables': {}
@@ -74,10 +88,10 @@ if __name__ == '__main__':
     # modules.utils.execute_chain.test()
 
     # modules.utils.resolve_job_aliases.test()
-    # modules.models.job.test()
-
     # job = modules.models.job.test()
-    # modules.utils.database.DBInterface.Job.register(job)
+
+    job = modules.models.job.test()
+    modules.utils.database.DBInterface.Job.register(job)
 
     # multiprocessing.freeze_support()
     # modules.utils.execute_chain.test()

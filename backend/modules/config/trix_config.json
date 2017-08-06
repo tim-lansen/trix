@@ -52,6 +52,7 @@
             "download": "share/download",
             "watch": "share/watch",
             "in_work": "share/in_work",
+            "failed": "share/failed",
             "path": "share/done"
           },
           {

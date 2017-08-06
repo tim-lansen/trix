@@ -14,6 +14,7 @@ from pprint import pformat
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from .log_console import Logger, tracer
+from .types import Guid
 from ..config.trix_config import TRIX_CONFIG
 from ..models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record
 
@@ -355,17 +356,18 @@ class DBInterface:
                 rec.ctime = str(rows[0][0])
                 rec.mtime = str(rows[0][0])
                 if rec.guid is None:
-                    rec.guid = str(uuid.uuid4())
+                    rec.guid = Guid(0)
                 # Select table and fields
-                rec_dict = rec.__dict__
+                rd = rec.__dict__
                 table_name = rec.__class__.__name__
                 tdata = TRIX_CONFIG.dBase.tables[table_name]
-                fields = [f[0] for f in tdata['fields'] if rec_dict[f[0]] is not None]
+                fields = [f[0] for f in tdata['fields'] if rd[f[0]] is not None]
                 # Build request
                 request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
                     relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
                     fields=','.join(fields),
-                    values=','.join(["'{}'".format(str(rec_dict[f])) for f in fields])
+                    values=','.join(["ARRAY[{}]::uuid[]".format(','.join(["'{}'".format(_) for _ in rd[f]])) if type(rd[f]) is list else "'{}'".format(str(rd[f])) for f in fields])
+                    # values=','.join(["'[1]'" if type(rd[f]) is list else "'{}'".format(str(rd[f])) for f in fields])
                 )
                 # Register node
                 result = request_db(cur, request)
@@ -553,13 +555,15 @@ class DBInterface:
             cur.execute(request)
             notifications = []
             while blocking:
-                if select.select([conn], [], [], 5) == ([], [], []):
-                    Logger.info('timeout\n')
-                else:
+                a = select.select([conn], [], [], 5)[0]
+                if len(a) > 0:
                     conn.poll()
                     while conn.notifies:
                         notifications.append(conn.notifies.pop(0))
                     break
+                # else:
+                #     Logger.info('timeout\n')
+
             return notifications
 
     class Job:

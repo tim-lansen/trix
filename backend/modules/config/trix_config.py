@@ -111,6 +111,7 @@ class TrixConfig(JSONer):
                     self.download = None
                     self.watch = None
                     self.in_work = None
+                    self.failed = None
                     self.path = None
                     self.web_access = None
 

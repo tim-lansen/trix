@@ -1,0 +1,63 @@
+===================
+Ubuntu 16.04 server
+===================
+PostgreSQL
+===================
+    1  psql
+
+    2  sudo su - postgres
+        createuser -s trix
+        adduser trix
+        psql
+            CREATE DATABASE trix_db WITH OWNER = trix;
+            \q
+        psql trix_db trix
+            \q
+    7  ssh tim@localhost
+    8  ip a
+    9  sudo shutdown -P 0
+   10  sudo /etc/init.d/postgresql restart
+   11  sudo su - trix
+   12  sudo vim /etc/postgresql/9.5/main/postgresql.conf
+        listen_addresses = '*'
+   13  sudo vim /etc/postgresql/9.5/main/pg_hba.conf
+        host    all             all             1.1.1.0/24              trustconf
+   15  sudo /etc/init.d/postgresql restart
+   16  ps -f -u postgres
+===================
+Network
+===================
+   44  ip a
+   45  sudo vim /etc/network/interfaces
+        # whole file
+        auto lo
+        iface lo inet loopback
+
+        # NAT interface
+        auto enp0s3
+        iface enp0s3 inet dhcp
+
+        # Host-only interface
+        auto enp0s8
+        iface enp0s8 inet static
+                address 1.1.1.3
+                netmask 255.255.255.0
+                network 1.1.1.255
+   50  sudo /etc/init.d/networking restart
+===================
+Python 3.6 + psycopg2
+===================
+    sudo add-apt-repository ppa:jonathonf/python-3.6
+    sudo apt-get update
+    sudo apt-get install python3.6
+    sudo apt-get install python3-pip
+    python3.6 -m pip install --upgrade pip
+    python3.6 -m pip install psycopg2
+    python3.6 -m pip install Unidecode-0.04.21-py2.py3-none-any.whl
+    python3.6 -m pip install python_slugify-1.2.4-py2.py3-none-any.whl
+===================
+Tools
+===================
+    sudo apt-get install ffmpeg
+    sudo apt-get install mediainfo
+    sudo apt-get install sox

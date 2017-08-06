@@ -29,7 +29,7 @@ class JobExecutor:
         self.error = Event()
         self.finish = Event()
         self.process = Process(target=self._process)
-        self.started = Event()
+        self.running = Event()
         # self._progress = 0.0
         self.force_exit = Event()
         self._last_captured_progress = 0.0
@@ -44,6 +44,7 @@ class JobExecutor:
             if not self.start.is_set():
                 continue
             self.start.clear()
+            self.running.set()
             self._last_captured_progress = 0.0
             flush_queue(self.job_progress_output)
             Logger.info("Starting job {}\n".format(self.job.name))
@@ -115,6 +116,7 @@ class JobExecutor:
                 Logger.info("Step {} finished\n".format(ai))
                 self.job_progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, (ai + 1.0)/len(self.job.info.steps)))
             Logger.info("Job finished\n")
+            self.running.clear()
             self.finish.set()
 
     def progress(self):
@@ -125,16 +127,16 @@ class JobExecutor:
         return self._last_captured_progress
 
     def run(self, job: Job):
-        if self.process is not None:
+        if self.running.is_set():
             Logger.error("ExecuteStep.run: busy\n")
             return False
         self.job = job
         self.error.clear()
         self.finish.clear()
-        self.started.clear()
+        # self.running.clear()
         self.start.set()
-        self.started.wait(timeout=10.0)
-        if self.started.is_set():
+        self.running.wait(timeout=10.0)
+        if self.running.is_set():
             Logger.info("Job execution started\n")
             return True
         Logger.error("Failed to start job execution\n")

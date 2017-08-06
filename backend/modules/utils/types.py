@@ -4,7 +4,7 @@
 
 import re
 import uuid
-from .log_console import Logger
+from .log_console import Logger, tracer
 
 
 class Guid:
@@ -47,8 +47,15 @@ class Guid:
     def full_instance(self):
         pass
 
+    # @tracer
     def __str__(self):
+        # Logger.critical(str(self.guid) + '\n')
         return str(self.guid)
+
+    # @tracer
+    def __repr__(self):
+        # Logger.critical(str(self.guid) + '\n')
+        return "''{}''".format(str(self.guid))
 
 
 class Rational:

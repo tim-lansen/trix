@@ -10,7 +10,9 @@ class Node(Record):
         IDLE = 1
         BUSY = 2
         OFFER = 3
-        INVALID = 4
+        EXITING = 4
+        FINISHING = 5
+        INVALID = 6
 
     def __init__(self):
         super().__init__()
