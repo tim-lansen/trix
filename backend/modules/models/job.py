@@ -250,13 +250,13 @@ def test() -> Job:
         "type": Job.Type.DOWNMIX,
         "info": {
             "aliases": {
-                "src_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc1",
-                "dst_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc3",
-                "temp": "C:/temp/${dst_asset}",
+                # "src_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc1",
+                # "dst_asset": "f22ba38e-7c50-4760-81c9-d8b3a4724fc3",
+                # "temp": "C:/temp/${dst_asset}",
                 "alias": "Disney.Frozen",
-                "f_src": "F:/music/The Art Of Noise/1987 - In No Sence - Nonsence!/15 - Crusoe.mp3",
-                "f_dst": "F:/temp/test.sox",
-                "new_media_id": "b0db8575-94b2-4202-804e-6cbda0ff5ee3",
+                "f_src": "/mnt/server1_id/crude/in_work/test_eng1_20.mp4",
+                "f_dst": "/mnt/server1_id/web/preview/test_eng1_downmix.mp4",
+                "new_media_id": str(uuid.uuid4()),
                 "asset_id": "49cf7a5b-02ed-453a-8562-32c5b34d471a"
             },
             "steps": [
@@ -266,12 +266,13 @@ def test() -> Job:
                     "chains": [
                         {
                             "procs": [
-                                ["ffmpeg", "-y", "-i", "${f_src}", "-c:a", "pcm_s32le", "-f", "sox", "-"],
-                                ["sox", "-t", "sox", "-", "-t", "sox", "${f_dst}", "remix", "1v0.5,2v-0.5", "sinc", "-p", "10", "-t", "5", "100-3500", "-t", "10"]
+                                "ffmpeg -y -i ${f_src} -c:a pcm_s32le -f sox -".split(' '),
+                                "sox -t sox - -t sox - remix 1v0.5,2v-0.5 sinc -p 10 -t 5 100-3500 -t 10".split(' '),
+                                "ffmpeg -y -f sox -i - -c:a aac -strict -2 -b:a 64k ${f_dst}".split(' ')
                             ],
-                            "return_codes": [[0, 2], [0]],
+                            "return_codes": [[0, 2], [0], [0]],
                             "progress": {
-                                "capture": 0,
+                                "capture": 2,
                                 "parser": "ffmpeg",
                                 "top": 600.0
                             }
@@ -281,12 +282,12 @@ def test() -> Job:
             ],
             "results": [
                 {"type": "MediaFile", "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}},
-                {"type": "Asset", "info": {"guid": "${asset_id}", "streams": [
-                    {
-                        "source": {"mediaFileId": "${new_media_id}", "streamKind": "AUDIO", "streamKindIndex": 0},
-                        "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}
-                    }
-                ]}}
+                # {"type": "Asset", "info": {"guid": "${asset_id}", "streams": [
+                #     {
+                #         "source": {"mediaFileId": "${new_media_id}", "streamKind": "AUDIO", "streamKindIndex": 0},
+                #         "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}
+                #     }
+                # ]}}
             ],
         },
     }

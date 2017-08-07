@@ -24,10 +24,19 @@ from modules.utils.database import DBInterface
 def run(period=5):
     def test_job_condition(_job_):
         # First, check dependencies
-        if _job_['depends'] is not None:
+        _dog_ = _job_['dependsongroupid']
+        if _dog_ is not None and _dog_ != '00000000-0000-0000-0000-000000000000':
             # Job depends on group
             # Request jobs included to the group and have status != FINISHED
-            _jobs_ = DBInterface.get_records('Job', fields=['status'], cond=["group='{}'".format(_job_['depends']), 'status<>{}'.format(Job.Status.FINISHED)])
+            _jobs_ = DBInterface.get_records(
+                'Job',
+                fields=['status'],
+                cond=[
+                    "'{}'=ANY(groupids)".format(_dog_),
+                    "guid<>'{}'".format(_dog_),
+                    "status<>{}".format(Job.Status.FINISHED)
+                ]
+            )
             if len(_jobs_):
                 return False
         # Check condition
@@ -45,7 +54,7 @@ def run(period=5):
     while True:
 
         # Get all NEW jobs, change their status to WAITING if condition test is True
-        jobs = DBInterface.get_records('Job', fields=['guid', 'depends', 'condition'], status=Job.Status.NEW)
+        jobs = DBInterface.get_records('Job', fields=['guid', 'dependsongroupid', 'condition'], status=Job.Status.NEW)
         for job in jobs:
             if test_job_condition(job):
                 DBInterface.Job.set_status(job['guid'], Job.Status.WAITING)
@@ -77,11 +86,11 @@ def run(period=5):
         while len(jobs) and len(nodes):
             node = nodes.pop(-1)
             job = jobs.pop(0)
-            if test_job_condition(job):
-                if not DBInterface.Job.set_status(job['guid'], Job.Status.OFFERED):
-                    Logger.warning('Failed to change job status\n')
-                    continue
-                notifications.append([node['channel'], 'offer {}'.format(job['guid'])])
+            # if test_job_condition(job):
+            if not DBInterface.Job.set_status(job['guid'], Job.Status.OFFERED):
+                Logger.warning('Failed to change job status\n')
+                continue
+            notifications.append([node['channel'], 'offer {}'.format(job['guid'])])
         if len(notifications):
             DBInterface.notify_list(notifications)
 

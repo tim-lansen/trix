@@ -90,8 +90,8 @@ if __name__ == '__main__':
     # modules.utils.resolve_job_aliases.test()
     # job = modules.models.job.test()
 
-    # job = modules.models.job.test()
-    # modules.utils.database.DBInterface.Job.register(job)
+    job = modules.models.job.test()
+    modules.utils.database.DBInterface.Job.register(job)
 
     # multiprocessing.freeze_support()
     # modules.utils.execute_chain.test()

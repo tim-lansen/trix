@@ -9,6 +9,7 @@
 
 
 import os
+import sys
 import uuid
 import time
 import shutil
@@ -225,5 +226,8 @@ def run_worker():
 
 
 if __name__ == '__main__':
-    if modules.utils.worker_mount_paths.mount_paths():
-        run_worker()
+    if len(sys.argv) == 3:
+        launch_node(sys.argv[1], sys.argv[2], None)
+    else:
+        if modules.utils.worker_mount_paths.mount_paths():
+            run_worker()
