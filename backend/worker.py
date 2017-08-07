@@ -199,28 +199,28 @@ def run_worker():
             exit(1)
         ars.append([name, channel, nj])
     # Starting child node with params
-    with NonDaemonicPool(processes=len(mach.node_job_types)) as pool:
-        # for ni, nj in enumerate(mach.node_job_types):
-        for a in ars:
-            # name = '{}_{}'.format(ip_address, ni)
-            # channel = 'ch_{}'.format(name.replace('.', '_'))
-            # params = {'name': name, 'job_types': nj}
-            r = pool.apply_async(launch_node, args=tuple(a), callback=lambda x: print('FINISHED:', x), error_callback=lambda e: print('ERROR!', e))
-            a.append(r)
-
-        falling = False
-        while 1:
-            ready = [_[3].ready() for _ in ars]
-            finished_count = ready.count(True)
-            if finished_count > 0:
-                if finished_count == len(ars):
-                    break
-                if not falling:
-                    falling = True
-                    # Send notifications (only once)
-                    notes = [[ars[_][1], 'finish'] for _ in range(len(ars)) if not ready[_]]
-                    DBInterface.notify_list(notes)
-            time.sleep(4)
+    # with NonDaemonicPool(processes=len(mach.node_job_types)) as pool:
+    #     # for ni, nj in enumerate(mach.node_job_types):
+    #     for a in ars:
+    #         # name = '{}_{}'.format(ip_address, ni)
+    #         # channel = 'ch_{}'.format(name.replace('.', '_'))
+    #         # params = {'name': name, 'job_types': nj}
+    #         r = pool.apply_async(launch_node, args=tuple(a), callback=lambda x: print('FINISHED:', x), error_callback=lambda e: print('ERROR!', e))
+    #         a.append(r)
+    #
+    #     falling = False
+    #     while 1:
+    #         ready = [_[3].ready() for _ in ars]
+    #         finished_count = ready.count(True)
+    #         if finished_count > 0:
+    #             if finished_count == len(ars):
+    #                 break
+    #             if not falling:
+    #                 falling = True
+    #                 # Send notifications (only once)
+    #                 notes = [[ars[_][1], 'finish'] for _ in range(len(ars)) if not ready[_]]
+    #                 DBInterface.notify_list(notes)
+    #         time.sleep(4)
 
     Logger.critical('Worker {} is done\n'.format(ip_address))
 
