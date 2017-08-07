@@ -366,7 +366,12 @@ class DBInterface:
                 request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
                     relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
                     fields=','.join(fields),
-                    values=','.join(["ARRAY[{}]::uuid[]".format(','.join(["'{}'".format(_) for _ in rd[f]])) if type(rd[f]) is list else "'{}'".format(str(rd[f])) for f in fields])
+                    values=','.join([
+                        "ARRAY[{}]::uuid[]".format(','.join(["'{}'".format(_)
+                                                             for _ in rd[f]]))
+                                                                if type(rd[f]) is list and len(rd[f]) > 0 and type(rd[f][0]) is Guid
+                            else "'{}'".format(str(rd[f])) for f in fields
+                    ])
                     # values=','.join(["'[1]'" if type(rd[f]) is list else "'{}'".format(str(rd[f])) for f in fields])
                 )
                 # Register node
