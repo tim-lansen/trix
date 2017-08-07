@@ -45,7 +45,7 @@
         "name": "server1",
         "id": "server1_id",
         "address": "1.1.1.1",
-        "shares": ["crude", "store"],
+        "shares": ["crude", "store", "web"],
         "paths": [
           {
             "role": "crude",
@@ -62,17 +62,7 @@
           {
             "role": "production",
             "path": "store/production"
-          }
-        ],
-        "username": "tim",
-        "password": "1604001"
-      },
-      {
-        "name": "server2",
-        "id": "server2_id",
-        "address": "1.1.1.10",
-        "shares": ["web"],
-        "paths": [
+          },
           {
             "role": "preview",
             "path": "web/preview",
