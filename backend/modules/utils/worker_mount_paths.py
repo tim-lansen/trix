@@ -37,7 +37,7 @@ def mount_paths():
                 _wrap_call_(['sudo', 'umount', mount[netpath]], 'Failed to unmount {}\n'.format(mount[netpath]))
                 _wrap_call_(['sudo', 'rmdir', mount[netpath]], 'Failed to remove {}\n'.format(mount[netpath]))
             _wrap_call_(['sudo', 'mkdir', '-p', desired_mp])
-            _wrap_call_(['sudo', 'chmod', '755', desired_mp])
+            _wrap_call_(['sudo', 'chmod', '777', desired_mp])
             _wrap_call_(['sudo', 'mount', netpath, desired_mp] + server.mount_opts())
     return True
 
