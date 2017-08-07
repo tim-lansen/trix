@@ -45,28 +45,38 @@
         "name": "server1",
         "id": "server1_id",
         "address": "1.1.1.1",
-        "shares": ["share", "render", "web"],
+        "shares": ["crude", "store"],
         "paths": [
           {
             "role": "crude",
-            "download": "share/download",
-            "watch": "share/watch",
-            "in_work": "share/in_work",
-            "failed": "share/failed",
-            "path": "share/done"
+            "download": "crude/download",
+            "watch": "crude/watch",
+            "in_work": "crude/in_work",
+            "failed": "crude/failed",
+            "path": "crude/done"
           },
           {
             "role": "archive",
-            "path": "render/archive"
+            "path": "store/archive"
           },
           {
             "role": "production",
-            "path": "render/production"
-          },
+            "path": "store/production"
+          }
+        ],
+        "username": "tim",
+        "password": "1604001"
+      },
+      {
+        "name": "server2",
+        "id": "server2_id",
+        "address": "1.1.1.10",
+        "shares": ["web"],
+        "paths": [
           {
             "role": "preview",
             "path": "web/preview",
-            "web_access": "http://1.1.1.1/web/preview"
+            "web_access": "http://1.1.1.10/web/preview"
           }
         ],
         "username": "tim",
