@@ -8,8 +8,10 @@
 # Interface: DB channel for offering a complex job or immediate execution
 
 
+import os
 import uuid
 import time
+import shutil
 import modules.utils.worker_mount_paths
 from modules.utils.non_daemonic_pool import NonDaemonicPool
 from modules.config import *
@@ -18,6 +20,26 @@ from modules.utils.database import DBInterface
 from modules.utils.executor import JobExecutor
 from modules.utils.cpuinfo import get_cpu_info
 from modules.models import *
+
+
+def dir_clear_create(path):
+    result = True
+    if os.path.isfile(path):
+        os.remove(path)
+        time.sleep(1)
+    if os.path.isdir(path):
+        for f in os.listdir(path):
+            fp = os.path.join(path, f)
+            try:
+                shutil.rmtree(fp)
+            except OSError:
+                os.remove(fp)
+    else:
+        try:
+            os.mkdir(path)
+        except OSError:
+            result = False
+    return result
 
 
 class Worker:
@@ -157,26 +179,37 @@ def run_worker():
         mach = Machine()
         mach.guid.new()
         mach.update_json(tmpl)
+        # superhack
+        if os.name == 'nt' and mach.tmp.startswith('/'):
+            mach.tmp = 'C:\\' + mach.tmp[1:].replace('/', '\\')
         mach.hardware.cpu = get_cpu_info()
         if mach.name is None:
             mach.name = 'Machine {}'.format(ip_address)
         mach.ip = ip_address
         DBInterface.Machine.register(mach)
 
+    ars = []
+    for ni, nj in enumerate(mach.node_job_types):
+        name = '{}_{}'.format(ip_address, ni)
+        channel = 'ch_{}'.format(name.replace('.', '_'))
+        tmp = os.path.join(mach.tmp, 'trix_{:02d}'.format(ni))
+        if not dir_clear_create(tmp):
+            Logger.critical('Worker {}: failed to create directory {}\n'.format(ip_address, tmp))
+            exit(1)
+        ars.append([name, channel, nj])
     # Starting child node with params
     with NonDaemonicPool(processes=len(mach.node_job_types)) as pool:
-        # name : ApplyResult objects
-        ars = []
-        for ni, nj in enumerate(mach.node_job_types):
-            name = '{}_{}'.format(ip_address, ni)
-            channel = 'ch_{}'.format(name.replace('.', '_'))
+        # for ni, nj in enumerate(mach.node_job_types):
+        for a in ars:
+            # name = '{}_{}'.format(ip_address, ni)
+            # channel = 'ch_{}'.format(name.replace('.', '_'))
             # params = {'name': name, 'job_types': nj}
-            r = pool.apply_async(launch_node, args=(name, channel, nj), callback=lambda x: print('FINISHED:', x), error_callback=lambda e: print('ERROR!', e))
-            ars.append([name, r, channel])
+            r = pool.apply_async(launch_node, args=tuple(a), callback=lambda x: print('FINISHED:', x), error_callback=lambda e: print('ERROR!', e))
+            a.append(r)
 
         falling = False
         while 1:
-            ready = [_[1].ready() for _ in ars]
+            ready = [_[3].ready() for _ in ars]
             finished_count = ready.count(True)
             if finished_count > 0:
                 if finished_count == len(ars):
@@ -184,7 +217,7 @@ def run_worker():
                 if not falling:
                     falling = True
                     # Send notifications (only once)
-                    notes = [[ars[_][2], 'finish'] for _ in range(len(ars)) if not ready[_]]
+                    notes = [[ars[_][1], 'finish'] for _ in range(len(ars)) if not ready[_]]
                     DBInterface.notify_list(notes)
             time.sleep(4)
 

@@ -35,6 +35,7 @@ class Machine(Record):
         self.node_job_types = None
         self.status = Machine.Status.OFFLINE
         self.hardware = Machine.Hardware()
+        self.tmp = None
 
     TABLE_SETUP = {
         "comment": "machine info: hardware, ip, ",
@@ -44,7 +45,8 @@ class Machine(Record):
             ["node_count", "integer NOT NULL"],
             ["node_job_types", "json NOT NULL"],
             ["status", "integer NOT NULL"],
-            ["hardware", "json"]
+            ["hardware", "json"],
+            ["tmp", "varchar(255)"]
         ],
         "fields_extra": [
             ["CONSTRAINT machine_ip_is_unique UNIQUE", "ip"],

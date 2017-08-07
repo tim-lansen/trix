@@ -36,7 +36,7 @@
   },
   "machines": {
     "comment": "Machine templates",
-    "default": {"node_count": 4, "node_job_types": [[0, 1, 2], [0, 1, 2], [0, 1, 2], [3]]},
+    "default": {"node_count": 4, "node_job_types": [[0, 1, 2], [0, 1, 2], [0, 1, 2], [3]], "tmp": "/tmp"},
     "127.0.0.1": {"name": "local machine", "node_count": 3, "node_job_types": [[0], [1, 2], [3]]}
   },
   "storage": {
