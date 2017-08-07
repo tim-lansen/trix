@@ -131,7 +131,7 @@ class TrixConfig(JSONer):
                 return '/mnt/{}/{}'.format(self.id, share)
 
             def mount_opts(self):
-                return ['-t', 'cifs', '-o', 'username={u},password={p},dir_mode=0755,file_mode=0755'.format(u=self.username, p=self.password)]
+                return ['-t', 'cifs', '-o', 'username={u},password={p},dir_mode=0777,file_mode=0777'.format(u=self.username, p=self.password)]
 
         def __init__(self):
             super().__init__()
