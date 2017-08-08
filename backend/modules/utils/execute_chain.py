@@ -10,7 +10,8 @@ from typing import List
 
 # from queue import Queue, Empty
 # from threading import Thread, Event
-from multiprocessing import Queue, Process, Event
+from multiprocessing import Process, Event
+from .cross_process_lossy_queue import CPLQueue
 
 from subprocess import Popen, PIPE
 from modules.models.job import Job
@@ -21,22 +22,22 @@ from .parsers import PARSERS
 
 
 # Read all queued objects, return last
-def flush_queue(que: Queue):
-    c1 = None
-    while True:
-        c2 = c1
-        try:
-            c1 = que.get_nowait()
-        except:
-            break
-    return c2
+# def flush_queue(que: Queue):
+#     c1 = None
+#     while True:
+#         c2 = c1
+#         try:
+#             c1 = que.get_nowait()
+#         except:
+#             break
+#     return c2
 
 
 # Execute chain object
 # Chain description may be found in modules.models.job
 # In short: Chain is a list of processes that being started simultaneously and compiled into a chain,
 # where STDOUT of every process is attached to STDIN of next process
-def execute_chain(chain: Job.Info.Step.Chain, output: List[Queue], chain_enter_event: Event, chain_error_event: Event):
+def execute_chain(chain: Job.Info.Step.Chain, output: List[CPLQueue], chain_enter_event: Event, chain_error_event: Event):
     chain_enter_event.set()
     if chain_error_event.is_set():
         Logger.error('Error event is already set\n')
@@ -131,7 +132,7 @@ def test():
 
     test_chain.progress.parser = 'ffmpeg'
 
-    test_output: List[Queue] = [Queue()] * len(test_chain.procs)
+    test_output: List[CPLQueue] = [CPLQueue(5)] * len(test_chain.procs)
 
     # que = multiprocessing.Queue()
     # que.get_nowait()
@@ -155,7 +156,7 @@ def test():
             break
         # Compile info from chains
         for j, q in enumerate(test_output):
-            c = flush_queue(q)
+            c = q.flush()
             if c and j == test_chain.progress.capture:
                 p = parser(c)
                 Logger.log('{}\n'.format(p))

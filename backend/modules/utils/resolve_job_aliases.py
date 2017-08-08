@@ -34,10 +34,11 @@ def resolve_aliases(params):
 
 def resolve_job_aliases(job: Job):
     aliases = job.info.aliases
-    if aliases is None:
-        aliases = {}
-    aliases['src_asset'] = job.info.src_asset
-    aliases['dst_asset'] = job.info.dst_asset
+    if aliases is None or len(aliases) == 0:
+        return
+        # aliases = {}
+    # aliases['src_asset'] = job.info.src_asset
+    # aliases['dst_asset'] = job.info.dst_asset
     params = {
         'collection': aliases,
         'text': json.dumps(aliases)

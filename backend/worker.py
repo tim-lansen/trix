@@ -47,13 +47,20 @@ class Worker:
 
     @tracer
     def exit(self, params):
+        """
+        Force node to stop processing and exit
+        :param params: don't care
+        :return:
+        """
         Logger.warning('Exiting ({})\n'.format(self.node.name))
-        DBInterface.Node.unregister(self.node, False)
+
         # TODO: stop running processes
-        if self.job_executor.job:
-            DBInterface.Job.set_status(self.job_executor.job.guid, Job.Status.CANCELED)
-        self.job_executor.stop()
+        if self.job_executor.exec.running.is_set():
+            self.job_executor.stop()
+            DBInterface.Job.set_status(self.node.job, Job.Status.CANCELED)
         self.node.status = Node.Status.EXITING
+        DBInterface.Node.unregister(self.node, False)
+        # self.node.job = None
 
     @tracer
     def finish(self, params):
@@ -137,10 +144,13 @@ class Worker:
             Node.Status.FINISHING,
             Node.Status.INVALID
         }
+        valid_status_set = {
+            Node.Status.IDLE,
+            Node.Status.BUSY
+        }
         working = True
-        while working or self.node.job:
+        while working:
             # Listen to individual channel, timeout-blocking when finishing
-            # notifications = DBInterface.Node.listen(self.node, blocking=working)
             notifications = DBInterface.Node.listen(self.node, blocking=False)
             if notifications is None:
                 Logger.warning('Listening failed\n')
@@ -153,23 +163,22 @@ class Worker:
                 else:
                     Logger.warning("unknown command: {}\n".format(n.payload))
 
-            if self.job_executor.status == JobExecutor.Status.FAILED:
+            if self.job_executor.exec.error.is_set():
                 Logger.critical('job {} failed\n'.format(self.node.job))
                 DBInterface.Job.set_status(self.node.job, Job.Status.FAILED)
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:
                     self.node.status = Node.Status.IDLE
-                self.job_executor.job = None
-            elif self.job_executor.status == JobExecutor.Status.FINISHED:
+                    self.job_executor.exec.reset()
+            if self.job_executor.exec.finish.is_set():
                 # TODO: set results
                 DBInterface.Job.set_status(self.node.job, Job.Status.FINISHED)
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:
                     self.node.status = Node.Status.IDLE
-                self.job_executor.job = None
 
             Logger.info('Node: {}\n'.format(self.node.dumps()))
-            working = self.node.status not in invalid_status_set
+            working = self.node.status in valid_status_set or self.job_executor.working()
 
         DBInterface.Node.unregister(self.node, False)
 
