@@ -154,15 +154,18 @@ class Worker:
                     Logger.warning("unknown command: {}\n".format(n.payload))
 
             if self.job_executor.status == JobExecutor.Status.FAILED:
+                Logger.critical('job {} failed\n'.format(self.node.job))
                 DBInterface.Job.set_status(self.node.job, Job.Status.FAILED)
                 self.node.job = None
-                self.node.status = Node.Status.IDLE
+                if self.node.status == Node.Status.BUSY:
+                    self.node.status = Node.Status.IDLE
                 self.job_executor.job = None
             elif self.job_executor.status == JobExecutor.Status.FINISHED:
                 # TODO: set results
                 DBInterface.Job.set_status(self.node.job, Job.Status.FINISHED)
                 self.node.job = None
-                self.node.status = Node.Status.IDLE
+                if self.node.status == Node.Status.BUSY:
+                    self.node.status = Node.Status.IDLE
                 self.job_executor.job = None
 
             Logger.info('Node: {}\n'.format(self.node.dumps()))

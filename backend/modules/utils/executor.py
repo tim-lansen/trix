@@ -127,7 +127,7 @@ class JobExecutor:
                 Logger.info("Job finished\n")
             except Exception as e:
                 Logger.error("Job failed: {}\n".format(e))
-                self.status = self.Status.FAILED
+                self.status = JobExecutor.Status.FAILED
                 self.error.set()
             self.status = self.Status.FINISHED
             self.running.clear()
