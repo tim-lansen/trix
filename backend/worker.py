@@ -52,7 +52,7 @@ class Worker:
         # TODO: stop running processes
         if self.job_executor.job:
             DBInterface.Job.set_status(self.job_executor.job.guid, Job.Status.CANCELED)
-            self.job_executor.stop()
+        self.job_executor.stop()
         self.node.status = Node.Status.EXITING
 
     @tracer
@@ -128,6 +128,7 @@ class Worker:
     def run(self):
         if not DBInterface.Node.register(self.node):
             Logger.warning('Failed to register the node {}\n'.format(self.node.name))
+            self.job_executor.stop()
             return
         Logger.info("Registered self as '{}' ({})\n".format(self.node.name, self.node.guid))
         # Starting loop
@@ -236,6 +237,6 @@ def run_worker():
 if __name__ == '__main__':
     if len(sys.argv) == 3:
         launch_node(sys.argv[1], sys.argv[2], None)
-    else:
-        if modules.utils.worker_mount_paths.mount_paths():
-            run_worker()
+    # else:
+    #     if modules.utils.worker_mount_paths.mount_paths():
+    #         run_worker()
