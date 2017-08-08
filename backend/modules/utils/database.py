@@ -559,15 +559,17 @@ class DBInterface:
             request = "LISTEN {};".format(node.channel)
             cur.execute(request)
             notifications = []
-            while blocking:
+            while 1:
                 a = select.select([conn], [], [], 5)[0]
                 if len(a) > 0:
                     conn.poll()
                     while conn.notifies:
                         notifications.append(conn.notifies.pop(0))
                     break
-                # else:
-                #     Logger.info('timeout\n')
+                else:
+                    Logger.info('DBIinterface.Node.listen: timeout\n')
+                if not blocking:
+                    break
 
             return notifications
 

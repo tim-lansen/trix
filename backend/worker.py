@@ -50,14 +50,14 @@ class Worker:
         Logger.warning('Exiting ({})\n'.format(self.node.name))
         DBInterface.Node.unregister(self.node, False)
         # TODO: stop running processes
-        self.job_executor.stop()
-        # self.working = False
+        if self.job_executor.job:
+            DBInterface.Job.set_status(self.job_executor.job.guid, Job.Status.CANCELED)
+            self.job_executor.stop()
         self.node.status = Node.Status.EXITING
 
     @tracer
     def finish(self, params):
         Logger.warning('Finishing ({})\n'.format(self.node.name))
-        # self.working = False
         self.node.status = Node.Status.FINISHING
 
     @tracer
@@ -67,7 +67,7 @@ class Worker:
         # TODO: update status, job status/progress
         if self.node.status == Node.Status.BUSY:
             progress = self.job_executor.progress()
-            DBInterface.Job.set_fields(self.job.guid, {'progress': progress})
+            DBInterface.Job.set_fields(self.job_executor.job.guid, {'progress': progress})
 
     def _revert_(self, msg, revert_job=True):
         Logger.error(msg)
@@ -100,13 +100,13 @@ class Worker:
             return
 
         # Get job
-        self.job = DBInterface.Job.get(self.node.job)
-        if self.job is None:
+        job = DBInterface.Job.get(self.node.job)
+        if job is None:
             self._revert_("Failed to get job {}\n".format(self.node.job))
             return
 
         # Start execution
-        if not self.job_executor.run(self.job):
+        if not self.job_executor.run(job):
             self._revert_("Failed to start job execution {}\n".format(self.node.job))
 
     @tracer
@@ -115,10 +115,7 @@ class Worker:
         self.node.name = _name
         self.node.channel = _channel
         self.node.guid = str(uuid.uuid4())
-        # self.node.channel = 'channel_{}'.format(self.node.guid.replace('-', '_'))
-        self.job: Job = None
         self.job_executor = JobExecutor()
-        # self.working = False
 
     Vectors = {
         'exit': exit,
@@ -140,9 +137,10 @@ class Worker:
             Node.Status.INVALID
         }
         working = True
-        while working or self.job:
+        while working or self.job_executor.job:
             # Listen to individual channel, timeout-blocking when finishing
-            notifications = DBInterface.Node.listen(self.node, blocking=working)
+            # notifications = DBInterface.Node.listen(self.node, blocking=working)
+            notifications = DBInterface.Node.listen(self.node, blocking=False)
             if notifications is None:
                 Logger.warning('Listening failed\n')
                 break
@@ -153,6 +151,15 @@ class Worker:
                     Worker.Vectors[params[0]](self, params)
                 else:
                     Logger.warning("unknown command: {}\n".format(n.payload))
+
+            if self.job_executor.status == JobExecutor.Status.FAILED:
+                DBInterface.Job.set_status(self.job_executor.job.guid, Job.Status.FAILED)
+                self.job_executor.job = None
+            elif self.job_executor.status == JobExecutor.Status.FINISHED:
+                # TODO: set results
+                DBInterface.Job.set_status(self.job_executor.job.guid, Job.Status.FINISHED)
+                self.job_executor.job = None
+
             Logger.info('Node: {}\n'.format(self.node.dumps()))
             working = self.node.status not in invalid_status_set
 

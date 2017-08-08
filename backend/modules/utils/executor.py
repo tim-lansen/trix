@@ -22,7 +22,14 @@ from .execute_chain import execute_chain, flush_queue
 
 
 class JobExecutor:
+    class Status:
+        IDLE = 1
+        WORKING = 2
+        FINISHED = 3
+        FAILED = 4
+
     def __init__(self):
+        self.status = self.Status.IDLE
         self.job_progress_output = Queue()
         self.job: Job = None
         self.start = Event()
@@ -112,6 +119,7 @@ class JobExecutor:
                     if chain_error.is_set():
                         chain_error.clear()
                         Logger.error("Job failed on step {}\n".format(ai))
+                        self.status = self.Status.FAILED
                         self.error.set()
                         break
                     Logger.info("Step {} finished\n".format(ai))
@@ -119,7 +127,9 @@ class JobExecutor:
                 Logger.info("Job finished\n")
             except Exception as e:
                 Logger.error("Job failed: {}\n".format(e))
+                self.status = self.Status.FAILED
                 self.error.set()
+            self.status = self.Status.FINISHED
             self.running.clear()
             self.finish.set()
 
@@ -138,7 +148,7 @@ class JobExecutor:
         self.job = job
         self.error.clear()
         self.finish.clear()
-        # self.running.clear()
+        self.status = self.Status.WORKING
         self.start.set()
         self.running.wait(timeout=10.0)
         if self.running.is_set():
@@ -153,3 +163,4 @@ class JobExecutor:
     def stop(self):
         self.force_exit.set()
         self.process.join(timeout=5)
+        self.job = None

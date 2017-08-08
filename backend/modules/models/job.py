@@ -189,6 +189,7 @@ class Job(Record):
         EXECUTING = 4
         FINISHED = 5
         FAILED = 6
+        CANCELED = 7
 
     # Guid type support class
     class GroupId(Guid):
