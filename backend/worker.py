@@ -153,6 +153,7 @@ class Worker:
                     Worker.Vectors[params[0]](self, params)
                 else:
                     Logger.warning("unknown command: {}\n".format(n.payload))
+            Logger.info('Node: {}\n'.format(self.node.dumps()))
             working = self.node.status not in invalid_status_set
 
         DBInterface.Node.unregister(self.node, False)
