@@ -138,7 +138,7 @@ class Worker:
             Node.Status.INVALID
         }
         working = True
-        while working or self.job_executor.job:
+        while working or self.node.job:
             # Listen to individual channel, timeout-blocking when finishing
             # notifications = DBInterface.Node.listen(self.node, blocking=working)
             notifications = DBInterface.Node.listen(self.node, blocking=False)
@@ -154,11 +154,15 @@ class Worker:
                     Logger.warning("unknown command: {}\n".format(n.payload))
 
             if self.job_executor.status == JobExecutor.Status.FAILED:
-                DBInterface.Job.set_status(self.job_executor.job.guid, Job.Status.FAILED)
+                DBInterface.Job.set_status(self.node.job, Job.Status.FAILED)
+                self.node.job = None
+                self.node.status = Node.Status.IDLE
                 self.job_executor.job = None
             elif self.job_executor.status == JobExecutor.Status.FINISHED:
                 # TODO: set results
-                DBInterface.Job.set_status(self.job_executor.job.guid, Job.Status.FINISHED)
+                DBInterface.Job.set_status(self.node.job, Job.Status.FINISHED)
+                self.node.job = None
+                self.node.status = Node.Status.IDLE
                 self.job_executor.job = None
 
             Logger.info('Node: {}\n'.format(self.node.dumps()))
