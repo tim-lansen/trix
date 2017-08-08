@@ -531,7 +531,7 @@ class DBInterface:
             result = False
             if request_db(cur, request):
                 rows = cur.fetchall()
-                node.mtime = rows[0][0]
+                node.mtime = str(rows[0][0])
                 # Update node's mtime
                 request = "UPDATE {relname} SET mtime='{mtime}' WHERE guid='{node_id}';".format(
                     relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
