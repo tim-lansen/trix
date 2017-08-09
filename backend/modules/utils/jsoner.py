@@ -7,7 +7,7 @@ from .log_console import Logger
 
 
 # This helper class makes JSON <key:value> be accessible via class members
-class JSONer(object):
+class JSONer:
 
     @staticmethod
     def filter(object_dict, expose_unmentioned=False, expose_empty=True, expose_none=False):
@@ -64,6 +64,21 @@ class JSONer(object):
 
     def __str__(self):
         return self.dumps()
+
+    def __getitem__(self, item):
+        if item in self.__dict__:
+            return self.__dict__[item]
+        return self.unmentioned[item]
+
+    def __setitem__(self, item, value):
+        self.__dict__[item] = value
+
+    def __iter__(self):
+        for k in self.__dict__:
+            if k != 'unmentioned':
+                yield k
+        for k in self.unmentioned:
+            yield k
 
     def dumps(self, ensure_ascii=True, indent=None, separators=None, expose_unmentioned=False, expose_empty=True, expose_none=False):
         # Exclude unmentioned, None and empty lists
@@ -251,3 +266,8 @@ class JSONer(object):
                         obj = subclass()
                         obj.full_instance()
                         self.__dict__[name].append(obj)
+
+    def reset_lists(self):
+        for k in self.__dict__:
+            if type(self.__dict__[k]) is list:
+                self.__dict__[k].clear()

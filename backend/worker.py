@@ -253,6 +253,7 @@ def run_worker():
 if __name__ == '__main__':
     if len(sys.argv) == 3:
         launch_node(sys.argv[1], sys.argv[2], None)
-    # else:
-    #     if modules.utils.worker_mount_paths.mount_paths():
+    else:
+        if not modules.utils.worker_mount_paths.mount_paths():
+            Logger.critical('Failed to mount all necessary paths\n')
     #         run_worker()

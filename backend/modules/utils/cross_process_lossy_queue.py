@@ -7,7 +7,6 @@ import multiprocessing
 
 class CPLQueue:
     def __init__(self, maxsize):
-        # super().__init__()
         self.q = multiprocessing.Queue()
         self.maxsize = maxsize
 

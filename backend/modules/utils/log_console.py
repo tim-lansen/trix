@@ -3,6 +3,7 @@
 
 import sys
 import time
+import traceback
 
 
 class Console:
@@ -57,10 +58,11 @@ class Logger:
         DEBUG = 1
         INFO = 2
         LOG = 3
-        WARNING = 4
-        ERROR = 5
-        CRITICAL = 6
-        EXCEPTION = 7
+        TRACEBACK = 4
+        WARNING = 5
+        ERROR = 6
+        CRITICAL = 7
+        EXCEPTION = 8
 
     LOG_FILE = None
     LOG_FILE_LEVEL = LogLevel.DEBUG
@@ -75,7 +77,8 @@ class Logger:
         LogLevel.TRACE:     {'color': Console.Colormap.green, 'invert': False, 'hi': 0},
         LogLevel.DEBUG:     {'color': Console.Colormap.blue, 'invert': False, 'hi': 1},
         LogLevel.INFO:      {'color': Console.Colormap.cyan, 'invert': False, 'hi': 1},
-        LogLevel.LOG:       {'color': Console.Colormap.white, 'invert': False, 'hi': 0},
+        LogLevel.LOG:       {'color': Console.Colormap.green, 'invert': False, 'hi': 1},
+        LogLevel.TRACEBACK: {'color': Console.Colormap.yellow, 'invert': False, 'hi': 0},
         LogLevel.WARNING:   {'color': Console.Colormap.yellow, 'invert': False, 'hi': 1},
         LogLevel.ERROR:     {'color': Console.Colormap.red, 'invert': False, 'hi': 1},
         LogLevel.CRITICAL:  {'color': Console.Colormap.red, 'invert': True, 'hi': 1},
@@ -112,6 +115,13 @@ class Logger:
                 Console.write_console_colored(log_for_file, **Logger.COLOR_MAP[level])
             else:
                 Console.write_console_colored(string, **Logger.COLOR_MAP[level])
+
+    @staticmethod
+    def traceback():
+        string = ''
+        for frame in traceback.extract_tb(sys.exc_info()[2]):
+            string += str(frame) + '\n'
+        Logger._log(string, Logger.LogLevel.TRACEBACK)
 
     @staticmethod
     def trace(string, *args, **kwargs):

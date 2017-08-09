@@ -7,6 +7,7 @@ import os
 import sys
 import time
 import json
+import uuid
 import shutil
 from typing import List
 from multiprocessing import Process, Event
@@ -16,6 +17,9 @@ from .parsers import PARSERS
 from .execute_chain import execute_chain
 from .cross_process_lossy_queue import CPLQueue
 from .resolve_job_aliases import resolve_job_aliases
+
+from modules.models.mediafile import MediaFile
+from .combined_info import combined_info
 
 
 class JobExecutor:
@@ -45,14 +49,7 @@ class JobExecutor:
     def _process(ex: Execution):
         chain_enter = Event()
         chain_error = Event()
-        # while not self.force_exit.is_set():
-        #     self.start.wait(timeout=1.0)
-        #     if not self.start.is_set():
-        #         continue
-        #     self.start.clear()
         ex.running.set()
-        # self._last_captured_progress = 0.0
-        # flush_queue(self.job_progress_output)
         try:
             Logger.info("Starting job {}\n".format(ex.job.name))
             # Prepare paths
@@ -61,14 +58,14 @@ class JobExecutor:
                     os.remove(path)
                 elif os.path.isdir(path):
                     shutil.rmtree(path, ignore_errors=True)
-                os.mkdir(path)
+                os.makedirs(path)
             for ai, step in enumerate(ex.job.info.steps):
                 Logger.info("Step #{}\n".format(ai))
                 # Prepare pipes
                 for pipe in step.pipes:
                     os.mkfifo(pipe)
                 step_queues = []
-                monitors: List[Job.Info.Step.Chain] = []
+                monitors: List[Job.Info.Step.Chain.Progress] = []
                 threads: List[Process] = []
 
                 # Initialize and start step's chains execution, each chain in own thread
@@ -78,7 +75,7 @@ class JobExecutor:
                         time.sleep(1.0)
                     monitors.append(chain.progress)
                     # Multi-capture chain
-                    queues = [CPLQueue(5)] * len(chain.procs)
+                    queues = [CPLQueue(5) for _ in chain.procs]
                     step_queues.append(queues)
                     t = Process(target=execute_chain, args=(chain, queues, chain_enter, chain_error))
                     t.start()
@@ -95,25 +92,24 @@ class JobExecutor:
                         # Multi-chain capture
                         for j, q in enumerate(que):
                             c = q.flush()
-                            if c and j == monitors[i].progress.capture:
-                                if monitors[i].progress.parser in PARSERS:
-                                    cap = PARSERS[monitors[i].progress.parser](c)
+                            if c is None:
+                                continue
+                            if j == monitors[i].capture:
+                                if monitors[i].parser in PARSERS:
+                                    cap = PARSERS[monitors[i].parser](c)
                                     if cap and 'pos' in cap:
-                                        monitors[i].progress.done = cap['pos']
-                                        # self.job.info.steps[ai].chains[i].progress.done =
-                                        # info['steps'][ai]['progress'][i] = cap['pos']/monitors[i]['top']
-                                        # # step_complete[ai][i] = cap['pos']/monitors[i]['top']
+                                        monitors[i].done = cap['pos']
                     # calculate step progress
                     step_progress = 0.0
                     for m in monitors:
-                        step_progress += m.progress.done/m.progress.top
+                        step_progress += m.done/m.top
                     job_progress = step_progress / (len(monitors) * len(ex.job.info.steps))
-                    ex.progress_output.put('{{"step":{},"progress":{.3f}}}'.format(ai, job_progress))
+                    ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, job_progress))
                     time.sleep(0.5)
 
                 # Step is finished, cleaning up
                 for m in monitors:
-                    m.progress.done = 1.0
+                    m.done = 1.0
                 for pipe in step.pipes:
                     os.remove(pipe)
                 if chain_error.is_set():
@@ -125,13 +121,22 @@ class JobExecutor:
                 ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, (ai + 1.0)/len(ex.job.info.steps)))
             Logger.info("Job finished\n")
         except Exception as e:
-            Logger.error("Job failed fff: {}\n".format(e))
-            Logger.warning(ex.job.dumps())
+            Logger.error("Job failed: {}\n".format(e))
+            Logger.traceback()
+            Logger.warning('{}\n'.format(ex.job.dumps()))
             ex.error.set()
         ex.running.clear()
         # Set finish event only if no error
         if not ex.error.is_set():
             ex.finish.set()
+
+    def results(self):
+        if self.exec.job.info.results is None or len(self.exec.job.info.results) == 0:
+            Logger.warning('No results to emit\n')
+            return None
+        res = []
+        for result in self.exec.job.info.results:
+            Logger.critical('{}\n'.format(result))
 
     def working(self):
         return self.process and self.process.is_alive()
@@ -172,3 +177,72 @@ class JobExecutor:
                 if self.process.is_alive():
                     Logger.error("Terminating process\n")
                     self.process.terminate()
+
+
+def test():
+    job = Job()
+    job.update_json({
+        "guid": str(uuid.uuid4()),
+        "name": "Test job: downmix",
+        "type": Job.Type.DOWNMIX,
+        "info": {
+            "aliases": {
+                # Temporary folder
+                "tmp": "/tmp/slot00",
+                "alias": "Disney.Frozen",
+                "f_src": "/mnt/server1_id/crude/in_work/avatar_audio_stereo.mp4",
+                "f_dst": "${previews}/${new_media_id}/avatar_audio_downmix.mp4",
+                "asset_id": "49cf7a5b-02ed-453a-8562-32c5b34d471a",
+                "new_media_id": "1122334455667788",
+                "previews": "/mnt/server1_id/web/preview"
+            },
+            # Folders to be created before start processing
+            "paths": [
+                "${tmp}/pipes",
+                "${previews}/${new_media_id}"
+            ],
+            "steps": [
+                {
+                    "name": "Downmix audio stereo -> mono",
+                    "weight": 1.0,
+                    "chains": [
+                        {
+                            "procs": [
+                                "ffmpeg -y -loglevel error -i ${f_src} -t 600 -c:a pcm_s32le -f sox -".split(' '),
+                                "sox -t sox - -t sox - remix 1v0.5,2v0.5 sinc -p 10 -t 5 100-3500 -t 10".split(' '),
+                                "ffmpeg -y -loglevel error -stats -f sox -i - -c:a aac -strict -2 -b:a 64k ${f_dst}".split(' ')
+                            ],
+                            "return_codes": [[0, 2], [0], [0]],
+                            "progress": {
+                                "capture": 2,
+                                "parser": "ffmpeg",
+                                "top": 600.0
+                            }
+                        }
+                    ]
+                }
+            ],
+            "results": [
+                {'eval': ['mediafile = MediaFile()', ]},
+                {"type": "MediaFile", "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}}
+            ]
+        }
+    })
+    job_executor = JobExecutor()
+    job_executor.run(job)
+    working = True
+    while working:
+        # Listen to individual channel, timeout-blocking when finishing
+        if job_executor.exec.error.is_set():
+            Logger.critical('job {} failed\n'.format(job.guid))
+            job_executor.exec.reset()
+            break
+        if job_executor.exec.finish.is_set():
+            Logger.info('job {} finished\n'.format(job.guid))
+            break
+
+        Logger.log('Job progress: {}\n'.format(job_executor.progress()))
+        working = job_executor.working()
+        time.sleep(1)
+
+    job_executor.stop()

@@ -15,7 +15,7 @@ from modules.models.record import Record
 import modules.utils.class_py2coffee
 from modules.models.mediafile import MediaFile
 
-# import modules.utils.execute_chain
+import modules.utils.execute_chain
 # from modules.config import *
 # from modules.models import *
 # import modules.utils.resolve_job_aliases
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     # modules.utils.database.config_table_using_class(modules.models.asset.Asset, dBase)
     # print(json.dumps(dBase, indent=2))
 
-    modules.utils.database.DBInterface.initialize()
+    # modules.utils.database.DBInterface.initialize()
     # modules.utils.database.DBInterface._drop_all_tables()
 
     # DBInterface.Node.records()
@@ -85,13 +85,13 @@ if __name__ == '__main__':
     # modules.utils.combined_info.test()
     # modules.utils.types.test()
 
-    # modules.utils.execute_chain.test()
+    modules.utils.execute_chain.test()
 
     # modules.utils.resolve_job_aliases.test()
     # job = modules.models.job.test()
 
-    job = modules.models.job.test()
-    modules.utils.database.DBInterface.Job.register(job)
+    # job = modules.models.job.test()
+    # modules.utils.database.DBInterface.Job.register(job)
 
     # multiprocessing.freeze_support()
     # modules.utils.execute_chain.test()

@@ -9,7 +9,7 @@ from .log_console import Logger
 
 # Assume that text is a regular JSON string
 def resolve_aliases(params):
-    collection: dict = params['collection']
+    collection = params['collection']
     text: str = params['text']
     resolved = 0
     missed = 0
@@ -34,29 +34,17 @@ def resolve_aliases(params):
 
 def resolve_job_aliases(job: Job):
     aliases = job.info.aliases
-    if aliases is None or len(aliases) == 0:
-        return
-        # aliases = {}
-    # aliases['src_asset'] = job.info.src_asset
-    # aliases['dst_asset'] = job.info.dst_asset
+    # Aliases must contain 'tmp' and 'guid'
+    aliases['guid'] = str(job.guid)
+
     params = {
         'collection': aliases,
-        'text': json.dumps(aliases)
+        'text': job.info.dumps()
     }
     if resolve_aliases(params):
-        aliases = params['json']
-    job.info.aliases = aliases
-
-    # Scan job.info.steps
-    for i, step in enumerate(job.info.steps):
-        params = {
-            'collection': aliases,
-            'text': step.dumps()
-        }
-        if resolve_aliases(params):
-            step_new = Job.Info.Step()
-            step_new.update_json(params['json'])
-            job.info.steps[i] = step_new
+        # Clear all lists in info
+        job.info.reset_lists()
+        job.info.update_json(params['json'])
 
 
 # Testing Job class initialization and alias resolving

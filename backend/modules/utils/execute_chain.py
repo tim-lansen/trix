@@ -37,13 +37,16 @@ from .parsers import PARSERS
 # Chain description may be found in modules.models.job
 # In short: Chain is a list of processes that being started simultaneously and compiled into a chain,
 # where STDOUT of every process is attached to STDIN of next process
-def execute_chain(chain: Job.Info.Step.Chain, output: List[CPLQueue], chain_enter_event: Event, chain_error_event: Event):
+def execute_chain(chain: Job.Info.Step.Chain,
+                  output: List[CPLQueue],
+                  chain_enter_event: Event,
+                  chain_error_event: Event):
     chain_enter_event.set()
     if chain_error_event.is_set():
         Logger.error('Error event is already set\n')
         return
     proc = []
-    text = [''] * len(chain.procs)
+    text = ['' for _ in chain.procs]
     stderr_nbsr = []
     pstdout = PIPE
     Logger.info('{0}\n'.format(' \\\n|'.join([format_command(_) for _ in chain.procs])))
@@ -70,7 +73,6 @@ def execute_chain(chain: Job.Info.Step.Chain, output: List[CPLQueue], chain_ente
         p.stdout.close()
     all_completed = False
     retcodes = chain.return_codes
-    print(retcodes)
     while not all_completed:
         all_completed = True
         if chain_error_event.is_set():
@@ -99,14 +101,13 @@ def execute_chain(chain: Job.Info.Step.Chain, output: List[CPLQueue], chain_ente
             else:
                 # Check retcode
                 rc = p.returncode
-                # utils.write_console_colored('Return Code of #{0} is {1}\n'.format(i, rc), color=3)
-                if str(i) in retcodes and rc not in retcodes[str(i)]:
+                if rc not in retcodes[i]:
                     # Error, stop chain
                     Logger.warning('Bad retcode in op#{0}: {1}\n'.format(i, rc))
                     chain_error_event.set()
                 proc[i] = None
         time.sleep(0.4)
-    Logger.info('Chain finished\n')
+    Logger.log('Chain finished\n')
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))
     # print('Execute chain finished')
@@ -124,28 +125,25 @@ def test():
     # ]
     # test_chain.progress.capture = 0
     test_chain.procs = [
-        r"ffmpeg -y -loglevel error -stats -i F:\Kinozal\Der.gezaehmte.Widerspenstige.1980.720p.BluRay.mkv -t 90 -map a:0 -c:a pcm_s32le -f sox -".split(' '),
-        r"sox -t sox - -t sox - remix 1v0.5,2v-0.5 sinc -p 10 -t 5 100-3500 -t 10".split(' '),
-        r"ffmpeg -y -loglevel error -stats -f sox -i - -c:a aac -b:a 128k -strict -2 C:\temp\test_chain_audio.mp4".split(' ')
+        r"ffmpeg -y -loglevel error -stats -i /mnt/server1_id/crude/in_work/test_eng1_20.mp4 -t 90 -map a:0 -c:a pcm_s32le -f sox -".split(' '),
+        r"sox -t sox - -t sox - remix 1v0.5,2v0.5 sinc -p 10 -t 5 100-3500 -t 10".split(' '),
+        r"ffmpeg -y -loglevel error -stats -f sox -i - -c:a aac -b:a 128k -strict -2 /mnt/server1_id/crude/in_work/test_eng1_20.chain.mp4".split(' ')
     ]
     test_chain.progress.capture = 2
 
     test_chain.progress.parser = 'ffmpeg'
 
-    test_output: List[CPLQueue] = [CPLQueue(5)] * len(test_chain.procs)
-
-    # que = multiprocessing.Queue()
-    # que.get_nowait()
+    test_output: List[CPLQueue] = [CPLQueue(5) for _ in test_chain.procs]
 
     # Multi-capture chain
     test_process = Process(target=execute_chain, args=(test_chain, test_output, test_chain_enter, test_chain_error))
-    time.sleep(1.0)
     test_process.start()
 
     test_chain_enter.wait()
     test_chain_enter.clear()
 
     def dummy_parser(c):
+        Logger.warning('{}\n'.format(c))
         return None
 
     parser = dummy_parser if test_chain.progress.parser is None or test_chain.progress.parser not in PARSERS else \
@@ -162,4 +160,5 @@ def test():
                 Logger.log('{}\n'.format(p))
             time.sleep(0.1)
 
+    Logger.critical('Done\n')
 

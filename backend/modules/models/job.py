@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
 
-import re
 import uuid
-import json
 from typing import List
 from .record import *
 
@@ -88,6 +86,12 @@ class Job(Record):
         SIMPLE_TYPE = PROBE | ENCODE_VIDEO | ENCODE_AUDIO | MUX | DOWNMIX | UPMIX | ENCRYPT
 
     class Info(JSONer):
+        class Aliases(JSONer):
+            def __init__(self):
+                super().__init__()
+                # Mandatory field
+                self.tmp = '/tmp'
+
         class Step(JSONer):
             class Chain(JSONer):
                 class Progress(JSONer):
@@ -122,7 +126,7 @@ class Job(Record):
                 self.name = None
                 # (list(str)) List of pipe files being created to perform job step, example:
                 # ["${p_fv1}", "${p_fv2}", "${p_bv1}", "${p_bv2}", "${p_lf1}", "${p_lf2}", "${p_FLFR}", "${p_BLBR}", "${p_LFE}", "${p_FC}"]
-                self.pipes = None
+                self.pipes: List[str] = []
                 # (float) Step's weight in job - the complexity of step
                 self.weight = 1.0
                 # (list(Chain)) List of process chains being started in parallel by this step
@@ -131,11 +135,11 @@ class Job(Record):
         def __init__(self):
             super().__init__()
             # dict(str: str): Aliases that may be used in params or in other aliases, example:
-            # { "temp": "/tmp/${asset}",
+            # { "tmp": "/tmp/${asset}",
             #   "jname": "Fox.Epic",
             #   "p_fv1": "${temp}/${jname}.fv1.sox",
             #   "p_fv2": "${temp}/${jname}.fv2.sox" }
-            self.aliases = None
+            self.aliases = self.Aliases()
             # Names are strings that may help identify program
             self.names: List[str] = []
             # List of directories to create,
@@ -199,7 +203,7 @@ class Job(Record):
     def __init__(self):
         super().__init__()
         self.type = None
-        self.info: Job.Info = Job.Info()
+        self.info = Job.Info()
         self.fails = 0
         self.offers = 0
         self.status = self.Status.NEW
@@ -289,8 +293,8 @@ def test() -> Job:
                 #         "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}
                 #     }
                 # ]}}
-            ],
-        },
+            ]
+        }
     }
     job.groupIds.append(Guid())
     job.groupIds.append(Guid(0))
