@@ -6,6 +6,7 @@
 # CLI interface: "C:\Program Files\PostgreSQL\9.6\bin\psql.exe" --username=trix --host=localhost trix_db
 
 
+import re
 import sys
 import uuid
 import select
@@ -69,6 +70,7 @@ def request_db_return_dl(cur, tdata, fields, condition):
     else:
         rows = cur.fetchall()
         for row in rows:
+            # TODO: handle ARRAY '{val, val, val}'
             result.append(dict(zip(fields, row)))
     return result
 
