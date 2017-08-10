@@ -130,13 +130,36 @@ class JobExecutor:
         if not ex.error.is_set():
             ex.finish.set()
 
+    @staticmethod
+    def _result_(r: Job.Result):
+        pass
+
+    @staticmethod
+    def _result_mediafile(r: Job.Result):
+        r.actual = MediaFile()
+        combined_info(r.actual, r.path)
+
+    VECTORS = {
+        Job.Result.Type.MEDIAFILE: _result_mediafile,
+        Job.Result.Type.ASSET: _result_,
+        Job.Result.Type.INFO: _result_,
+        Job.Result.Type.FILE: _result_,
+        Job.Result.Type.TASK: _result_,
+        Job.Result.Type.JOB: _result_
+    }
+
+    @staticmethod
+    def derive_results(results: List[Job.Result]):
+        for result in results:
+            Logger.critical('{}\n'.format(result))
+            if result.type in JobExecutor.VECTORS:
+                JobExecutor.VECTORS[result.type](result)
+
     def results(self):
         if self.exec.job.info.results is None or len(self.exec.job.info.results) == 0:
             Logger.warning('No results to emit\n')
             return None
-        res = []
-        for result in self.exec.job.info.results:
-            Logger.critical('{}\n'.format(result))
+        JobExecutor.derive_results(self.exec.job.info.results)
 
     def working(self):
         return self.process and self.process.is_alive()

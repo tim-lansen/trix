@@ -7,21 +7,6 @@ from .record import *
 
 
 # Result is what Task or Job emits on completion
-class Result(JSONer):
-    class Type:
-        UNDEFINED = 0
-        MEDIAFILE = 1
-        ASSET = 2
-        INFO = 3
-        FILE = 4
-        TASK = 5
-        JOB = 6
-
-    def __init__(self):
-        super().__init__()
-        self.type = 0
-        self.path = None
-
 
 class Task(JSONer):
     class Type:
@@ -84,6 +69,30 @@ class Job(Record):
 
         # Presets:
         SIMPLE_TYPE = PROBE | ENCODE_VIDEO | ENCODE_AUDIO | MUX | DOWNMIX | UPMIX | ENCRYPT
+
+    class Result(JSONer):
+        class Type:
+            UNDEFINED = 0
+            MEDIAFILE = 1
+            ASSET = 2
+            INFO = 3
+            FILE = 4
+            TASK = 5
+            JOB = 6
+
+        def __init__(self):
+            super().__init__()
+            self.type = 0
+            # Path (url) to the result's subject
+            self.path = None
+            # Expected base object, any params may be set
+            # for example, it may be MediaFile() with one VideoTrack, and
+            #  mf.videoTracks[0].par = Rational(1, 1)
+            #  mf.videoTracks[0].pix_fmt = 'yuv420p'
+            self.expected = None
+            # Actual result object
+            # for example, it may be MediaFile() derived from combined_info(mf, url)
+            self.actual = None
 
     class Info(JSONer):
         class Aliases(JSONer):
@@ -184,7 +193,7 @@ class Job(Record):
             #       ]
             #   }}
             # ]
-            self.results: List[Result] = []
+            self.results: List[Job.Result] = []
 
     class Status:
         NEW = 1
