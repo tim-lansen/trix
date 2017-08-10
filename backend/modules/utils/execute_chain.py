@@ -15,35 +15,52 @@ from .cross_process_lossy_queue import CPLQueue
 
 from subprocess import Popen, PIPE
 from modules.models.job import Job
-from modules.utils.log_console import Logger
+from modules.models.mediafile import MediaFile
+from modules.utils.log_console import Logger, tracer
+from modules.utils.combined_info import combined_info
 from .commands import *
 from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
 
 
-# Read all queued objects, return last
-# def flush_queue(que: Queue):
-#     c1 = None
-#     while True:
-#         c2 = c1
-#         try:
-#             c1 = que.get_nowait()
-#         except:
-#             break
-#     return c2
+@tracer
+def execute_internal(params: List[str],
+                     out_progress: CPLQueue,
+                     out_final: CPLQueue,
+                     chain_error_event: Event):
+    """
+    Execute internal (complex) procedure, pass progress if able to, and pass final results
+    :param params:            ['<procedure>', '<param1>', '<param2>', ...]
+    :param out_progress:      progress output queue
+    :param out_final:         final output queue
+    :param chain_error_event: error event
+    :return:
+    """
+    if params[0] == 'combined_info':
+        mf = MediaFile()
+        mf.update_str(params[1])
+        combined_info(mf, params[2])
+        out_final.put(mf.dumps())
+    Logger.log('execute_internal finished\n')
 
 
 # Execute chain object
 # Chain description may be found in modules.models.job
 # In short: Chain is a list of processes that being started simultaneously and compiled into a chain,
 # where STDOUT of every process is attached to STDIN of next process
+@tracer
 def execute_chain(chain: Job.Info.Step.Chain,
-                  output: List[CPLQueue],
+                  out_progress: List[CPLQueue],
+                  out_result: CPLQueue,
                   chain_enter_event: Event,
                   chain_error_event: Event):
     chain_enter_event.set()
     if chain_error_event.is_set():
         Logger.error('Error event is already set\n')
+        return
+    # Handle special complex cases
+    if len(chain.procs) == 1 and chain.procs[0][0] == 'internal':
+        execute_internal(chain.procs[0][1:], out_progress[0], out_result, chain_error_event)
         return
     proc = []
     text = ['' for _ in chain.procs]
@@ -95,7 +112,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
                     text[i] += part
                     line = part.strip().rsplit('\n', 1)[-1]
                     if len(line):
-                        output[i].put(line)
+                        out_progress[i].put(line)
                 except OSError as e:
                     pass
             else:

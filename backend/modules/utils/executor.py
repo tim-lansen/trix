@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
 
-# Chain execution
+
+# The job execution engine
+# It takes a Job, executes it, and process results
+# Scenario 1:
+# - customer creates a bulk MediaFile object, bulk.source.url = src_url;
+# - customer creates a job with type = PROBE, steps = [] and results = [{'type': MEDIAFILE, 'bulk': bulk}, {'type': }]
 
 import os
 import sys
@@ -9,10 +14,12 @@ import time
 import json
 import uuid
 import shutil
+from copy import deepcopy
 from typing import List
 from multiprocessing import Process, Event
 from modules.models.job import Job
-from modules.utils.log_console import Logger
+from modules.models.interaction import Interaction
+from modules.utils.log_console import Logger, tracer
 from .parsers import PARSERS
 from .execute_chain import execute_chain
 from .cross_process_lossy_queue import CPLQueue
@@ -28,13 +35,22 @@ class JobExecutor:
         def __init__(self):
             self.job: Job = None
             self.progress_output = CPLQueue(5)
+            # This queue is used to pass results of internal procedures from execute_chain
+            # Note that this king of job may have only 1 step with 1 single-proc chain
+            # self.final = CPLQueue(2)
+            self.finals: List[CPLQueue] = []
             self.error = Event()
             self.finish = Event()
             self.running = Event()
             self.force_exit = Event()
 
-        def reset(self):
+        def reset(self, finals_count=0):
             self.progress_output.flush()
+            for f in self.finals:
+                f.flush()
+            if len(self.finals) < finals_count:
+                self.finals += [CPLQueue(2) for _ in range(finals_count - len(self.finals))]
+            # self.final.flush()
             self.error.clear()
             self.finish.clear()
             self.running.clear()
@@ -76,8 +92,9 @@ class JobExecutor:
                     monitors.append(chain.progress)
                     # Multi-capture chain
                     queues = [CPLQueue(5) for _ in chain.procs]
+                    qfinal = None if chain.result is None else ex.finals[ci]
                     step_queues.append(queues)
-                    t = Process(target=execute_chain, args=(chain, queues, chain_enter, chain_error))
+                    t = Process(target=execute_chain, args=(chain, queues, qfinal, chain_enter, chain_error))
                     t.start()
                     threads.append(t)
                     chain_enter.wait()
@@ -85,7 +102,7 @@ class JobExecutor:
 
                 # Wait step to execute
                 while True:
-                    if not [t.is_alive() for t in threads].count(True):
+                    if [t.is_alive() for t in threads].count(True) == 0:
                         break
                     # Compile info from chains
                     for i, que in enumerate(step_queues):
@@ -130,36 +147,46 @@ class JobExecutor:
         if not ex.error.is_set():
             ex.finish.set()
 
-    @staticmethod
-    def _result_(r: Job.Result):
+    def _result_(self, r: Job.Info.Result):
         pass
 
-    @staticmethod
-    def _result_mediafile(r: Job.Result):
+    def _result_interaction(self, r: Job.Info.Result):
+        # Create an interaction and push it to DB
+        inter = Interaction()
+        inter.update_json(r.predefined)
         r.actual = MediaFile()
-        combined_info(r.actual, r.path)
+        # combined_info(r.actual, r.path)
+
+    def _result_mediafile(self, r: Job.Info.Result):
+        r.actual = MediaFile()
+        # combined_info(r.actual, r.path)
+
+    def _result_combined_info(self, r: Job.Info.Result):
+        r.actual = MediaFile()
+        r.actual.update_str(self.exec.finals[r.index].get(timeout=1))
 
     VECTORS = {
-        Job.Result.Type.MEDIAFILE: _result_mediafile,
-        Job.Result.Type.ASSET: _result_,
-        Job.Result.Type.INFO: _result_,
-        Job.Result.Type.FILE: _result_,
-        Job.Result.Type.TASK: _result_,
-        Job.Result.Type.JOB: _result_
+        Job.Info.Result.Type.INTERACTION: _result_interaction,
+        Job.Info.Result.Type.MEDIAFILE: _result_mediafile,
+        Job.Info.Result.Type.ASSET: _result_,
+        Job.Info.Result.Type.COMBINED_INFO: _result_combined_info,
+        Job.Info.Result.Type.FILE: _result_,
+        Job.Info.Result.Type.TASK: _result_,
+        Job.Info.Result.Type.JOB: _result_
     }
 
-    @staticmethod
-    def derive_results(results: List[Job.Result]):
-        for result in results:
-            Logger.critical('{}\n'.format(result))
-            if result.type in JobExecutor.VECTORS:
-                JobExecutor.VECTORS[result.type](result)
-
     def results(self):
-        if self.exec.job.info.results is None or len(self.exec.job.info.results) == 0:
+        if self.exec.job.info.results is None:
             Logger.warning('No results to emit\n')
             return None
-        JobExecutor.derive_results(self.exec.job.info.results)
+        rcount = 0
+        for result in self.exec.job.info.results:
+            # Logger.critical('{}\n'.format(result))
+            result.index = rcount
+            if result.type in JobExecutor.VECTORS:
+                JobExecutor.VECTORS[result.type](self, result)
+            rcount += 1
+        return rcount
 
     def working(self):
         return self.process and self.process.is_alive()
@@ -178,7 +205,7 @@ class JobExecutor:
                 return False
             self.process = None
         self._last_captured_progress = 0.0
-        self.exec.reset()
+        self.exec.reset(job.info.max_parallel_chains())
         resolve_job_aliases(job)
         self.exec.job = job
         self.process = Process(target=JobExecutor._process, args=(self.exec,))
@@ -246,8 +273,7 @@ def test():
                 }
             ],
             "results": [
-                {'eval': ['mediafile = MediaFile()', ]},
-                {"type": "MediaFile", "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}}
+                {"type": Job.Result.Type.MEDIAFILE, "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}}
             ]
         }
     })
@@ -262,6 +288,65 @@ def test():
             break
         if job_executor.exec.finish.is_set():
             Logger.info('job {} finished\n'.format(job.guid))
+            break
+
+        Logger.log('Job progress: {}\n'.format(job_executor.progress()))
+        working = job_executor.working()
+        time.sleep(1)
+
+    job_executor.stop()
+
+
+def test_combined_info():
+    job = Job()
+    job.update_json({
+        "guid": str(uuid.uuid4()),
+        "name": "Get combined info",
+        "type": Job.Type.PROBE,
+        "info": {
+            "aliases": {
+                "server1": "/mnt/server1_id",
+                "src0": "${server1}/crude/in_work/test_eng1_20.mp4",
+                "src1": "${server1}/crude/in_work/39f8a04c1b6ee9d3c60650c8ed80eb.768x320.600k.AV.mp4",
+                "mf0": str(uuid.uuid4()),
+                "mf1": str(uuid.uuid4())
+            },
+            "steps": [
+                {
+                    "name": "combined info",
+                    "chains": [
+                        {
+                            "procs": ['internal combined_info {"guid":"${mf0}"} ${src0}'.split(' ')],
+                            "result": 0     # Anything but None
+                        },
+                        {
+                            "procs": ['internal combined_info {"guid":"${mf1}"} ${src1}'.split(' ')],
+                            "result": 0  # Anything but None
+                        }
+                    ]
+                }
+            ],
+            "results": [
+                {"type": Job.Info.Result.Type.COMBINED_INFO, "predefined": {"guid": "${mf0}", "source": {"url": "${src0}"}}},
+                {"type": Job.Info.Result.Type.COMBINED_INFO, "predefined": {"guid": "${mf1}", "source": {"url": "${src1}"}}}
+            ]
+        }
+    })
+    print(job.info.results[0].dumps())
+    job_executor = JobExecutor()
+    job_executor.run(job)
+    working = True
+    while working:
+        # Listen to individual channel, timeout-blocking when finishing
+        if job_executor.exec.error.is_set():
+            Logger.critical('job {} failed\n'.format(job.guid))
+            job_executor.exec.reset()
+            break
+        if job_executor.exec.finish.is_set():
+            Logger.info('job {} finished\n'.format(job.guid))
+            if job_executor.results():
+                for r in job_executor.exec.job.info.results:
+                    Logger.warning('{}\n'.format(r.dumps()))
             break
 
         Logger.log('Job progress: {}\n'.format(job_executor.progress()))

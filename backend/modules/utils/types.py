@@ -63,7 +63,7 @@ class Rational:
 
     @staticmethod
     def probe(s: str):
-        if type(s) is str and Rational.RECAP.match(s):
+        if type(s) is str and s != '0/0' and Rational.RECAP.match(s):
             return True
         return False
 
@@ -162,6 +162,12 @@ class Rational:
 
     def dump_alt(self):
         return self.__str__()
+
+    def sanitize(self, num, den):
+        if self._n == 0 or self._d == 0:
+            self._n = num
+            self._d = den
+            self._calc()
 
     def __str__(self):
         return '{n}{s}{d}'.format(n=self._n, s=self._s, d=self._d)

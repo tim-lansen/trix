@@ -9,10 +9,9 @@ import json
 from pprint import pprint
 from subprocess import Popen, PIPE
 
-# from modules.utils.jsoner import JSONer
-# from modules.models.record import Record
 from modules.models.mediafile import MediaFile
 from .types import Guid, Rational, guess_type
+from .log_console import Logger
 
 
 def get_ffprobe_info(filename, refine_duration=True):
@@ -607,14 +606,17 @@ def combine_ffprobe_mediainfo_track(ffv, miv, baseclass):
                 ))
                 result['height'] = result['height_original'] - result['height_offset']
     if 'width' in result and 'height' in result:
+        # Sanitize DAR (it may be '0:1')
+        if 'dar' in result:
+            result['dar'].sanitize(result['width'], result['height'])
+        else:
+            # TODO: try to use PAR to calculate DAR
+            result['dar'] = Rational(result['width'], result['height'])
+            result['par'] = Rational(1, 1)
         # Final pass for PAR: calculate PAR from DAR
         if 'par' not in result:
-            if 'dar' in result:
-                # dar must be Rational
-                vdar = result['dar'].val()
-                par_str = Rational.search_numerator_denominator(vdar * result['height'] / result['width'], delta=0.001)
-            else:
-                par_str = '1:1'
+            vdar = result['dar'].val()
+            par_str = Rational.search_numerator_denominator(vdar * result['height'] / result['width'], delta=0.001)
             result['par'] = Rational(par_str)
     return result
 
@@ -695,7 +697,7 @@ def combined_info(mf: MediaFile, url):
 
 def test():
     media_file = MediaFile()
-    media_file.guid = str(uuid.uuid4())
-    combined_info(media_file, r'E:\temp\p1\Pororo_S01_E01_576@25i.sample.mxf')
+    media_file.guid.new()
+    combined_info(media_file, '/mnt/server1_id/crude/in_work/39f8a04c1b6ee9d3c60650c8ed80eb.768x320.600k.AV.mp4')
 
-    print(media_file.dumps(indent=2))
+    Logger.info(media_file.dumps(indent=2))

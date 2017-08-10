@@ -70,30 +70,6 @@ class Job(Record):
         # Presets:
         SIMPLE_TYPE = PROBE | ENCODE_VIDEO | ENCODE_AUDIO | MUX | DOWNMIX | UPMIX | ENCRYPT
 
-    class Result(JSONer):
-        class Type:
-            UNDEFINED = 0
-            MEDIAFILE = 1
-            ASSET = 2
-            INFO = 3
-            FILE = 4
-            TASK = 5
-            JOB = 6
-
-        def __init__(self):
-            super().__init__()
-            self.type = 0
-            # Path (url) to the result's subject
-            self.path = None
-            # Expected base object, any params may be set
-            # for example, it may be MediaFile() with one VideoTrack, and
-            #  mf.videoTracks[0].par = Rational(1, 1)
-            #  mf.videoTracks[0].pix_fmt = 'yuv420p'
-            self.expected = None
-            # Actual result object
-            # for example, it may be MediaFile() derived from combined_info(mf, url)
-            self.actual = None
-
     class Info(JSONer):
         class Aliases(JSONer):
             def __init__(self):
@@ -113,7 +89,7 @@ class Job(Record):
                         # float: Progress parser's output value, example: "ffmpeg_video"
                         self.done = 0.0
                         # float: Top progress value
-                        self.top = None
+                        self.top = 1.0
 
                 def __init__(self):
                     super().__init__()
@@ -127,6 +103,8 @@ class Job(Record):
                     self.return_codes = None
                     # Progress class: Progress object
                     self.progress = self.Progress()
+                    # Chain result, may be used to store result of internal procs
+                    self.result = None
 
             def __init__(self):
                 super().__init__()
@@ -140,6 +118,37 @@ class Job(Record):
                 self.weight = 1.0
                 # (list(Chain)) List of process chains being started in parallel by this step
                 self.chains: List[Job.Info.Step.Chain] = []
+
+        class Result(JSONer):
+            class Type:
+                UNDEFINED = 0
+                MEDIAFILE = 1
+                ASSET = 2
+                INTERACTION = 3
+                COMBINED_INFO = 4
+                FILE = 5
+                TASK = 6
+                JOB = 7
+                # Reactive result type:
+                HOOK_ARCHIVE = 8
+
+            def __init__(self):
+                super().__init__()
+                self.type = 0
+                # Bulk object (by type):
+                # MEDIAFILE: MediaFile object with URL set to newly created media file
+                # ASSET: ...
+                # INTERACTION: Interaction object
+                self.predefined = None
+                # Expected base object, any params may be set
+                # for example, it may be MediaFile() with one VideoTrack, and
+                #  mf.videoTracks[0].par = Rational(1, 1)
+                #  mf.videoTracks[0].pix_fmt = 'yuv420p'
+                # self.expected = None
+                # Actual result object
+                # for example, it may be MediaFile() derived from combined_info(mf, url)
+                self.actual = None
+                self.index = None
 
         def __init__(self):
             super().__init__()
@@ -193,7 +202,18 @@ class Job(Record):
             #       ]
             #   }}
             # ]
-            self.results: List[Job.Result] = []
+            self.results: List[Job.Info.Result] = []
+
+        def max_parallel_chains(self):
+            """
+            Expose maximum parallel chains that require to pass final results
+            :return: int
+            """
+            mpc = 0
+            for s in self.steps:
+                if [_.result is not None for _ in s.chains].count(True):
+                    mpc = max(mpc, len(s.chains))
+            return mpc
 
     class Status:
         NEW = 1
@@ -223,10 +243,8 @@ class Job(Record):
         self.groupIds: List[Guid] = []
         # This job depends on jobs from group <dependsOnGroupId>, independent if self.dependsOnGroupId.is_null()
         self.dependsOnGroupId = Guid()
-        # Condition is a pythonic expression that can be evaluated in job's context
+        # Condition is a pythonic expression that can be evaluated in job's context???
         self.condition = None
-        # self.results: List[Result] = []
-        # ["taskId", "uuid"],
 
     # Table description
     TABLE_SETUP = {

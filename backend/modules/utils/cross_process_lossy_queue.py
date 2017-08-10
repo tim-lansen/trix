@@ -16,6 +16,9 @@ class CPLQueue:
             self.q.get()
         self.q.put(msg, block=False)
 
+    def get(self, block=True, timeout=None):
+        return self.q.get(block=block, timeout=timeout)
+
     def flush(self):
         c1 = None
         while self.q.qsize() > 0:
