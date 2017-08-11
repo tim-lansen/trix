@@ -125,7 +125,7 @@ class Job(Record):
                 MEDIAFILE = 1
                 ASSET = 2
                 INTERACTION = 3
-                COMBINED_INFO = 4
+                # COMBINED_INFO = 4
                 FILE = 5
                 TASK = 6
                 JOB = 7

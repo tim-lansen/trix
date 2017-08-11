@@ -23,7 +23,7 @@ from modules.utils.log_console import Logger, tracer
 from .parsers import PARSERS
 from .execute_chain import execute_chain
 from .cross_process_lossy_queue import CPLQueue
-from .resolve_job_aliases import resolve_job_aliases
+from .job_utils import JobUtils
 
 from modules.models.mediafile import MediaFile
 from .combined_info import combined_info
@@ -159,7 +159,7 @@ class JobExecutor:
 
     def _result_mediafile(self, r: Job.Info.Result):
         r.actual = MediaFile()
-        # combined_info(r.actual, r.path)
+        r.actual.update_str(self.exec.finals[r.index].get(timeout=1))
 
     def _result_combined_info(self, r: Job.Info.Result):
         r.actual = MediaFile()
@@ -169,7 +169,7 @@ class JobExecutor:
         Job.Info.Result.Type.INTERACTION: _result_interaction,
         Job.Info.Result.Type.MEDIAFILE: _result_mediafile,
         Job.Info.Result.Type.ASSET: _result_,
-        Job.Info.Result.Type.COMBINED_INFO: _result_combined_info,
+        # Job.Info.Result.Type.COMBINED_INFO: _result_combined_info,
         Job.Info.Result.Type.FILE: _result_,
         Job.Info.Result.Type.TASK: _result_,
         Job.Info.Result.Type.JOB: _result_
@@ -206,7 +206,7 @@ class JobExecutor:
             self.process = None
         self._last_captured_progress = 0.0
         self.exec.reset(job.info.max_parallel_chains())
-        resolve_job_aliases(job)
+        JobUtils.resolve_aliases(job)
         self.exec.job = job
         self.process = Process(target=JobExecutor._process, args=(self.exec,))
         self.process.start()
@@ -316,19 +316,19 @@ def test_combined_info():
                     "name": "combined info",
                     "chains": [
                         {
-                            "procs": ['internal combined_info {"guid":"${mf0}"} ${src0}'.split(' ')],
+                            "procs": ['internal_combined_info {"guid":"${mf0}"} ${src0}'.split(' ')],
                             "result": 0     # Anything but None
                         },
                         {
-                            "procs": ['internal combined_info {"guid":"${mf1}"} ${src1}'.split(' ')],
+                            "procs": ['internal_combined_info {"guid":"${mf1}"} ${src1}'.split(' ')],
                             "result": 0  # Anything but None
                         }
                     ]
                 }
             ],
             "results": [
-                {"type": Job.Info.Result.Type.COMBINED_INFO, "predefined": {"guid": "${mf0}", "source": {"url": "${src0}"}}},
-                {"type": Job.Info.Result.Type.COMBINED_INFO, "predefined": {"guid": "${mf1}", "source": {"url": "${src1}"}}}
+                {"type": Job.Info.Result.Type.MEDIAFILE, "predefined": {"guid": "${mf0}", "source": {"url": "${src0}"}}},
+                {"type": Job.Info.Result.Type.MEDIAFILE, "predefined": {"guid": "${mf1}", "source": {"url": "${src1}"}}}
             ]
         }
     })
@@ -345,8 +345,9 @@ def test_combined_info():
         if job_executor.exec.finish.is_set():
             Logger.info('job {} finished\n'.format(job.guid))
             if job_executor.results():
-                for r in job_executor.exec.job.info.results:
-                    Logger.warning('{}\n'.format(r.dumps()))
+                JobUtils.RESULTS.process(job_executor.exec.job.info.results)
+                # for r in job_executor.exec.job.info.results:
+                #     Logger.warning('{}\n'.format(r.dumps()))
             break
 
         Logger.log('Job progress: {}\n'.format(job_executor.progress()))

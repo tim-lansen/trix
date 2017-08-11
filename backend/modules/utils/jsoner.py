@@ -65,6 +65,9 @@ class JSONer:
     def __str__(self):
         return self.dumps()
 
+    def __repr__(self):
+        return self.dumps()
+
     def __getitem__(self, item):
         if item in self.__dict__:
             return self.__dict__[item]

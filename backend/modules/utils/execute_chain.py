@@ -23,7 +23,23 @@ from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
 
 
-@tracer
+def internal_combined_info(params,
+                           out_progress: CPLQueue,
+                           out_final: CPLQueue):
+    """
+    Compose ffprobe and mediainfo
+    :param params:            ['<predefined>', '<url>']
+    :param out_progress:      progress output queue
+    :param out_final:         final output queue
+    :param chain_error_event: error event
+    :return:
+    """
+    mf = MediaFile()
+    mf.update_str(params[0])
+    combined_info(mf, params[1])
+    out_final.put(mf.dumps())
+
+
 def execute_internal(params: List[str],
                      out_progress: CPLQueue,
                      out_final: CPLQueue,
@@ -36,11 +52,12 @@ def execute_internal(params: List[str],
     :param chain_error_event: error event
     :return:
     """
-    if params[0] == 'combined_info':
-        mf = MediaFile()
-        mf.update_str(params[1])
-        combined_info(mf, params[2])
-        out_final.put(mf.dumps())
+    try:
+        proc = globals()[params[0]]
+        proc(params[1:], out_progress, out_final)
+    except Exception as e:
+        Logger.error('execute_internal failed: {}\n'.format(e))
+        chain_error_event.set()
     Logger.log('execute_internal finished\n')
 
 
@@ -48,7 +65,6 @@ def execute_internal(params: List[str],
 # Chain description may be found in modules.models.job
 # In short: Chain is a list of processes that being started simultaneously and compiled into a chain,
 # where STDOUT of every process is attached to STDIN of next process
-@tracer
 def execute_chain(chain: Job.Info.Step.Chain,
                   out_progress: List[CPLQueue],
                   out_result: CPLQueue,
@@ -59,8 +75,8 @@ def execute_chain(chain: Job.Info.Step.Chain,
         Logger.error('Error event is already set\n')
         return
     # Handle special complex cases
-    if len(chain.procs) == 1 and chain.procs[0][0] == 'internal':
-        execute_internal(chain.procs[0][1:], out_progress[0], out_result, chain_error_event)
+    if len(chain.procs) == 1 and chain.procs[0][0].startswith('internal_'):
+        execute_internal(chain.procs[0], out_progress[0], out_result, chain_error_event)
         return
     proc = []
     text = ['' for _ in chain.procs]

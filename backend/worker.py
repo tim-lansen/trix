@@ -15,6 +15,7 @@ import time
 import shutil
 import modules.utils.worker_mount_paths
 from modules.utils.non_daemonic_pool import NonDaemonicPool
+from typing import List
 from modules.config import *
 from modules.utils.log_console import Logger, tracer
 from modules.utils.database import DBInterface
@@ -116,7 +117,6 @@ class Worker:
         if not self.job_executor.run(job):
             self._revert_("Failed to start job execution {}\n".format(self.node.job))
 
-    @tracer
     def __init__(self, _name, _channel):
         self.node = Node()
         self.node.name = _name
@@ -172,6 +172,9 @@ class Worker:
                     self.job_executor.exec.reset()
             if self.job_executor.exec.finish.is_set():
                 # TODO: set results
+                if self.job_executor.results():
+                    for r in self.job_executor.exec.job.info.results:
+                        Logger.warning('{}\n'.format(r.dumps()))
                 DBInterface.Job.set_status(self.node.job, Job.Status.FINISHED)
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:

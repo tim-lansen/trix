@@ -667,7 +667,12 @@ def combined_info(mf: MediaFile, url):
     combined = combine_ffprobe_mediainfo(ffstr, mistr)
     mf.update_json(combined)
     mf.source.url = url
-
+    if '/' in url:
+        mf.name = url.rsplit('/', 1)[1].rsplit('.', 1)[0]
+    elif '\\' in url:
+        mf.name = url.rsplit('\\', 1)[1].rsplit('.', 1)[0]
+    else:
+        mf.name = url
 
 #
 # def get_combined_info(filename, probe_gop_size=False, select_standard_fps=True, refine_duration=True):

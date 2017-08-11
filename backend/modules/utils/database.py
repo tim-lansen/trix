@@ -346,7 +346,6 @@ class DBInterface:
         return result
 
     @staticmethod
-    @tracer
     def register_record(rec: Record, user=USER):
         result = False
         conn = DBInterface.connect(user)
@@ -363,7 +362,7 @@ class DBInterface:
                 rd = rec.__dict__
                 table_name = rec.__class__.__name__
                 tdata = TRIX_CONFIG.dBase.tables[table_name]
-                fields = [f[0] for f in tdata['fields'] if rd[f[0]] is not None]
+                fields = [f[0] for f in tdata['fields'] if rd[f[0]] is not None and not (type(rd[f[0]]) is list and len(rd[f[0]]) == 0)]
                 # Build request
                 request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
                     relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
@@ -452,7 +451,7 @@ class DBInterface:
 
         @staticmethod
         def set(mediaFile: MediaFile):
-            return None
+            return DBInterface.register_record(mediaFile, user=DBInterface.Machine.USER)
 
     class Machine:
         USER = 'node'
