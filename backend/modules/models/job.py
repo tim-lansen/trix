@@ -87,7 +87,7 @@ class Job(Record):
                         # str: Name (id) of parser
                         self.parser = None
                         # float: Progress parser's output value, example: "ffmpeg_video"
-                        self.done = 0.0
+                        self.pos = 0.0
                         # float: Top progress value
                         self.top = 1.0
 

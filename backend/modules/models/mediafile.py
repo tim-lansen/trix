@@ -203,32 +203,6 @@ class MediaFile(Record):
                 #     "attached_pic": 0,
                 #     "timed_thumbnails": 0
 
-        class Cropdetect(JSONer):
-            """
-            Automatic cropdetect
-            """
-            def __init__(self):
-                super().__init__()
-                self.w = None
-                self.h = None
-                self.x = None
-                self.y = None
-                self.sar = None
-                self.aspect = None
-
-        class Padding(JSONer):
-            """
-            Approved cropdetect
-            """
-            def __init__(self):
-                super().__init__()
-                self.w = None
-                self.h = None
-                self.x = None
-                self.y = None
-                self.sar = None
-                self.aspect = None
-
         def __init__(self):
             super().__init__()
             # Auto-captured info
@@ -257,10 +231,6 @@ class MediaFile(Record):
             # ID(s) of reference video(s): separate video file for every component
             # single ID in case of mono input, two IDs for stereo, etc.
             self.refs: List[str] = []
-
-            # Cropdetect/padding data
-            self.cropdetect = self.Cropdetect()
-            self.padding = self.Padding()
 
         @staticmethod
         def fit_video(src, dst, dw, dh, size_round=2):

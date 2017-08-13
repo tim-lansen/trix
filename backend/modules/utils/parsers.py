@@ -124,8 +124,8 @@ class Parsers:
             d = {k: v for k, v in [p.split('=') for p in line.split(' ') if '=' in p]}
             if 'fps' in d:
                 d['fps'] = float(d['fps'])
-            if 'time' in d:
-                d['pos'] = timecode_to_float(d['time'])
+            # if 'time' in d:
+            #     d['pos'] = timecode_to_float(d['time'])
         except:
             pass
         return d

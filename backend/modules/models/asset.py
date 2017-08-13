@@ -17,12 +17,14 @@ class Stream(JSONer):
             self.src_stream_index = 0
             self.src_channel_index = 0
 
-    def __init__(self):
+    def __init__(self, type, layout):
         super().__init__()
         self.type = None
         self.layout = None
         self.channels: List[Stream.Channel] = []
         self.language = None
+        self.program_in = None
+        self.program_out = None
 
 
 class VideoStream(Stream):
@@ -74,24 +76,53 @@ class VideoStream(Stream):
         STEREO = 2
         PANORAMIC = 3
 
+    class Cropdetect(JSONer):
+        """
+        Automatic cropdetect
+        """
+        def __init__(self):
+            super().__init__()
+            self.w = None
+            self.h = None
+            self.x = None
+            self.y = None
+            self.sar = None
+            self.aspect = None
+
     def __init__(self):
-        super().__init__()
+        super().__init__(Stream.Type.VIDEO, VideoStream.Layout.NORMAL)
+        self.cropdetect = self.Cropdetect()
 
 
 class AudioStream(Stream):
     class Layout:
-        MONO = 0
-        STEREO = 1
-        SURROUND51 = 2
+        # TODO: full set of audio layouts
+        INVALID = 0
+        MONO = 'mono'
+        STEREO = 'stereo'
+        STEREO_LFE = '2.1'
+        QUADRO = '4.0'
+        QUADRO_LFE = '4.1'
+        SURROUND_51 = '5.1'
+
+        DEFAULT = [
+            INVALID,
+            MONO,
+            STEREO,
+            STEREO_LFE,
+            QUADRO,
+            QUADRO_LFE,
+            SURROUND_51
+        ]
 
     def __init__(self):
-        super().__init__()
+        super().__init__(Stream.Type.AUDIO, AudioStream.Layout.STEREO)
 
 
 class SubStream(Stream):
 
     def __init__(self):
-        super().__init__()
+        super().__init__(Stream.Type.SUBTITLES, None)
 
 
 class Asset(Record):

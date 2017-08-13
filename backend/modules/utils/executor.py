@@ -20,7 +20,7 @@ from multiprocessing import Process, Event
 from modules.models.job import Job
 from modules.models.interaction import Interaction
 from modules.utils.log_console import Logger, tracer
-from .parsers import PARSERS
+from .parsers import PARSERS, timecode_to_float
 from .execute_chain import execute_chain
 from .cross_process_lossy_queue import CPLQueue
 from .job_utils import JobUtils
@@ -114,19 +114,23 @@ class JobExecutor:
                             if j == monitors[i].capture:
                                 if monitors[i].parser in PARSERS:
                                     cap = PARSERS[monitors[i].parser](c)
-                                    if cap and 'pos' in cap:
-                                        monitors[i].done = cap['pos']
+                                    if cap:
+                                        if 'time' in cap:
+                                            monitors[i].pos = timecode_to_float(cap['time'])
+                                        elif 'progress' in cap:
+                                            # Variant when chain executor sends progress rather than time, and m.top is set to 1.0
+                                            monitors[i].pos = cap['progress']
                     # calculate step progress
                     step_progress = 0.0
                     for m in monitors:
-                        step_progress += m.done/m.top
+                        step_progress += m.pos/m.top
                     job_progress = step_progress / (len(monitors) * len(ex.job.info.steps))
                     ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, job_progress))
                     time.sleep(0.5)
 
                 # Step is finished, cleaning up
                 for m in monitors:
-                    m.done = 1.0
+                    m.pos = 1.0
                 for pipe in step.pipes:
                     os.remove(pipe)
                 if chain_error.is_set():
