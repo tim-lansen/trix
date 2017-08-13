@@ -26,12 +26,13 @@ class Parsers:
     # Universal pattern to parse various info
     # Space filter
     PSP = re.compile(r'\s+')
+    FIX = re.compile('[\\s\x08]+\]')
     # Brackets selector
     PTR = re.compile(r'\[[^@^\[\]]+\]')
     # Extract name
     PATTERN_PARSE_NAME = re.compile(r'^\[(?:Parsed_)?(\w+?)(?:_\d)? @ .+\] ')
     # Extract info
-    PATTERN_PARSE_FILTER = re.compile(r' ([\w]+?)[:=]([,:\.\w\[\]\(\)]+)')
+    PATTERN_PARSE_FILTER = re.compile(r' ([\w]+?)[:=]\s*([,:\.\w\[\]\(\)]+)')
     # For example
     #   "[Parsed_cropdetect_0 @ 000000000500d520] x1:0 x2:1919 t:12.513 crop=1920:1040:0:0 plane_checksum:[5DE5F53F 6479EEE4 8FAB2589] stdev:[23.7 10.5 4.6]"
     # 1. extract name: PATTERN_PARSE_NAME.findall(line)
@@ -55,10 +56,10 @@ class Parsers:
         if len(capture) == 1:
             filter_name = capture[0]
             # Transform '... xxx:[aaa bbb ccc] ...' => '... xxx:[aaa,bbb,ccc] ...'
-            lt = Parsers.PTR.sub(lambda m: Parsers.PSP.sub(',', m.group()), line)
+            lt = Parsers.PTR.sub(lambda m: Parsers.PSP.sub(',', m.group()), Parsers.FIX.sub(']', line))
             # Capture info
             capture = Parsers.PATTERN_PARSE_FILTER.findall(lt)
-            if len(capture) == 1:
+            if len(capture) > 0:
                 return filter_name, capture
         return None, None
 
@@ -69,10 +70,19 @@ class Parsers:
         :param line: a string to parse
         :return: tuple (<handler>, <handler output>)
         """
-        fn, fc = Parsers.parse_line(line)
+        if type(line) is bytes:
+            line = line.decode()
+        if line.startswith('frame='):
+            fc = Parsers.ffmpeg_progress(line)
+            if fc:
+                return 'progress', fc
+            return None, None
+        fn, fc = Parsers.parse_line(line.strip())
         if fn:
-            if fn in Parsers.VECTORS:
-                return fn, Parsers.VECTORS[fn](fc)
+            if fn in PARSERS_VECTORS:
+                return fn, PARSERS_VECTORS[fn](fc)
+            else:
+                return fn, dict(fc)
         return None, None
 
     @staticmethod
@@ -100,7 +110,10 @@ class Parsers:
         return res
 
     @staticmethod
-    def ffmpeg_showinfo():
+    def ffmpeg_showinfo(fc):
+        si = dict(fc)
+        if 'n' in si:
+            return si
         return None
 
     @staticmethod
@@ -117,14 +130,15 @@ class Parsers:
             pass
         return d
 
-    VECTORS = {
-        'cropdetect': ffmpeg_cropdetect,
-        'showinfo': ffmpeg_showinfo
-    }
+PARSERS_VECTORS = {
+    'cropdetect': Parsers.ffmpeg_cropdetect,
+    'showinfo': Parsers.ffmpeg_showinfo
+}
 
 
 PARSERS = {
-    'ffmpeg': Parsers.ffmpeg_progress
+    'ffmpeg_progress': Parsers.ffmpeg_progress,
+    'ffmpeg_cropdetect': Parsers.ffmpeg_cropdetect
 }
 
 

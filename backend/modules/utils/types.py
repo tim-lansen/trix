@@ -32,7 +32,7 @@ class Guid:
         self.guid = uuid.uuid4()
 
     def set(self, value):
-        self.guid = uuid.UUID(value)
+        self.guid = uuid.UUID(str(value))
 
     def dump_alt(self):
         # return None if self.is_null() else str(self.guidx)

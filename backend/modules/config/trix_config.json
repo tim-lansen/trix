@@ -48,14 +48,6 @@
         "shares": ["crude", "store", "web"],
         "paths": [
           {
-            "role": "crude",
-            "download": "crude/download",
-            "watch": "crude/watch",
-            "in_work": "crude/in_work",
-            "failed": "crude/failed",
-            "path": "crude/done"
-          },
-          {
             "role": "archive",
             "path": "store/archive"
           },
@@ -66,11 +58,17 @@
           {
             "role": "preview",
             "path": "web/preview",
-            "web_access": "http://1.1.1.10/web/preview"
+            "web_access": "http://1.1.1.1/web/preview"
           }
         ],
         "username": "tim",
         "password": "1604001"
+      }
+    ],
+    "watchfolders": [
+      {
+        "action": "ingest",
+        "path": "/mnt/server1_id/crude"
       }
     ]
   }

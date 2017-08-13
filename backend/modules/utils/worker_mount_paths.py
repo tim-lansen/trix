@@ -23,22 +23,41 @@ def mount_paths():
             Logger.error(_error_ if _error_ else 'Error {}: {}\n'.format(_res_, ' '.join(_params_)))
             exit(_res_)
 
+    def _make_dirs_(_d, _pin=False):
+        if not os.path.isdir(_d):
+            Logger.info('Creating directory {}\n'.format(_d))
+            os.makedirs(_d)
+            # Pin the folder to prevent it's deletion
+            if _pin:
+                with open(os.path.join(_d, '.pin'), 'w') as _f:
+                    _f.write('.pin')
+
     for server in TRIX_CONFIG.storage.servers:
         for share in server.shares:
-            netpath = '//{}/{}'.format(server.address, share)
+            np = '//{}/{}'.format(server.address, share)
             desired_mp = server.mount_point(share)
-            if netpath in mount:
+            if np in mount:
                 # Mount point must match desired pattern
-                if desired_mp == mount[netpath]:
-                    Logger.info('{} on {}\n'.format(netpath, mount[netpath]))
+                if desired_mp == mount[np]:
+                    Logger.info('{} is mounted to {}\n'.format(np, mount[np]))
                     continue
-                Logger.warning('{} on {} (must be {})\n'.format(netpath, mount[netpath], desired_mp))
-                # unmount.append(mount[netpath])
-                _wrap_call_(['sudo', 'umount', mount[netpath]], 'Failed to unmount {}\n'.format(mount[netpath]))
-                _wrap_call_(['sudo', 'rmdir', mount[netpath]], 'Failed to remove {}\n'.format(mount[netpath]))
+                Logger.warning('{} is mounted to {} (must be {})\n'.format(np, mount[np], desired_mp))
+                _wrap_call_(['sudo', 'umount', mount[np]], 'Failed to unmount {}\n'.format(mount[np]))
+                _wrap_call_(['sudo', 'rmdir', mount[np]], 'Failed to remove {}\n'.format(mount[np]))
             _wrap_call_(['sudo', 'mkdir', '-p', desired_mp])
             _wrap_call_(['sudo', 'chmod', '777', desired_mp])
-            _wrap_call_(['sudo', 'mount', netpath, desired_mp] + server.mount_opts())
+            _wrap_call_(['sudo', 'mount', np, desired_mp] + server.mount_opts())
+    for server in TRIX_CONFIG.storage.servers:
+        for path in server.paths:
+            mp = server.mount_point(path['path'])
+            _make_dirs_(mp)
+    for wf in TRIX_CONFIG.storage.watchfolders:
+        _make_dirs_(os.path.join(wf.path, wf.map.downl), _pin=True)
+        _make_dirs_(os.path.join(wf.path, wf.map.watch), _pin=True)
+        _make_dirs_(os.path.join(wf.path, wf.map.work), _pin=True)
+        _make_dirs_(os.path.join(wf.path, wf.map.done), _pin=True)
+        _make_dirs_(os.path.join(wf.path, wf.map.fail), _pin=True)
+
     return True
 
 

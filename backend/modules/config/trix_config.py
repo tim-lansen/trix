@@ -108,10 +108,6 @@ class TrixConfig(JSONer):
                 def __init__(self):
                     super().__init__()
                     self.role: self.Role = self.Role.UNDEFINED
-                    self.download = None
-                    self.watch = None
-                    self.in_work = None
-                    self.failed = None
                     self.path = None
                     self.web_access = None
 
@@ -133,10 +129,46 @@ class TrixConfig(JSONer):
             def mount_opts(self):
                 return ['-t', 'cifs', '-o', 'username={u},password={p},dir_mode=0777,file_mode=0777'.format(u=self.username, p=self.password)]
 
+        class Watchfolder(JSONer):
+            class Action:
+                UNDEFINED = 0
+                INGEST = 1
+
+            class Map(JSONer):
+                def __init__(self):
+                    super().__init__()
+                    self.downl = 'download'
+                    self.watch = 'watch'
+                    self.work = 'work'
+                    self.done = 'done'
+                    self.fail = 'fail'
+
+            def __init__(self):
+                super().__init__()
+                self.action: self.Action = self.Action.UNDEFINED
+                self.path = None
+                self.map: self.Map = self.Map()
+
+            def paths(self):
+                return {
+                    'downl': os.path.join(self.path, self.map.downl),
+                    'watch': os.path.join(self.path, self.map.watch),
+                    'work': os.path.join(self.path, self.map.work),
+                    'done': os.path.join(self.path, self.map.done),
+                    'fail': os.path.join(self.path, self.map.fail),
+                }
+
+            def accessible(self):
+                paths = self.paths()
+                for p in paths:
+                    if not os.path.isdir(paths[p]):
+                        return None
+                return paths
+
         def __init__(self):
             super().__init__()
             self.servers: List[self.Server] = []
-            self.crude = None
+            self.watchfolders: List[self.Watchfolder] = []
 
     def __init__(self):
         super().__init__()

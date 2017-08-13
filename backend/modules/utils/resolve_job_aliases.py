@@ -91,7 +91,7 @@ def test():
             "return_codes": [[0, 2], [0]],
             "progress": {
               "capture": 0,
-              "parser": "ffmpeg",
+              "parser": "ffmpeg_progress",
               "top": 600.0
             }
           }
@@ -108,7 +108,7 @@ def test():
             "return_codes": [[0]],
             "progress": {
               "capture": 0,
-              "parser": "mp4box",
+              "parser": "mp4box_progress",
               "top": 100.0
             }
           }

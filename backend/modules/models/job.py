@@ -305,7 +305,7 @@ def test() -> Job:
                             "return_codes": [[0, 2], [0], [0]],
                             "progress": {
                                 "capture": 2,
-                                "parser": "ffmpeg",
+                                "parser": "ffmpeg_progress",
                                 "top": 600.0
                             }
                         }

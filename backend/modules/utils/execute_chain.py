@@ -179,8 +179,7 @@ def test():
         Logger.warning('{}\n'.format(c))
         return None
 
-    parser = dummy_parser if test_chain.progress.parser is None or test_chain.progress.parser not in PARSERS else \
-    PARSERS[test_chain.progress.parser]
+    parser = dummy_parser if test_chain.progress.parser is None or test_chain.progress.parser not in PARSERS else PARSERS[test_chain.progress.parser]
 
     while True:
         if not test_process.is_alive():

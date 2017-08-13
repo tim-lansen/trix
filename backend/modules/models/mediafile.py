@@ -154,6 +154,9 @@ class MediaFile(Record):
             self.Encoded_Library_Name = None
 
     class VideoTrack(JSONer):
+        # DURATION        = {'src': [['mi', 'Duration'], ['ff', 'duration']]}
+        DURATION = {'src': [['ff', 'duration']]}
+
         INDEX           = {'src': [['ff', 'index']]}
         CODEC           = {'src': [['ff', 'codec_name']]}
         WIDTH           = {'src': [['mi', 'Stored_Width'], ['ff', 'width'], ['mi', 'Sampled_Width'], ['mi', 'Width']]}
@@ -161,6 +164,7 @@ class MediaFile(Record):
         HEIGHT_ORIGINAL = {'src': [['mi', 'Height_Original']]}
         HEIGHT_OFFSET   = {'src': [['mi', 'Height_Offset']]}
         DAR             = {'src': [['ff', 'display_aspect_ratio']]}
+        # DURATION        = {'src': [['ff', 'duration']]}
         # 'PixelAspectRatio': 1.0,
         # 'PixelAspectRatio_Original': 1.126,
         # 'sample_aspect_ratio': '152:135'
@@ -199,9 +203,36 @@ class MediaFile(Record):
                 #     "attached_pic": 0,
                 #     "timed_thumbnails": 0
 
+        class Cropdetect(JSONer):
+            """
+            Automatic cropdetect
+            """
+            def __init__(self):
+                super().__init__()
+                self.w = None
+                self.h = None
+                self.x = None
+                self.y = None
+                self.sar = None
+                self.aspect = None
+
+        class Padding(JSONer):
+            """
+            Approved cropdetect
+            """
+            def __init__(self):
+                super().__init__()
+                self.w = None
+                self.h = None
+                self.x = None
+                self.y = None
+                self.sar = None
+                self.aspect = None
+
         def __init__(self):
             super().__init__()
             # Auto-captured info
+            self.Duration = 0
             self.index = None
             self.codec = None
             self.width = None
@@ -224,8 +255,12 @@ class MediaFile(Record):
             self.tags = self.Tags()
 
             # ID(s) of reference video(s): separate video file for every component
-            # single ID in case of mono input, two IDs for stereo
+            # single ID in case of mono input, two IDs for stereo, etc.
             self.refs: List[str] = []
+
+            # Cropdetect/padding data
+            self.cropdetect = self.Cropdetect()
+            self.padding = self.Padding()
 
         @staticmethod
         def fit_video(src, dst, dw, dh, size_round=2):
@@ -249,6 +284,7 @@ class MediaFile(Record):
         def ref_add(self, w=640, h=360):
             # Create ref mediafile for this stream
             mf = MediaFile()
+            mf.guid.new()
             mf.isRef = True
             self.refs.append(mf.guid)
             vt = MediaFile.VideoTrack()
@@ -279,7 +315,8 @@ class MediaFile(Record):
                 self.attached_pic = None
                 self.timed_thumbnails = None
 
-        DURATION         = {'src': [['mi', 'Duration'], ['ff', 'duration']]}
+        # DURATION         = {'src': [['mi', 'Duration'], ['ff', 'duration']]}
+        DURATION = {'src': [['ff', 'duration']]}
         CHANNELPOSITIONS = {'src': [['mi', 'ChannelPositions']]}
         CHANNELLAYOUT    = {'src': [['mi', 'ChannelLayout']]}
 
@@ -312,9 +349,12 @@ class MediaFile(Record):
             self.channels = None
             self.channel_layout = None
             self.bits_per_sample = 0
+            # start_time???
             self.disposition = self.Disposition()
             self.tags = self.Tags()
 
+            # Extracted flag, == newly created audio file's index in ingest set
+            self.extracted = None
             # ID(s) of reference audio(s): separate audio file for every channel
             # single ID in case of mono input, two IDs for stereo, 6 IDs for 5.1, etc.
             self.refs: List[str] = []
