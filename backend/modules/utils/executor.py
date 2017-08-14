@@ -44,10 +44,11 @@ class JobExecutor:
             self.running = Event()
             self.force_exit = Event()
 
+        @tracer
         def reset(self, finals_count=0):
-            self.progress_output.flush()
+            self.progress_output.flush('reset')
             for f in self.finals:
-                f.flush()
+                f.flush('reset')
             if len(self.finals) < finals_count:
                 self.finals += [CPLQueue(2) for _ in range(finals_count - len(self.finals))]
             # self.final.flush()
@@ -55,6 +56,7 @@ class JobExecutor:
             self.finish.clear()
             self.running.clear()
             self.force_exit.clear()
+            # self.job = None
 
     def __init__(self):
         self.exec = JobExecutor.Execution()
@@ -108,18 +110,18 @@ class JobExecutor:
                     for i, que in enumerate(step_queues):
                         # Multi-chain capture
                         for j, q in enumerate(que):
-                            c = q.flush()
+                            c = q.flush('step')
                             if c is None:
                                 continue
                             if j == monitors[i].capture:
-                                if monitors[i].parser in PARSERS:
+                                if type(c) is dict:
+                                    if 'progress' in c:
+                                        monitors[i].pos = c['progress']
+                                elif monitors[i].parser in PARSERS:
                                     cap = PARSERS[monitors[i].parser](c)
                                     if cap:
                                         if 'time' in cap:
                                             monitors[i].pos = timecode_to_float(cap['time'])
-                                        elif 'progress' in cap:
-                                            # Variant when chain executor sends progress rather than time, and m.top is set to 1.0
-                                            monitors[i].pos = cap['progress']
                     # calculate step progress
                     step_progress = 0.0
                     for m in monitors:
@@ -151,54 +153,27 @@ class JobExecutor:
         if not ex.error.is_set():
             ex.finish.set()
 
-    def _result_(self, r: Job.Info.Result):
-        pass
-
-    def _result_interaction(self, r: Job.Info.Result):
-        # Create an interaction and push it to DB
-        inter = Interaction()
-        inter.update_json(r.predefined)
-        r.actual = MediaFile()
-        # combined_info(r.actual, r.path)
-
-    def _result_mediafile(self, r: Job.Info.Result):
-        r.actual = MediaFile()
-        r.actual.update_str(self.exec.finals[r.index].get(timeout=1))
-
-    def _result_combined_info(self, r: Job.Info.Result):
-        r.actual = MediaFile()
-        r.actual.update_str(self.exec.finals[r.index].get(timeout=1))
-
-    VECTORS = {
-        Job.Info.Result.Type.INTERACTION: _result_interaction,
-        Job.Info.Result.Type.MEDIAFILE: _result_mediafile,
-        Job.Info.Result.Type.ASSET: _result_,
-        # Job.Info.Result.Type.COMBINED_INFO: _result_combined_info,
-        Job.Info.Result.Type.FILE: _result_,
-        Job.Info.Result.Type.TASK: _result_,
-        Job.Info.Result.Type.JOB: _result_
-    }
-
     def results(self):
         if self.exec.job.info.results is None:
             Logger.warning('No results to emit\n')
             return None
-        rcount = 0
+        rc = 0
         for result in self.exec.job.info.results:
-            # Logger.critical('{}\n'.format(result))
-            result.index = rcount
-            if result.type in JobExecutor.VECTORS:
-                JobExecutor.VECTORS[result.type](self, result)
-            rcount += 1
-        return rcount
+            rs = self.exec.finals[rc].get(timeout=1)
+            result.actual = rs
+            rc += 1
+        if rc:
+            JobUtils.RESULTS.process(self.exec.job.info.results)
+        return rc
 
     def working(self):
         return self.process and self.process.is_alive()
 
     def progress(self):
-        cap = self.exec.progress_output.flush()
+        cap = self.exec.progress_output.flush('JobExecutor.progress')
         if cap is not None:
             jcap = json.loads(cap)
+            Logger.log('{}\n'.format(jcap))
             self._last_captured_progress = jcap['progress']
         return self._last_captured_progress
 

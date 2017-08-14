@@ -6,6 +6,8 @@
 import os
 import sys
 import time
+import json
+import traceback
 from typing import List
 
 # from queue import Queue, Empty
@@ -16,16 +18,16 @@ from .cross_process_lossy_queue import CPLQueue
 from subprocess import Popen, PIPE
 from modules.models.job import Job
 from modules.models.mediafile import MediaFile
-from modules.utils.log_console import Logger, tracer
-from modules.utils.combined_info import combined_info
+from .log_console import Logger, tracer
+from .combined_info import combined_info
 from .commands import *
 from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
+from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles
+from .storage import Storage
 
 
-def internal_combined_info(params,
-                           out_progress: CPLQueue,
-                           out_final: CPLQueue):
+def internal_combined_info(params, out_progress: CPLQueue, out_final: CPLQueue):
     """
     Compose ffprobe and mediainfo
     :param params:            ['<predefined>', '<url>']
@@ -38,6 +40,33 @@ def internal_combined_info(params,
     mf.update_str(params[0])
     combined_info(mf, params[1])
     out_final.put(mf.dumps())
+
+
+def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQueue, out_final: CPLQueue):
+    """
+    Prepare media for ingest
+    :param params:            ['<predefined>', '<url>']
+    :param out_progress:      progress output queue
+    :param out_final:         final output queue
+    :param chain_error_event: error event
+    :return:
+    """
+    print(params)
+    mf = MediaFile()
+    mf.update_str(params[0])
+    if mf.guid.is_null():
+        mf.guid.new()
+    combined_info(mf, params[1])
+    tdir = Storage.storage_path('transit', str(mf.guid))
+    pdir = Storage.storage_path('preview', str(mf.guid))
+    res = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
+    result = {
+        'asset': res['asset'].dumps(),
+        'trans': [_.dumps() for _ in res['trans']],
+        'previews': [_.dumps() for _ in res['previews']],
+        'archives': [_.dumps() for _ in res['archives']],
+    }
+    out_final.put(json.dumps(result))
 
 
 def execute_internal(params: List[str],
@@ -57,6 +86,8 @@ def execute_internal(params: List[str],
         proc(params[1:], out_progress, out_final)
     except Exception as e:
         Logger.error('execute_internal failed: {}\n'.format(e))
+        for frame in traceback.extract_tb(sys.exc_info()[2]):
+            print(frame)
         chain_error_event.set()
     Logger.log('execute_internal finished\n')
 
@@ -186,7 +217,7 @@ def test():
             break
         # Compile info from chains
         for j, q in enumerate(test_output):
-            c = q.flush()
+            c = q.flush('test')
             if c and j == test_chain.progress.capture:
                 p = parser(c)
                 Logger.log('{}\n'.format(p))

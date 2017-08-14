@@ -129,6 +129,11 @@ class TrixConfig(JSONer):
             def mount_opts(self):
                 return ['-t', 'cifs', '-o', 'username={u},password={p},dir_mode=0777,file_mode=0777'.format(u=self.username, p=self.password)]
 
+            def get_paths(self, role):
+                if os.name == 'nt':
+                    return [r'\\{}\{}'.format(self.address, _.path.replace('/', '\\')) for _ in self.paths if _.role == role]
+                return ['/mnt/{}/{}'.format(self.id, _.path) for _ in self.paths if _.role == role]
+
         class Watchfolder(JSONer):
             class Action:
                 UNDEFINED = 0

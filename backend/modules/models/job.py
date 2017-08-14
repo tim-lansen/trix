@@ -53,9 +53,6 @@ class Job(Record):
     class Type:
         # Get info about media[, partially scan it to detect in/out/padding/...]
         PROBE        = 0x01
-        # Create proxy video and audio tracks by channels, extract audio to separate tracks,
-        #  scan A/V to detect in/out/padding/loudness/..., save frames info including hashes
-        CREATE_PROXY = 0x02
         # Encode video
         ENCODE_VIDEO = 0x04
         # Encode audio
@@ -66,6 +63,14 @@ class Job(Record):
         ENCRYPT      = 0x80
         ASSEMBLE     = 0x100
         NVENC        = 0x200
+
+        # Special types
+
+        # Create proxy video and audio tracks by channels, extract audio to separate tracks,
+        #  scan A/V to detect in/out/padding/loudness/..., save frames info including hashes
+        CPEAS = 0x8000
+        # Aggregate results from CPEAS
+        INGEST_AGGREGATE = 0x8001
 
         # Presets:
         SIMPLE_TYPE = PROBE | ENCODE_VIDEO | ENCODE_AUDIO | MUX | DOWNMIX | UPMIX | ENCRYPT
@@ -124,7 +129,8 @@ class Job(Record):
                 UNDEFINED = 0
                 MEDIAFILE = 1
                 ASSET = 2
-                INTERACTION = 3
+                CPEAS = 3
+                INTERACTION = 4
                 # COMBINED_INFO = 4
                 FILE = 5
                 TASK = 6

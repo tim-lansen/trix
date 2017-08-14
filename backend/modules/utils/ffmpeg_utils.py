@@ -10,6 +10,8 @@ from pprint import pprint
 from .parsers import Parsers, timecode_to_float
 from .log_console import Logger
 from subprocess import Popen, PIPE
+from .pipe_nowait import pipe_nowait
+from .combined_info import combined_info
 from typing import List
 from modules.models.mediafile import MediaFile
 from modules.models.asset import Asset, Stream, VideoStream, AudioStream, SubStream
@@ -17,13 +19,15 @@ from modules.models.asset import Asset, Stream, VideoStream, AudioStream, SubStr
 
 if os.name == 'nt':
     DEVNULL = 'nul'
-    FFMPEG_UTILS_TEST_FILE = r'F:\storage\crude\watch\test.src\test_src.AV.mp4'
-    FFMPEG_UTILS_STORAGE_TRANSIT = r'F:\storage\_transit'
-    FFMPEG_UTILS_STORAGE_PREVIEW = r'F:\storage\_preview'
+    FFMPEG_UTILS_TEST_FILE_AV = r'D:\storage\crude\watch\test.src\test_src.AV.mp4'
+    FFMPEG_UTILS_TEST_FILE_A1 = r'D:\storage\crude\watch\test.src\test_src.A1.mkv'
+    FFMPEG_UTILS_TEST_FILE_A2 = r'D:\storage\crude\watch\test.src\test_src.A2.mkv'
+    FFMPEG_UTILS_STORAGE_TRANSIT = r'D:\storage\_transit'
+    FFMPEG_UTILS_STORAGE_PREVIEW = r'D:\storage\_preview'
 else:
     import fcntl
     DEVNULL = '/dev/null'
-    FFMPEG_UTILS_TEST_FILE = '/mnt/server1_id/crude/watch/test.src/test_src.AV.mp4'
+    FFMPEG_UTILS_TEST_FILE_AV = '/mnt/server1_id/crude/watch/test.src/test_src.AV.mp4'
     FFMPEG_UTILS_STORAGE_TRANSIT = '/mnt/server1_id/crude/_transit'
     FFMPEG_UTILS_STORAGE_PREVIEW = '/mnt/server1_id/crude/_preview'
 
@@ -99,8 +103,11 @@ def ffmpeg_cropdetect(url,  video_track: MediaFile.VideoTrack, cd_black=0.08, cd
 
 def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None):
     # First, call cropdetect
-    cropdetect = ffmpeg_cropdetect(mediafile.source.url, mediafile.videoTracks[0])
-    dur = mediafile.videoTracks[0].Duration
+    if len(mediafile.videoTracks):
+        cropdetect = ffmpeg_cropdetect(mediafile.source.url, mediafile.videoTracks[0])
+        dur = mediafile.videoTracks[0].Duration
+    else:
+        dur = mediafile.format.duration
     src = mediafile.source.url
     vout_arch: List[MediaFile] = []
     vout_refs: List[MediaFile] = []
@@ -126,16 +133,21 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         else:
             filters.append('[0:v:{sti}]format=yuv420p,scale={pw}:{ph}[pv{sti}]'.format(sti=sti, pw=vp.width, ph=vp.height))
 
-    # Enumerate audio tracks, collect pan filters and outputs for previews and extracts
+    # Enumerate audio tracks, collect pan filters and outputs for previews and extracted tracks
     for sti, a in enumerate(mediafile.audioTracks):
-        at = copy.deepcopy(a)
-        audio = MediaFile()
+        # Special case for 1-track audio only
+        if len(mediafile.videoTracks) == 0 and len(mediafile.subTracks) == 0 and len(mediafile.audioTracks) == 1:
+            audio = mediafile
+            at = a
+        else:
+            at = copy.deepcopy(a)
+            audio = MediaFile()
+            audio.guid.new()
+            audio.master.set(mediafile.guid.guid)
+            audio.audioTracks.append(at)
+            audio.source.url = os.path.join(dir_transit, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
+            outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.url))
         vout_trans.append(audio)
-        audio.guid.new()
-        audio.master.set(mediafile.guid.guid)
-        audio.audioTracks.append(at)
-        audio.source.url = os.path.join(dir_transit, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
-        outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.url))
         # Add silencedetect filter for 1st audio track only
         audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
         for ci in range(a.channels):
@@ -153,8 +165,8 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             at.refs.append(str(audio_preview.guid))
 
     # Finally, compose the command
-    command_cli = 'ffmpeg -y -i {src} -filter_complex "{filters}" {outputs}'.format(src=src, filters=';'.join(filters), outputs=' '.join(outputs))
-    command_py = 'ffmpeg -y -i {src} -filter_complex {filters} {outputs}'.format(src=src, filters=';'.join(filters), outputs=' '.join(outputs))
+    command_cli = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex "{filters}" {outputs}'.format(src=src, filters=';'.join(filters), outputs=' '.join(outputs))
+    command_py = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex {filters} {outputs}'.format(src=src, filters=';'.join(filters), outputs=' '.join(outputs))
 
     Logger.log('{}\n'.format(command_cli))
 
@@ -167,14 +179,26 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         os.makedirs(dir_transit)
 
     proc = Popen(command_py.split(' '), stdin=sys.stdin, stderr=PIPE)
+    pipe_nowait(proc.stderr)
+    stde = proc.stderr.fileno()
+    tail = ''
+
     blacks = []
     silences = []
     # 'frames' will contain filtered showinfo
     frames = {'iframes': [], 'frames': []}
     pts_time = 0.0
     pts_start = None
+
     while proc.poll() is None:
-        lines = proc.stderr.readline().decode().split('\r')
+        lines = []
+        try:
+            part = tail + os.read(stde, 65536).decode().replace('\r', '\n').replace('\n\n', '\n')
+            lines = part.split('\n')
+            if len(lines):
+                tail = lines.pop(-1)
+        except OSError as e:
+            pass
         for line in lines:
             fn, parse = Parsers.parse_auto(line)
             if fn is None or parse is None:
@@ -212,34 +236,38 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     # Guess program in and out
     program_in = pts_start
     program_out = pts_time
-    bound_in = min(program_out / 2.0, 200.0)
-    bound_out = program_out / 2.0
-    s = 2 if len(silences) else 1
-    silent_dark = False
-    for bs in sorted(blacks + silences):
-        s += bs[1]
-        if s == 0:
-            silent_dark = True
-            # Set program_out only once!
-            if program_out > bs[0] > bound_out:
-                program_out = bs[0]
-            continue
-        if silent_dark:
-            silent_dark = False
-            if bs[0] < bound_in:
-                program_in = bs[0]
-    Logger.log('Guessed program IN: {:.2f},  OUT: {:.2f}\n'.format(program_in, program_out))
 
     # Create asset
     asset = Asset()
+    asset.guid.new()
     # Add main video track and auto-detected params
-    asset.mediaFiles.append(vout_arch[0].guid)
-    v_stream = VideoStream()
-    v_stream.program_in = program_in
-    v_stream.program_out = program_out
-    v_stream.cropdetect.update_json(cropdetect)
-    v_stream.channels.append(Stream.Channel())
-    asset.videoStreams.append(v_stream)
+    if len(vout_arch):
+        if len(blacks):
+            bound_in = min(program_out / 2.0, 200.0)
+            bound_out = program_out / 2.0
+            s = 2 if len(silences) else 1
+            silent_dark = False
+            for bs in sorted(blacks + silences):
+                s += bs[1]
+                if s == 0:
+                    silent_dark = True
+                    # Set program_out only once!
+                    if program_out > bs[0] > bound_out:
+                        program_out = bs[0]
+                    continue
+                if silent_dark:
+                    silent_dark = False
+                    if bs[0] < bound_in:
+                        program_in = bs[0]
+            Logger.log('Guessed program IN: {:.2f},  OUT: {:.2f}\n'.format(program_in, program_out))
+
+        asset.mediaFiles.append(vout_arch[0].guid)
+        v_stream = VideoStream()
+        v_stream.program_in = program_in
+        v_stream.program_out = program_out
+        v_stream.cropdetect.update_json(cropdetect)
+        v_stream.channels.append(Stream.Channel())
+        asset.videoStreams.append(v_stream)
     # Add audio track(s)
     for ti, trans in enumerate(vout_trans):
         asset.mediaFiles.append(trans.guid)
@@ -256,6 +284,11 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             a_stream.channels.append(chan)
         asset.audioStreams.append(a_stream)
 
+    # Update info for every mediafile
+    for mf in vout_arch + vout_refs + vout_trans:
+        if mf.format.stream_count is None:
+            combined_info(mf)
+
     # Return complex object
     return {
         'asset': asset,
@@ -267,7 +300,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
 
 def test_ffmpeg_cropdetect():
     from .combined_info import combined_info_mediafile
-    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE)
+    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AV)
     Logger.warning('Combined info:\n{}\n'.format(mf.videoTracks[0].dumps(indent=2)))
     cd = VideoStream.Cropdetect()
     cd.update_json(ffmpeg_cropdetect(mf.source.url, mf.videoTracks[0]))
@@ -276,6 +309,10 @@ def test_ffmpeg_cropdetect():
 
 def test_ffmpeg_create_preview_extract_audio_subtitles():
     from .combined_info import combined_info_mediafile
-    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE)
+    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_A1)
+    print(mf.dumps())
     result = ffmpeg_create_preview_extract_audio_subtitles(mf, FFMPEG_UTILS_STORAGE_TRANSIT, FFMPEG_UTILS_STORAGE_PREVIEW)
-    Logger.debug('Asset:\n{}\n'.format(result['asset']))
+    Logger.debug('asset:\n{}\n'.format(result['asset'].dumps(indent=2)))
+    Logger.debug('trans:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['trans']])))
+    Logger.debug('previews:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['previews']])))
+    Logger.debug('archives:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['archives']])))

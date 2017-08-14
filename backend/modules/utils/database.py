@@ -442,7 +442,13 @@ class DBInterface:
 
         @staticmethod
         def set(asset: Asset):
-            return None
+            return DBInterface.register_record(asset, user=DBInterface.Machine.USER)
+
+        @staticmethod
+        def set_str(asset: str):
+            ass = Asset()
+            ass.update_str(asset)
+            return DBInterface.register_record(ass, user=DBInterface.Machine.USER)
 
     class MediaFile:
         @staticmethod
@@ -452,6 +458,12 @@ class DBInterface:
         @staticmethod
         def set(mediaFile: MediaFile):
             return DBInterface.register_record(mediaFile, user=DBInterface.Machine.USER)
+
+        @staticmethod
+        def set_str(mediaFile: str):
+            mf = MediaFile()
+            mf.update_str(mediaFile)
+            return DBInterface.register_record(mf, user=DBInterface.Machine.USER)
 
     class Machine:
         USER = 'node'
@@ -534,9 +546,10 @@ class DBInterface:
                 rows = cur.fetchall()
                 node.mtime = str(rows[0][0])
                 # Update node's mtime
-                request = "UPDATE {relname} SET mtime='{mtime}' WHERE guid='{node_id}';".format(
+                request = "UPDATE {relname} SET mtime=localtimestamp,status={status} WHERE guid='{node_id}';".format(
                     relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
-                    mtime=node.mtime,
+                    # mtime=node.mtime,
+                    status=node.status,
                     node_id=node.guid
                 )
                 result = request_db(cur, request)

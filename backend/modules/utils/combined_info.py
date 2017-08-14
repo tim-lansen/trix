@@ -661,7 +661,11 @@ def combine_ffprobe_mediainfo(ffstr, mistr):
     return result
 
 
-def combined_info(mf: MediaFile, url):
+def combined_info(mf: MediaFile, url=None):
+    if url is None:
+        url = mf.source.url
+        if url is None:
+            return
     ffstr = get_ffprobe_info(url)
     mistr = get_media_info(url)
     combined = combine_ffprobe_mediainfo(ffstr, mistr)

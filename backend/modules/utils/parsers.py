@@ -72,7 +72,7 @@ class Parsers:
         """
         if type(line) is bytes:
             line = line.decode()
-        if line.startswith('frame='):
+        if line.startswith('frame=') or line.startswith('size='):
             fc = Parsers.ffmpeg_progress(line)
             if fc:
                 return 'progress', fc

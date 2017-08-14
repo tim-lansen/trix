@@ -59,6 +59,10 @@
             "role": "preview",
             "path": "web/preview",
             "web_access": "http://1.1.1.1/web/preview"
+          },
+          {
+            "role": "transit",
+            "path": "store/_transit"
           }
         ],
         "username": "tim",

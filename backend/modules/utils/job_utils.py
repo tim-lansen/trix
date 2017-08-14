@@ -12,6 +12,14 @@ from .log_console import Logger
 
 
 class JobUtils:
+    ACCEPTABLE_MEDIA_FILE_EXTENSIONS = {
+        'm2ts', 'm2v', 'mov', 'mkv', 'mp4', 'mpeg', 'mpg', 'mpv',
+        'mts', 'mxf', 'webm', 'ogg', 'gp3', 'avi', 'vob', 'ts',
+        '264', 'h264',
+        'flv', 'f4v', 'wav', 'ac3', 'aac', 'mp2', 'mp3', 'mpa',
+        'sox', 'dts', 'dtshd'
+    }
+
     class CreateJob:
         @staticmethod
         def media_info(path, names: List[str]):
@@ -67,13 +75,76 @@ class JobUtils:
             DBInterface.Job.register(job)
             return job
 
+        @staticmethod
+        def _cpeas(path):
+            job = Job()
+            job.guid.new()
+            job.name = 'CPEAS: {}'.format(os.path.basename(path))
+            job.type = Job.Type.CPEAS
+            step = Job.Info.Step()
+            step.name = 'Create proxy, extract audio and subtitles'
+            job.info.steps.append(step)
+            chain = Job.Info.Step.Chain()
+            chain.procs = [['internal_create_preview_extract_audio_subtitles', '{}', path]]
+            chain.result = 0
+            step.chains.append(chain)
+            # Compose result
+            result = Job.Info.Result()
+            result.type = Job.Info.Result.Type.CPEAS
+            job.info.results.append(result)
+            return job
+
+        @staticmethod
+        def create_preview_extract_audio_subtitles(path):
+            """
+            Create a job that performs 'internal_create_preview_extract_audio_subtitles' on the <path>
+            :param path: path to AV file
+            :return: job
+            """
+            job = JobUtils.CreateJob._cpeas(path)
+            # Register job
+            DBInterface.Job.register(job)
+            return job
+
+        @staticmethod
+        def ingest_prepare(path):
+            """
+            Create a bunch of jobs (preview_extract_audio_subtitles), and results aggregator job
+            :param path: path to source directory
+            :return:
+            """
+            # Create final job
+            agg = Job()
+            agg.guid.new()
+            agg.name = 'Ingest: aggregate results'
+            agg.type = Job.Type.INGEST_AGGREGATE
+            agg.dependsOnGroupId.new()
+            group_id = agg.dependsOnGroupId
+
+            # Filter inputs: get list of all files in directory
+            inputs = []
+            for root, firs, files in os.walk(path):
+                inputs += [os.path.join(root, f) for f in files if len(f.split('.', 1)) == 2 and f.rsplit('.', 1)[1] in JobUtils.ACCEPTABLE_MEDIA_FILE_EXTENSIONS]
+            if len(inputs) == 0:
+                return
+
+            # Create atomic jobs
+            for inp in inputs:
+                job = JobUtils.CreateJob._cpeas(inp)
+                # Add job to group
+                job.groupIds.append(group_id)
+                # Register job
+                DBInterface.Job.register(job)
+            # Register aggregator job
+            DBInterface.Job.register(agg)
+
     class Results:
         @staticmethod
         def _undefined(r):
             pass
 
         def _mediafile(r):
-            DBInterface.MediaFile.set(r.actual)
+            DBInterface.MediaFile.set_str(r.actual)
 
         def _asset(r):
             pass
@@ -81,10 +152,18 @@ class JobUtils:
         def _interaction(r):
             pass
 
+        def _cpeas(r):
+            # Parse results derived from 'internal_create_preview_extract_audio_subtitles'
+            res = json.loads(r.actual)
+            DBInterface.Asset.set_str(res['asset'])
+            for mf in res['trans'] + res['previews'] + res['archives']:
+                DBInterface.MediaFile.set_str(mf)
+
         Vectors = {
             Job.Info.Result.Type.MEDIAFILE:     _mediafile,
             Job.Info.Result.Type.ASSET:         _asset,
             Job.Info.Result.Type.INTERACTION:   _interaction,
+            Job.Info.Result.Type.CPEAS:         _cpeas,
             Job.Info.Result.Type.FILE:          _undefined,
             Job.Info.Result.Type.TASK:          _undefined,
             Job.Info.Result.Type.JOB:           _undefined,

@@ -100,12 +100,21 @@ def run(period=5):
             notifications = [[n['channel'], 'ping'] for n in nodes]
             DBInterface.notify_list(notifications)
             time.sleep(period)
-            check = "EXTRACT(EPOCH FROM AGE(localtimestamp, mtime))>{timeout};".format(timeout=2*period)
-            suspicious_nodes = DBInterface.get_records('Node', fields=['guid'], cond=[check])
+            check = "EXTRACT(EPOCH FROM AGE(localtimestamp, mtime))>{timeout}".format(timeout=2*period)
+            suspicious_nodes = DBInterface.get_records('Node', fields=['guid', 'job'], cond=[check])
             if len(suspicious_nodes):
                 Logger.warning("Unregister node(s):\n{}\n".format('\n'.join([sn['guid'] for sn in suspicious_nodes])))
                 DBInterface.delete_records('Node', [sn['guid'] for sn in suspicious_nodes])
-                Logger.info("Check jobs being executed on these nodes...\n")
+                Logger.info("Check jobs were being executed on these nodes...\n")
+                jobs = DBInterface.get_records(
+                    'Job',
+                    fields=['guid', 'fails'],
+                    status=Job.Status.EXECUTING,
+                    cond=["guid=ANY('{{{}}}'::uuid[])".format(','.join([sn['job'] for sn in suspicious_nodes if sn['job']]))]
+                )
+                for job in jobs:
+                    Logger.info('Reset job {}\n'.format(job['guid']))
+                    DBInterface.Job.set_fields(job['guid'], {'status': Job.Status.NEW, 'offers': job['fails'] + 1})
                 time.sleep(period)
         else:
             time.sleep(period)

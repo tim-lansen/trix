@@ -14,8 +14,8 @@ import uuid
 import time
 import shutil
 import modules.utils.worker_mount_paths
-from modules.utils.non_daemonic_pool import NonDaemonicPool
-from typing import List
+# from modules.utils.non_daemonic_pool import NonDaemonicPool
+# from typing import List
 from modules.config import *
 from modules.utils.log_console import Logger, tracer
 from modules.utils.database import DBInterface
@@ -75,7 +75,7 @@ class Worker:
         # TODO: update status, job status/progress
         if self.node.status == Node.Status.BUSY:
             progress = self.job_executor.progress()
-            DBInterface.Job.set_fields(self.job_executor.job.guid, {'progress': progress})
+            DBInterface.Job.set_fields(self.node.job, {'progress': progress})
 
     def _revert_(self, msg, revert_job=True):
         Logger.error(msg)
@@ -97,7 +97,10 @@ class Worker:
 
         self.node.job = params[1]
         # Set node status to BUSY
-        if not DBInterface.Node.set_status(self.node.guid, Node.Status.BUSY):
+        # if not DBInterface.Node.set_status(self.node.guid, Node.Status.BUSY):
+        #     Logger.error("Failed to get BUSY\n")
+        #     return
+        if not DBInterface.Node.set_fields(self.node.guid, {'status': Node.Status.BUSY, 'job': "'{}'".format(self.node.job)}):
             Logger.error("Failed to get BUSY\n")
             return
         self.node.status = Node.Status.BUSY
@@ -169,16 +172,16 @@ class Worker:
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:
                     self.node.status = Node.Status.IDLE
-                    self.job_executor.exec.reset()
+                self.job_executor.exec.reset()
             if self.job_executor.exec.finish.is_set():
                 # TODO: set results
                 if self.job_executor.results():
-                    for r in self.job_executor.exec.job.info.results:
-                        Logger.warning('{}\n'.format(r.dumps()))
+                    DBInterface.Job.set_fields(self.node.guid, {'info': "'{}'".format(self.job_executor.exec.job.info.dumps())})
                 DBInterface.Job.set_status(self.node.job, Job.Status.FINISHED)
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:
                     self.node.status = Node.Status.IDLE
+                self.job_executor.exec.reset()
 
             Logger.info('Node: {}\n'.format(self.node.dumps()))
             working = self.node.status in valid_status_set or self.job_executor.working()
