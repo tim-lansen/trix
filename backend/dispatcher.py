@@ -21,7 +21,7 @@ from modules.utils.database import DBInterface
 # 7. Goto 1
 
 
-def run(period=5):
+def run(period=3):
     def test_job_condition(_job_):
         # First, check dependencies
         _dog_ = _job_['dependsongroupid']
@@ -100,7 +100,7 @@ def run(period=5):
             notifications = [[n['channel'], 'ping'] for n in nodes]
             DBInterface.notify_list(notifications)
             time.sleep(period)
-            check = "EXTRACT(EPOCH FROM AGE(localtimestamp, mtime))>{timeout}".format(timeout=2*period)
+            check = "EXTRACT(EPOCH FROM AGE(localtimestamp, mtime))>{timeout}".format(timeout=5*period)
             suspicious_nodes = DBInterface.get_records('Node', fields=['guid', 'job'], cond=[check])
             if len(suspicious_nodes):
                 Logger.warning("Unregister node(s):\n{}\n".format('\n'.join([sn['guid'] for sn in suspicious_nodes])))

@@ -222,6 +222,7 @@ class Job(Record):
             return mpc
 
     class Status:
+        INACTIVE = 0
         NEW = 1
         WAITING = 2
         OFFERED = 3

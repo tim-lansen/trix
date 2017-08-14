@@ -614,6 +614,26 @@ class DBInterface:
             return DBInterface.request_db(request)
 
         @staticmethod
+        def set_fields_list(uids, fields: dict):
+            fields['mtime'] = 'localtimestamp'
+            condition = ["guid=ANY('{{{}}}'::uuid[])".format(','.join(uids))]
+            setup = ','.join(['{}={}'.format(k, fields[k]) for k in fields])
+            request = "UPDATE {relname} SET {setup} WHERE {condition};".format(relname=TRIX_CONFIG.dBase.tables['Job']['relname'],
+                                                                               setup=setup,
+                                                                               condition=condition)
+            return DBInterface.request_db(request)
+
+        @staticmethod
+        def set_fields_by_groups(group_ids, fields: dict):
+            fields['mtime'] = 'localtimestamp'
+            condition = "'{{{}}}'::uuid[] && groupIds".format(','.join(group_ids))
+            setup = ','.join(['{}={}'.format(k, fields[k]) for k in fields])
+            request = "UPDATE {relname} SET {setup} WHERE {condition};".format(relname=TRIX_CONFIG.dBase.tables['Job']['relname'],
+                                                                               setup=setup,
+                                                                               condition=condition)
+            return DBInterface.request_db(request)
+
+        @staticmethod
         def set_status(uid, status):
             return DBInterface.Job.set_fields(uid, {'status': status})
 

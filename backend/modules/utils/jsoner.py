@@ -90,7 +90,7 @@ class JSONer:
             ensure_ascii=ensure_ascii,
             indent=indent,
             separators=separators,
-            default=lambda obj: JSONer.filter(obj.__dict__, expose_unmentioned=expose_unmentioned, expose_empty=expose_empty, expose_none=expose_none)
+            default=lambda obj: obj.decode() if type(obj) is bytes else JSONer.filter(obj.__dict__, expose_unmentioned=expose_unmentioned, expose_empty=expose_empty, expose_none=expose_none)
         )
         return json_string
 

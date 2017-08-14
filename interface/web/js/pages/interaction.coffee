@@ -1,171 +1,180 @@
-do (window) ->
-    'use strict'
-    $ = require('jquery')
-    # const LiveCrop          = require('../models/LiveCrop');
-    # const InteractionPlayer = require('../models/InteractionPlayer');
-    # const Interaction       = require('../models/Interaction');
-    # const Rightholders      = require('../models/Rightholders');
-    LiveCrop = require('./ui/live_crop')
-    InteractionPlayer = require('./ui/interaction_player')
-    Interaction = require('../models/Interaction')
-    Rightholders = require('../models/Rightholders')
-    AudioContext = window.AudioContext or window.webkitAudioContext
+'use strict'
 
-    absY = (obj) ->
-        top = 0
-        while typeof obj.offsetTop == 'number'
-            top += obj.offsetTop
-            obj = obj.parentNode
-        top
+$ = require('jquery')
+LiveCrop = require('./ui/live_crop')
+InteractionPlayer = require('./ui/interaction_player')
+Interaction = require('../models/Interaction')
+Rightholders = require('../models/Rightholders')
+AudioContext = window.AudioContext or window.webkitAudioContext
 
-    absX = (obj) ->
-        left = 0
-        while typeof obj.offsetLeft == 'number'
-            left += obj.offsetLeft
-            obj = obj.parentNode
-        left
 
-    padz = (number, size) ->
-        pad = size - (('' + number).length)
-        z = ''
-        while pad > 0
-            z += '0'
-            pad -= 1
-        z + number
+absY = (obj) ->
+    top = 0
+    while typeof obj.offsetTop == 'number'
+        top += obj.offsetTop
+        obj = obj.parentNode
+    top
 
-    zeroez = '0000000000000000'
+absX = (obj) ->
+    left = 0
+    while typeof obj.offsetLeft == 'number'
+        left += obj.offsetLeft
+        obj = obj.parentNode
+    left
 
-    zpad = (strnum, size) ->
-        # Up to 16 leading zeroes
-        if strnum.length < size
-            strnum = zeroez.substring(0, size - (strnum.length)) + strnum
-        strnum
+padz = (number, size) ->
+    pad = size - (('' + number).length)
+    z = ''
+    while pad > 0
+        z += '0'
+        pad -= 1
+    z + number
 
-    odev = (number) ->
-        if number % 2 then 'odd' else 'even'
+zeroez = '0000000000000000'
 
-    createStyleSequence = (baseName, h, s, l, a, hH, sH, lH, aH, rotOddEvenH, gainOddEvenL, steps) ->
-        css = ''
-        ho = 0
-        lig = 0
-        # var sat = 0;
-        # var oel = 0;
-        i = 0
-        while i < steps
-            oe = i % 2
-            ho = (h + (i - oe) * 360 / steps + rotOddEvenH * oe) % 360
-            lig = l + gainOddEvenL * oe
-            css += '.' + baseName + padz(i, 2) + '{background-color:hsla(' + ho + ',' + s + '%,' + lig + '%,' + a + ');} '
-            ho = (hH + (i - oe) * 360 / steps + rotOddEvenH * oe) % 360
-            lig = lH + gainOddEvenL * oe
-            css += '.' + baseName + padz(i, 2) + ':hover{background-color:hsla(' + ho + ',' + sH + '%,' + lig + '%,' + aH + ');} '
-            i++
-        style = document.createElement('style')
-        if style.styleSheet
-            style.styleSheet.cssText = css
-        else
-            style.appendChild document.createTextNode(css)
-        document.getElementsByTagName('head')[0].appendChild style
+zpad = (strnum, size) ->
+# Up to 16 leading zeroes
+    if strnum.length < size
+        strnum = zeroez.substring(0, size - (strnum.length)) + strnum
+    strnum
+
+odev = (number) ->
+    if number % 2 then 'odd' else 'even'
+
+createStyleSequence = (baseName, h, s, l, a, hH, sH, lH, aH, rotOddEvenH, gainOddEvenL, steps) ->
+    css = ''
+    ho = 0
+    lig = 0
+    # var sat = 0;
+    # var oel = 0;
+    i = 0
+    while i < steps
+        oe = i % 2
+        ho = (h + (i - oe) * 360 / steps + rotOddEvenH * oe) % 360
+        lig = l + gainOddEvenL * oe
+        css += '.' + baseName + padz(i, 2) + '{background-color:hsla(' + ho + ',' + s + '%,' + lig + '%,' + a + ');} '
+        ho = (hH + (i - oe) * 360 / steps + rotOddEvenH * oe) % 360
+        lig = lH + gainOddEvenL * oe
+        css += '.' + baseName + padz(i, 2) + ':hover{background-color:hsla(' + ho + ',' + sH + '%,' + lig + '%,' + aH + ');} '
+        i++
+    style = document.createElement('style')
+    if style.styleSheet
+        style.styleSheet.cssText = css
+    else
+        style.appendChild document.createTextNode(css)
+    document.getElementsByTagName('head')[0].appendChild style
+    return
+
+
+class AudioMan
+    constructor: ->
+        @audioChannelSelectOptionsHtml = ''
+
+    @single_channel_re: /1\schannels\s\((.+)\)/
+    @audioLayouts: [
+        {'code': 'mono',           'name': 'Mono',            'layout': ['FC']},
+        {'code': 'stereo',         'name': 'Stereo',          'layout': ['FL',  'FR']},
+        {'code': '2.1',            'name': '2.1',             'layout': ['FL',  'FR',  'LFE']},
+        {'code': '3.0',            'name': '3.0',             'layout': ['FL',  'FR',  'FC']},
+        #{'code': '3.0(back)',      'name': '3.0 (back)',      'layout': ['FL',  'FR',  'BC']},
+        {'code': '4.0',            'name': '4.0',             'layout': ['FL',  'FR',  'FC',  'BC']},
+        {'code': 'quad',           'name': 'Quadro',          'layout': ['FL',  'FR',  'BL',  'BR']},
+        #{'code': 'quad(side)',     'name': 'Quadro (side)',   'layout': ['FL',  'FR',  'SL',  'SR']},
+        {'code': '3.1',            'name': '3.1',             'layout': ['FL',  'FR',  'FC',  'LFE']},
+        #{'code': '5.0',            'name': '5.0 (back)',      'layout': ['FL',  'FR',  'FC',  'BL',  'BR']},
+        {'code': '5.0(side)',      'name': '5.0 (side)',      'layout': ['FL',  'FR',  'FC',  'SL',  'SR']},
+        {'code': '4.1',            'name': '4.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BC']},
+        {'code': '5.1',            'name': '5.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR']},
+        #{'code': '5.1(side)',      'name': '5.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'SL',  'SR']},
+        {'code': '6.0',            'name': '6.0',             'layout': ['FL',  'FR',  'FC',  'BC',  'SL',  'SR']},
+        #{'code': '6.0(front)',     'name': '6.0 (front)',     'layout': ['FL',  'FR',  'FLC', 'FRC', 'SL',  'SR']},
+        {'code': 'hexagonal',      'name': 'Hexagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC']},
+        #{'code': '6.1',            'name': '6.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BC',  'SL',  'SR']},
+        {'code': '6.1',            'name': '6.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'BC']},
+        {'code': '6.1(front)',     'name': '6.1 (front)',     'layout': ['FL',  'FR',  'LFE', 'FLC', 'FRC', 'SL',  'SR']},
+        {'code': '7.0',            'name': '7.0',             'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'SL',  'SR']},
+        #{'code': '7.0(front)',     'name': '7.0 (front)',     'layout': ['FL',  'FR',  'FC',  'FLC', 'FRC', 'SL',  'SR']},
+        {'code': '7.1',            'name': '7.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'SL',  'SR']},
+        #{'code': '7.1(wide)',      'name': '7.1 (wide)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'FLC', 'FRC']},
+        #{'code': '7.1(wide-side)', 'name': '7.1 (wide-side)', 'layout': ['FL',  'FR',  'FC',  'LFE', 'FLC', 'FRC', 'SL',  'SR']},
+        {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']},
+        #{'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
+    ]
+    @audioChannels:
+        'FL': 'front left'
+        'FR': 'front right'
+        'FC': 'front center'
+        'LFE': 'low frequency'
+        'BL': 'back left'
+        'BR': 'back right'
+        'FLC': 'front left-of-center'
+        'FRC': 'front right-of-center'
+        'BC': 'back center'
+        'SL': 'side left'
+        'SR': 'side right'
+        'TC': 'top center'
+        'TFL': 'top front left'
+        'TFC': 'top front center'
+        'TFR': 'top front right'
+        'TBL': 'top back left'
+        'TBC': 'top back center'
+        'TBR': 'top back right'
+        'DL': 'downmix left'
+        'DR': 'downmix right'
+        'WL': 'wide left'
+        'WR': 'wide right'
+        'SDL': 'surround direct left'
+        'SDR': 'surround direct right'
+        'LFE2': 'low frequency 2'
+
+    reset: ->
+        @audioChannelSelectOptionsHtml = ''
         return
 
-    audioMan =
-        audioChannelSelectOptionsHtml: ''
-        'single_channel_re': /1\schannels\s\((.+)\)/
-        'audioLayouts': [
-            {'code': 'mono',           'name': 'Mono',            'layout': ['FC']},
-            {'code': 'stereo',         'name': 'Stereo',          'layout': ['FL',  'FR']},
-            {'code': '2.1',            'name': '2.1',             'layout': ['FL',  'FR',  'LFE']},
-            {'code': '3.0',            'name': '3.0',             'layout': ['FL',  'FR',  'FC']},
-            #{'code': '3.0(back)',      'name': '3.0 (back)',      'layout': ['FL',  'FR',  'BC']},
-            {'code': '4.0',            'name': '4.0',             'layout': ['FL',  'FR',  'FC',  'BC']},
-            {'code': 'quad',           'name': 'Quadro',          'layout': ['FL',  'FR',  'BL',  'BR']},
-            #{'code': 'quad(side)',     'name': 'Quadro (side)',   'layout': ['FL',  'FR',  'SL',  'SR']},
-            {'code': '3.1',            'name': '3.1',             'layout': ['FL',  'FR',  'FC',  'LFE']},
-            #{'code': '5.0',            'name': '5.0 (back)',      'layout': ['FL',  'FR',  'FC',  'BL',  'BR']},
-            {'code': '5.0(side)',      'name': '5.0 (side)',      'layout': ['FL',  'FR',  'FC',  'SL',  'SR']},
-            {'code': '4.1',            'name': '4.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BC']},
-            {'code': '5.1',            'name': '5.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR']},
-            #{'code': '5.1(side)',      'name': '5.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'SL',  'SR']},
-            {'code': '6.0',            'name': '6.0',             'layout': ['FL',  'FR',  'FC',  'BC',  'SL',  'SR']},
-            #{'code': '6.0(front)',     'name': '6.0 (front)',     'layout': ['FL',  'FR',  'FLC', 'FRC', 'SL',  'SR']},
-            {'code': 'hexagonal',      'name': 'Hexagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC']},
-            #{'code': '6.1',            'name': '6.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BC',  'SL',  'SR']},
-            {'code': '6.1',            'name': '6.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'BC']},
-            {'code': '6.1(front)',     'name': '6.1 (front)',     'layout': ['FL',  'FR',  'LFE', 'FLC', 'FRC', 'SL',  'SR']},
-            {'code': '7.0',            'name': '7.0',             'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'SL',  'SR']},
-            #{'code': '7.0(front)',     'name': '7.0 (front)',     'layout': ['FL',  'FR',  'FC',  'FLC', 'FRC', 'SL',  'SR']},
-            {'code': '7.1',            'name': '7.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'SL',  'SR']},
-            #{'code': '7.1(wide)',      'name': '7.1 (wide)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'FLC', 'FRC']},
-            #{'code': '7.1(wide-side)', 'name': '7.1 (wide-side)', 'layout': ['FL',  'FR',  'FC',  'LFE', 'FLC', 'FRC', 'SL',  'SR']},
-            {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']},
-            #{'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
-        ]
-        audioChannels:
-            'FL': 'front left'
-            'FR': 'front right'
-            'FC': 'front center'
-            'LFE': 'low frequency'
-            'BL': 'back left'
-            'BR': 'back right'
-            'FLC': 'front left-of-center'
-            'FRC': 'front right-of-center'
-            'BC': 'back center'
-            'SL': 'side left'
-            'SR': 'side right'
-            'TC': 'top center'
-            'TFL': 'top front left'
-            'TFC': 'top front center'
-            'TFR': 'top front right'
-            'TBL': 'top back left'
-            'TBC': 'top back center'
-            'TBR': 'top back right'
-            'DL': 'downmix left'
-            'DR': 'downmix right'
-            'WL': 'wide left'
-            'WR': 'wide right'
-            'SDL': 'surround direct left'
-            'SDR': 'surround direct right'
-            'LFE2': 'low frequency 2'
-        'reset': ->
-            @audioChannelSelectOptionsHtml = ''
-            return
-        'appendAudioChannelSelectOptions': (idx, iMedia, iTrack, iChannel) ->
-            @audioChannelSelectOptionsHtml += '<option value="' + idx + '">' + padz(iMedia, 2) + '-t' + padz(iTrack, 2) + '-c' + padz(iChannel, 2) + '</option>'
-            return
-        'updateAudioChannelSelect': ->
-            layout = document.getElementById('pro-audio-layout-select').value
-            console.log layout
-            # Re-populate map list
-            html = ''
-            for ci of @audioLayouts[layout].layout
-                pos = @audioLayouts[layout].layout[ci]
-                html += '<tr id="map' + ci + '-' + pos + '" class="audio-out row0">'
-                html += '<td class="audio-out col0">' + pos + '</td>'
-                html += '<td class="audio-out col1">'
-                html += '<select id="map' + ci + '-' + pos + '-select">' + @audioChannelSelectOptionsHtml + '</select>'
-                html += '</td>'
-            document.getElementById('pro-audio-layout-map').innerHTML = html
-            return
-        'audioChannelsLayout': (channel_layout) ->
-            if typeof channel_layout != 'string'
-                return ''
-            if channel_layout == 'mono'
-                return 'FC'
-            m = channel_layout.match(@single_channel_re)
-            if m != null and m.length == 2
-                return m[1]
-            channel_layout
-        'audioLayoutPullChannels': ->
-# Place channels sequence to layout, starting from current 'left' channel
-            if interaction_player != null
-                i = interaction_player.LI
-                layout = document.getElementById('pro-audio-layout-select').value
-                for ci of @audioLayouts[layout].layout
-                    id = 'map' + ci + '-' + @audioLayouts[layout].layout[ci] + '-select'
-                    document.getElementById(id).value = i++
-            return
+    appendAudioChannelSelectOptions: (idx, iMedia, iTrack, iChannel) ->
+        @audioChannelSelectOptionsHtml += '<option value="' + idx + '">' + padz(iMedia, 2) + '-t' + padz(iTrack, 2) + '-c' + padz(iChannel, 2) + '</option>'
+        return
 
-    InteractionPage = (app) ->
+    updateAudioChannelSelect: ->
+        layout = document.getElementById('pro-audio-layout-select').value
+        console.log layout
+        # Re-populate map list
+        html = ''
+        for ci of @audioLayouts[layout].layout
+            pos = @audioLayouts[layout].layout[ci]
+            html += '<tr id="map' + ci + '-' + pos + '" class="audio-out row0">'
+            html += '<td class="audio-out col0">' + pos + '</td>'
+            html += '<td class="audio-out col1">'
+            html += '<select id="map' + ci + '-' + pos + '-select">' + @audioChannelSelectOptionsHtml + '</select>'
+            html += '</td>'
+        document.getElementById('pro-audio-layout-map').innerHTML = html
+        return
+
+    audioChannelsLayout: (channel_layout) ->
+        if typeof channel_layout != 'string'
+            return ''
+        if channel_layout == 'mono'
+            return 'FC'
+        m = channel_layout.match(@single_channel_re)
+        if m != null and m.length == 2
+            return m[1]
+        channel_layout
+
+    audioLayoutPullChannels: ->
+        # Place channels sequence to layout, starting from current 'left' channel
+        if interaction_player != null
+            i = interaction_player.LI
+            layout = document.getElementById('pro-audio-layout-select').value
+            for ci of @audioLayouts[layout].layout
+                id = 'map' + ci + '-' + @audioLayouts[layout].layout[ci] + '-select'
+                document.getElementById(id).value = i++
+        return
+
+
+class InteractionPage
+    @hash: 'interaction'
+
+    constructor: (app) ->
         @app = app
         @proposeAudioLang = null
         @interaction_initialized = false
@@ -179,11 +188,13 @@ do (window) ->
         @api_movies = {}
         @interaction_channelMerger = @interaction_audioContext.createChannelMerger(2)
         @interaction_channelMerger.connect @interaction_audioContext.destination
-        $('#pro-audio-layout-pull').bind 'click', audioMan.audioLayoutPullChannels.bind(audioMan)
+
+        @audioMan = new AudioMan()
+        $('#pro-audio-layout-pull').bind 'click', @audioMan.audioLayoutPullChannels.bind(@audioMan)
         @liveCrop = new LiveCrop
         return
 
-    InteractionPage::updateInteractionDataOut = ->
+    updateInteractionDataOut: ->
         data = @interactions[@interaction_selected].data_out
         # Video part
         # Copy crop data
@@ -217,30 +228,30 @@ do (window) ->
         #createStyleSequence('src-audio-channel.c',    0,    4,   16,  0.5,    0,    4,    0, 0.75,  180,  6.0, channelCWS);
         return
 
-    InteractionPage::disableSelect = ->
+    disableSelect: ->
         $('body').addClass 'unselectable'
         return
 
-    InteractionPage::enableSelect = ->
+    enableSelect: ->
         $('body').removeClass 'unselectable'
         return
 
-    InteractionPage::enable = (param) ->
+    enable: (param) ->
         if !@interaction_initialized
             @interaction_initialized = true
             $('#interaction-refresh').bind 'click', @interactionsRefreshClick.bind(this)
             # Populate layouts
             html = ''
             i = 0
-            while i < audioMan.audioLayouts.length
-                html += '<option value="' + i + '">' + audioMan.audioLayouts[i].name + '</option>'
+            while i < AudioMan.audioLayouts.length
+                html += '<option value="' + i + '">' + AudioMan.audioLayouts[i].name + '</option>'
                 i++
             document.getElementById('pro-audio-layout-select').innerHTML = html
             $('#pro-audio-lang').bind 'change', ((a) ->
                 @proposeAudioLang = a.target.value
                 return
             ).bind(this)
-            $('#pro-audio-layout-select').bind 'change', audioMan.updateAudioChannelSelect.bind(audioMan)
+            $('#pro-audio-layout-select').bind 'change', @audioMan.updateAudioChannelSelect.bind(@audioMan)
             $('#pro-movie-select').bind 'change', ((a) ->
                 @proposeSelectMovie a.target.value
                 return
@@ -253,13 +264,13 @@ do (window) ->
                 layout = document.getElementById('pro-audio-layout-select').value
                 cl = []
                 i = 0
-                while i < audioMan.audioLayouts[layout].layout.length
-                    pos = audioMan.audioLayouts[layout].layout[i]
+                while i < AudioMan.audioLayouts[layout].layout.length
+                    pos = AudioMan.audioLayouts[layout].layout[i]
                     id = 'map' + i + '-' + pos + '-select'
                     sel = document.getElementById(id).value
                     cl.push sel
                     i++
-                @interactions[@interaction_selected].addAudioOutput lang, audioMan.audioLayouts[layout].code, cl
+                @interactions[@interaction_selected].addAudioOutput lang, AudioMan.audioLayouts[layout].code, cl
                 return
             ).bind(this)
             $('#interaction-submit').bind 'click', (->
@@ -300,7 +311,7 @@ do (window) ->
             @makeDragY '#crop-y2', 3
         return
 
-    InteractionPage::makeDragX = (selector, ref) ->
+    makeDragX: (selector, ref) ->
         obj = $(selector)[0]
         parentX = absX(obj.parentNode)
         $('#crop-lines').on 'dragstart', selector, ->
@@ -324,13 +335,13 @@ do (window) ->
         ).bind(this)
         return
 
-    InteractionPage::moveAtX = (e, domEl, parentX, ref, ofs) ->
+    moveAtX: (e, domEl, parentX, ref, ofs) ->
         x = e.pageX - parentX - ofs
         x = @liveCrop.updateLiveCropX(x, ref)
         domEl.style.left = x + 'px'
         return
 
-    InteractionPage::makeDragY = (selector, ref) ->
+    makeDragY: (selector, ref) ->
         obj = $(selector)[0]
         parentY = absY(obj.parentNode)
         $('#crop-lines').on 'dragstart', selector, ->
@@ -354,19 +365,19 @@ do (window) ->
         ).bind(this)
         return
 
-    InteractionPage::moveAtY = (e, domEl, parentY, ref, ofs) ->
+    moveAtY: (e, domEl, parentY, ref, ofs) ->
         y = e.pageY - parentY - ofs
         y = @liveCrop.updateLiveCropY(y, ref)
         domEl.style.top = y + 'px'
         return
 
-    InteractionPage::disable = (param) ->
+    disable: (param) ->
         console.log 'interaction.js Out handler'
         if @interaction_player
             @interaction_player.pause()
         return
 
-    InteractionPage::interactionsRefreshClick = ->
+    interactionsRefreshClick: ->
         console.log 'interactionsRefreshClick'
         # TODO: check if there are some changes in currently loaded interactions
         for id of @interactions
@@ -377,7 +388,7 @@ do (window) ->
         @app.wsApiTrix.request { 'method': 'get_interactions' }, @interactionsRefreshHandler.bind(this)
         return
 
-    InteractionPage::interactionsRefreshHandler = (msg) ->
+    interactionsRefreshHandler: (msg) ->
         answer = msg.result
         i = undefined
         console.log 'interactionsRefreshHandler'
@@ -418,11 +429,11 @@ do (window) ->
             i++
         return
 
-    InteractionPage::interactionClickRow = (inter_id) ->
+    interactionClickRow: (inter_id) ->
         @interactionSelect inter_id
         return
 
-    InteractionPage::interactionSelect = (inter_id) ->
+    interactionSelect: (inter_id) ->
         console.log 'interactionSelect (' + inter_id + ')'
         if @interaction_selected == inter_id
             console.log 'already selected'
@@ -446,7 +457,7 @@ do (window) ->
             @interactionShowInfo inter
         return
 
-    InteractionPage::interactionSelectHandler = (msg) ->
+    interactionSelectHandler: (msg) ->
         console.log 'interactionSelectHandler'
         console.log msg
         answer = msg.result
@@ -462,7 +473,7 @@ do (window) ->
         @interactionShowInfo inter
         return
 
-    InteractionPage::interactionShowInfo = (inter) ->
+    interactionShowInfo: (inter) ->
         html = '<text>ID: ' + inter.id + '</text>'
         if typeof inter.data_in != 'undefined' and inter.data_in != null
             arr = Object.keys(inter.data_in)
@@ -480,7 +491,7 @@ do (window) ->
         document.getElementById('interaction-info').innerHTML = html
         return
 
-    InteractionPage::interactionCreatePlayer = ->
+    interactionCreatePlayer: ->
         inter = @interactions[@interaction_selected]
         data = inter.data_in
         info = data.infos
@@ -509,7 +520,7 @@ do (window) ->
         html = ''
         audio_elements = []
         video_elements = []
-        audioMan.reset()
+        @audioMan.reset()
         count_t = 0
         count_ac = 0
         count_vc = 0
@@ -604,13 +615,13 @@ do (window) ->
                             if !isNaN(st)
                                 ae.delay_ms = Math.round(1000 * st)
                         audio_elements.push ae
-                        audioMan.appendAudioChannelSelectOptions count_ac, mi, ti, ci
+                        @audioMan.appendAudioChannelSelectOptions count_ac, mi, ti, ci
                         count_ac++
                         # Add row to Sources table
                         html += '<tr class="src">'
                         html += html_f
                         html += html_t
-                        html += '<td id="' + id + '" class="src row' + cc % 2 + ' col2">' + audioMan.audioChannelsLayout(channel_layout) + ' #' + ci + '</td>'
+                        html += '<td id="' + id + '" class="src row' + cc % 2 + ' col2">' + @audioMan.audioChannelsLayout(channel_layout) + ' #' + ci + '</td>'
                         html += '</tr>'
                         html_f = ''
                         html_t = ''
@@ -619,7 +630,7 @@ do (window) ->
                     ti++
             mi++
         document.getElementById('src-map').innerHTML = html
-        audioMan.updateAudioChannelSelect()
+        @audioMan.updateAudioChannelSelect()
         # Bind clicks
         @interaction_player = new InteractionPlayer(document.getElementById('interaction-video'), video_elements, audio_elements, @interaction_channelMerger)
         ci = 0
@@ -652,14 +663,14 @@ do (window) ->
         $('#interaction_player_increaseDelay').bind 'click', @interaction_player.increaseDelay.bind(@interaction_player)
         return
 
-    InteractionPage::proposeSelectMovie = (index) ->
+    proposeSelectMovie: (index) ->
         @interactions[@interaction_selected].data_out.movie = @api_movies_all[index][2]
         @interactions[@interaction_selected].data_out.studio = @api_rightholders[@api_movies_all[index][1]].alias
         @interactions[@interaction_selected].data_out.movie_guid = @api_movies_all[index][4]
         @interactions[@interaction_selected].showMovie()
         return
 
-    InteractionPage::getAllMoviesData = ->
+    getAllMoviesData: ->
         console.log 'Get All Movies #1'
         if @app.wsNapi.state == 'authorized'
             @app.wsNapi.request {
@@ -670,7 +681,7 @@ do (window) ->
             @app.setMainStatus 'Not authorized'
         return
 
-    InteractionPage::gamdRightholdersAll = (m) ->
+    gamdRightholdersAll: (m) ->
         console.log 'Get All Movies #2'
         @api_rightholders_all = m.result.ids
         # Continue requesting rightholders
@@ -681,7 +692,7 @@ do (window) ->
         }, @gamdRightholders.bind(this)
         return
 
-    InteractionPage::gamdRightholders = (m) ->
+    gamdRightholders: (m) ->
         console.log 'Get All Movies #3'
         @api_rightholders = {}
         i = 0
@@ -709,7 +720,7 @@ do (window) ->
         }, gamdMoviesAll
         return
 
-    InteractionPage::gamdMoviesAll = (m) ->
+    gamdMoviesAll: (m) ->
         console.log 'Get All Movies #4'
         @api_movies_all = m.result.ids
         # Continue requesting movies data
@@ -720,7 +731,7 @@ do (window) ->
         }, gamdMoviesExtra
         return
 
-    InteractionPage::gamdMoviesExtra = (m) ->
+    gamdMoviesExtra: (m) ->
         console.log 'Get All Movies #5'
         @app.setMainStatus 'Rebuild data...'
         @api_movies = {}
@@ -744,7 +755,7 @@ do (window) ->
         @buildProposedMovies()
         return
 
-    InteractionPage::buildProposedMovies = ->
+    buildProposedMovies: ->
         `var st`
         # Build sorted list of proposed movies
         if @interaction_selected == null
@@ -815,5 +826,4 @@ do (window) ->
     #     function() { var $page = $(this); return InteractionPage.interactionHandlerIn; },
     #     function() { var $page = $(this); return InteractionPage.interactionHandlerOut; }
     # ]);
-    module.exports = InteractionPage
-    return
+module.exports = InteractionPage

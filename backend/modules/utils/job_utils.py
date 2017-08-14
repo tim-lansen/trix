@@ -5,6 +5,8 @@ import re
 import os
 import json
 import uuid
+import pickle
+import base64
 from typing import List
 from modules.models.job import Job
 from modules.utils.database import DBInterface
@@ -76,7 +78,7 @@ class JobUtils:
             return job
 
         @staticmethod
-        def _cpeas(path):
+        def _cpeas(path, asset_guid):
             job = Job()
             job.guid.new()
             job.name = 'CPEAS: {}'.format(os.path.basename(path))
@@ -85,7 +87,7 @@ class JobUtils:
             step.name = 'Create proxy, extract audio and subtitles'
             job.info.steps.append(step)
             chain = Job.Info.Step.Chain()
-            chain.procs = [['internal_create_preview_extract_audio_subtitles', '{}', path]]
+            chain.procs = [['internal_create_preview_extract_audio_subtitles', path, asset_guid]]
             chain.result = 0
             step.chains.append(chain)
             # Compose result
@@ -116,7 +118,7 @@ class JobUtils:
             # Create final job
             agg = Job()
             agg.guid.new()
-            agg.name = 'Ingest: aggregate results'
+            agg.name = 'Ingest: aggregate assets'
             agg.type = Job.Type.INGEST_AGGREGATE
             agg.dependsOnGroupId.new()
             group_id = agg.dependsOnGroupId
@@ -129,14 +131,30 @@ class JobUtils:
                 return
 
             # Create atomic jobs
+            assets = []
             for inp in inputs:
-                job = JobUtils.CreateJob._cpeas(inp)
+                ass = str(uuid.uuid4())
+                assets.append(ass)
+                job = JobUtils.CreateJob._cpeas(inp, ass)
+                # TODO: add non-auto-commit connection to DBInterface, and register all jobs in single transaction
+                job.status = Job.Status.INACTIVE
                 # Add job to group
                 job.groupIds.append(group_id)
                 # Register job
                 DBInterface.Job.register(job)
+
+            # Single job's step
+            step = Job.Info.Step()
+            step.name = 'Ingest: aggregate assets'
+            chain = Job.Info.Step.Chain()
+            chain.procs = [['internal_ingest_aggregate_assets', base64.b64encode(pickle.dumps(assets))]]
+            step.chains.append(chain)
+            agg.info.steps.append(step)
             # Register aggregator job
             DBInterface.Job.register(agg)
+
+            # Change jobs statuses
+            DBInterface.Job.set_fields_by_groups([str(group_id)], {'status': Job.Status.NEW})
 
     class Results:
         @staticmethod
@@ -144,7 +162,8 @@ class JobUtils:
             pass
 
         def _mediafile(r):
-            DBInterface.MediaFile.set_str(r.actual)
+            mf = pickle.loads(base64.b64decode(r.actual))
+            DBInterface.MediaFile.set(mf.dumps())
 
         def _asset(r):
             pass
@@ -154,10 +173,10 @@ class JobUtils:
 
         def _cpeas(r):
             # Parse results derived from 'internal_create_preview_extract_audio_subtitles'
-            res = json.loads(r.actual)
-            DBInterface.Asset.set_str(res['asset'])
+            res = pickle.loads(base64.b64decode(r.actual))
+            DBInterface.Asset.set(res['asset'])
             for mf in res['trans'] + res['previews'] + res['archives']:
-                DBInterface.MediaFile.set_str(mf)
+                DBInterface.MediaFile.set(mf)
 
         Vectors = {
             Job.Info.Result.Type.MEDIAFILE:     _mediafile,

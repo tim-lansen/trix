@@ -9,6 +9,8 @@ import time
 import json
 import traceback
 from typing import List
+import pickle
+import base64
 
 # from queue import Queue, Empty
 # from threading import Thread, Event
@@ -19,7 +21,7 @@ from subprocess import Popen, PIPE
 from modules.models.job import Job
 from modules.models.mediafile import MediaFile
 from .log_console import Logger, tracer
-from .combined_info import combined_info
+from .combined_info import combined_info, combined_info_mediafile
 from .commands import *
 from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
@@ -39,34 +41,45 @@ def internal_combined_info(params, out_progress: CPLQueue, out_final: CPLQueue):
     mf = MediaFile()
     mf.update_str(params[0])
     combined_info(mf, params[1])
-    out_final.put(mf.dumps())
+    data = base64.b64encode(pickle.dumps(mf))
+    out_final.put(data)
 
 
 def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQueue, out_final: CPLQueue):
     """
     Prepare media for ingest
-    :param params:            ['<predefined>', '<url>']
+    :param params:            ['<url>', '<asset guid>']
     :param out_progress:      progress output queue
     :param out_final:         final output queue
     :param chain_error_event: error event
     :return:
     """
-    print(params)
-    mf = MediaFile()
-    mf.update_str(params[0])
-    if mf.guid.is_null():
-        mf.guid.new()
-    combined_info(mf, params[1])
+    mf = combined_info_mediafile(params[0])
     tdir = Storage.storage_path('transit', str(mf.guid))
     pdir = Storage.storage_path('preview', str(mf.guid))
     res = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
-    result = {
-        'asset': res['asset'].dumps(),
-        'trans': [_.dumps() for _ in res['trans']],
-        'previews': [_.dumps() for _ in res['previews']],
-        'archives': [_.dumps() for _ in res['archives']],
-    }
-    out_final.put(json.dumps(result))
+    res['asset'].guid.set(params[1])
+    data = base64.b64encode(pickle.dumps(res))
+    out_final.put(data)
+    # result = {
+    #     'asset': res['asset'].dumps(),
+    #     'trans': [_.dumps() for _ in res['trans']],
+    #     'previews': [_.dumps() for _ in res['previews']],
+    #     'archives': [_.dumps() for _ in res['archives']],
+    # }
+    # out_final.put(json.dumps(result))
+
+
+def internal_ingest_aggregate_assets(params, out_progress: CPLQueue, out_final: CPLQueue):
+    """
+    Create interaction request from list of assets
+    :param params: [<pickle(['guid', 'guid', ...])>]
+    :param out_progress:
+    :param out_final:
+    :return:
+    """
+    assets = pickle.loads(base64.b64decode(params[0]))
+    Logger.critical('internal_ingest_aggregate_assets: {}\n'.format(assets))
 
 
 def execute_internal(params: List[str],

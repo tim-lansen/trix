@@ -1,4 +1,5 @@
 'use strict'
+
 $ = require('jquery')
 x2js = require('x2js')
 #const filters   = require('../lib/Filters');
@@ -259,7 +260,7 @@ class MoviesData
         return
 
     buildProposedMovies: (studio_rhId, movie) ->
-    # Build sorted list of proposed movies
+        # Build sorted list of proposed movies
         titles = []
         ot = undefined
         otl = undefined

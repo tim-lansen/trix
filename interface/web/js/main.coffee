@@ -155,6 +155,7 @@ class App extends AppInterface
                 @currentPage.disable()
             catch e
                 console.log '  page '+hash+' has faulty "disable" function'
+                console.log e
         console.log 'Activating page "'+hash+'"'                        # Activate the new page
         page = @pages.get(hash)
         if page
@@ -163,6 +164,7 @@ class App extends AppInterface
                 page.enable()
             catch e
                 console.log '  page '+hash+' has faulty "enable" function'
+                console.log e
         else
             console.log '  page constructor not found'
         $(document.body).attr('page', hash).find('section').removeClass('active').filter('section#' + hash).addClass 'active'
