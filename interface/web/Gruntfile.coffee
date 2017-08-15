@@ -44,13 +44,28 @@
                     "dist/css/main.css": "less/main.less"
 
         copy:
-            pics:
+            build:
                 files: [
-                    expand: true
-                    src: ['**/*.png']
-                    cwd: 'less'
-                    dest: 'dist/css'
-                    filter: 'isFile'
+                    {
+                        # Copy PNGs to dist
+                        expand: true
+                        src: ['**/*.png']
+                        cwd: 'less'
+                        dest: 'dist/css'
+                        filter: 'isFile'
+#                    }, {
+#                         Copy config
+#                        expand: true
+#                        src: ['api_config.json']
+#                        dest: 'dist'
+                    }, {
+                        # Copy JavaScript and JSON files to build
+                        expand: true
+                        src: ['**/*.js', '**/*.json']
+                        cwd: 'js'
+                        dest: 'build'
+                        filter: 'isFile'
+                    }
                 ]
             js:
                 files: [
@@ -58,6 +73,14 @@
                     src: ['**/*.js', '**/*.json']
                     cwd: 'js'
                     dest: 'build'
+                    filter: 'isFile'
+                ]
+            dist:
+                files: [
+                    expand: true
+                    src: '**'
+                    cwd: 'dist'
+                    dest: 'D:\\storage\\web\\dist'
                     filter: 'isFile'
                 ]
 
@@ -127,5 +150,6 @@
 
     #grunt.registerTask 'coffee'
 
-    grunt.registerTask 'build', ['copy', 'coffee', 'less', 'jade', 'umd', 'browserify:build']
-    grunt.registerTask 'test', ['copy', 'coffee', 'less', 'jade', 'umd', 'browserify:test']
+    grunt.registerTask 'build', ['copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:build']
+    grunt.registerTask 'dist', ['copy:dist']
+    grunt.registerTask 'test', ['copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:test']

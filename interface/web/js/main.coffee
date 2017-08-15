@@ -1,6 +1,8 @@
 
 $ = require('jquery')
 AppInterface = require('./app_interface')
+ApiConfig = require('./api_config')
+
 
 class Profile
     constructor: ->
@@ -122,9 +124,9 @@ class App extends AppInterface
         ).bind(@)
 
         @init_api_trix()
-        @init_api()
+        #@init_api()
 
-        #@heartBeatId = setInterval(this.heartBeat.bind(this), 1000);
+#        @heartBeatId = setInterval(@heartBeat.bind(@), 1000);
 
         @hashChanged(window.location.hash)
         return
@@ -201,10 +203,12 @@ class App extends AppInterface
 
     @init_api_trix: ->
         trixServerAddress = undefined
-        if document.URL.startsWith('file') or document.URL.startsWith('localhost') or document.URL.startsWith('http://localhost')
-            trixServerAddress = 'ws://localhost:8001/'
-        else
-            trixServerAddress = 'ws' + document.URL.match(/http(:\/\/.+?)\//i)[1] + ':8001/'
+#        if document.URL.startsWith('file') or document.URL.startsWith('localhost') or document.URL.startsWith('http://localhost')
+#            trixServerAddress = 'ws://localhost:8001/'
+#        else
+#            trixServerAddress = 'ws' + document.URL.match(/http(:\/\/.+?)\//i)[1] + ':8001/'
+        trixServerAddress = 'ws://' + ApiConfig.apiServer.host + ':' + ApiConfig.apiServer.port + '/'
+        console.log trixServerAddress
         @ws_api_trix = new Utils.WSAPI(
             trixServerAddress,
             {

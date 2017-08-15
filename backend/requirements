@@ -45,6 +45,69 @@ Network
                 network 1.1.1.255
    50  sudo /etc/init.d/networking restart
 ===================
+Nginx
+===================
+        # Change hostname
+        sudo vim /etc/hostname
+        sudo vim /etc/hosts
+        # Create share
+        sudo mkdir -p /mnt/server1/web
+        sudo chmod 777 /mnt/server1/web
+        # Mount storage
+        sudo mount //1.1.1.1/web /mnt/server1/web -t cifs -o username=tim,password=1604001,dir_mode=0777,file_mode=0777
+            or in fstab (mount permanently)
+        //1.1.1.1/web /mnt/server1/web cifs rw,username=tim,password=1604001,file_mode=0777,dir_mode=0777 0 0
+        ls /mnt/server1/web/
+
+# Build NGINX from sources
+mkdir ~/git/libs
+# dependencies:
+
+cd ~/git/libs
+wget ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.41.tar.gz
+tar -zxf pcre-8.41.tar.gz
+cd pcre-8.41
+./configure
+make
+sudo make install
+
+cd ~/git/libs
+wget http://zlib.net/zlib-1.2.11.tar.gz
+tar -zxf zlib-1.2.11.tar.gz
+cd zlib-1.2.11
+./configure
+make
+sudo make install
+
+cd ~/git/libs
+#wget http://www.openssl.org/source/openssl-1.0.2k.tar.gz
+#tar -zxf openssl-1.0.2k.tar.gz
+#cd openssl-1.0.2k
+#./configure darwin64-x86_64-cc --prefix=/usr
+#make
+#sudo make install
+
+# Downloading the Sources
+
+cd ~/git
+wget http://nginx.org/download/nginx-1.12.1.tar.gz
+tar zxf nginx-1.12.1.tar.gz
+cd nginx-1.12.1
+
+# Example of the configure script:
+
+./configure \
+ --sbin-path=/opt/nginx/nginx \
+ --conf-path=/opt/nginx/nginx.conf \
+ --pid-path=/opt/nginx/nginx.pid \
+ --with-pcre=../libs/pcre-8.41 \
+ --with-zlib=../libs/zlib-1.2.11 \
+ --with-stream
+
+# --add-module=/usr/build/nginx-rtmp-module
+# --add-dynamic-module=/usr/build/3party_module
+
+===================
 Python 3.6 + psycopg2
 ===================
     sudo add-apt-repository ppa:jonathonf/python-3.6
