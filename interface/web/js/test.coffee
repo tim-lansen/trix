@@ -1,5 +1,5 @@
 'use strict'
-$ = require('jquery')
+#$ = require('jquery')
 
 class Utils
     @WSAPI    : require('./lib/wsapi')

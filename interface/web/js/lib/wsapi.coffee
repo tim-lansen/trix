@@ -59,7 +59,7 @@ class WSAPI
             @ws = new WebSocket(@address)
             @ws.onmessage = ((e) ->
                 msg = e.data
-                #console.log('onmessage', @address, e.data);
+                console.log 'onmessage ' + @address + ' ' + e.data
                 #console.log('wsOnMessage: ' + msg);
                 if msg
                     try
@@ -92,7 +92,7 @@ class WSAPI
             ).bind(@)
         else
             if @handlers.states
-# State beat handler may be a single function or an array of functions
+                # State beat handler may be a single function or an array of functions
                 sths = @handlers.states[@state]
                 if typeof sths == 'function'
                     sths @
@@ -115,7 +115,7 @@ class WSAPI
         # Send message to api server
         if @state == WSAPI.States.authorized
             if callback != null
-                req.id = UUID.generate()
+                req.id = Utils.UUID.generate()
                 @requestPool[req.id] =
                     'request': req
                     'callback': callback
@@ -124,14 +124,14 @@ class WSAPI
             @requestPool[req.id] =
                 'request': req
                 'callback': callback
-            wsApiSend req
+            @wsApiSend req
         return
 
     connect: (req) ->
         if !req
             req = 'method': 'connect'
         @state = WSAPI.States.connecting
-        wsApiSend req
+        @wsApiSend req
         return
 
     profile: (req) ->
@@ -139,33 +139,32 @@ class WSAPI
             req =
                 'method': 'profile'
                 'params': {}
-        wsApiSend req
+        @wsApiSend req
         return
 
     force: (req) ->
-        wsApiSend req
+        @wsApiSend req
         return
 
-    # authorize(profile, device_token, serial_number) {
-    #     console.log('authorize');
-    #     @state = 'authorizing';
-    #     wsApiSend({
-    #         'method': 'authorize',
-    #         'params': {
-    #             'phone_number': profile.phone_number,
-    #             'name': profile.name,
-    #             'profile_id': profile.id,
-    #             'session_id': @sessionId,
-    #             'device_token': device_token,
-    #             'serial_number': serial_number
-    #         }
-    #     });
-    # }
+    authorize: (profile, device_token, serial_number) ->
+        console.log 'authorize'
+        @state = 'authorizing'
+        @wsApiSend {
+            'method': 'authorize',
+            'params': {
+                'phone_number': profile.phone_number,
+                'name': profile.name,
+                'profile_id': profile.id,
+                'session_id': @sessionId,
+                'device_token': device_token,
+                'serial_number': serial_number
+            }
+        }
 
     auth: (profile, device_token, serial_number) ->
         console.log 'authorize'
         @state = WSAPI.States.authorizing
-        wsApiSend
+        @wsApiSend
             'method': 'authorize'
             'params':
                 'phone_number': profile.phone_number

@@ -106,12 +106,13 @@
         coffee:
             compile:
                 expand: true
-                #flatten: true
+                flatten: false
                 cwd: 'js'
                 src: ['**/*.coffee']
                 dest: 'build'
                 ext: '.js'
-                bare: false
+                options:
+                    bare: true
 
         browserify:
             build:
@@ -151,5 +152,5 @@
     #grunt.registerTask 'coffee'
 
     grunt.registerTask 'build', ['copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:build']
-    grunt.registerTask 'dist', ['copy:dist']
+    grunt.registerTask 'dist', ['less', 'jade', 'umd', 'browserify:build', 'copy:dist']
     grunt.registerTask 'test', ['copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:test']

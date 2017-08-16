@@ -82,8 +82,7 @@ class App extends AppInterface
         @device_token = Utils.UUID.generate()
         console.log @serial_number
         console.log @device_token
-        console.log Utils.legalize.legalize('йцукенг')
-        @init(window)
+        @init window
         return
 
     @check_section: (s) ->
@@ -99,6 +98,8 @@ class App extends AppInterface
         return true
 
     @init: (window) ->
+        console.log 'App.init(window)'
+
         Pages.interface = App
 
         html_select = ''
@@ -125,11 +126,15 @@ class App extends AppInterface
 
         @init_api_trix()
         #@init_api()
-
-#        @heartBeatId = setInterval(@heartBeat.bind(@), 1000);
+        console.log 'Start timer: ' + @ws_api_trix
+        @heartBeatId = setInterval(@heartBeat.bind(@), 1000);
 
         @hashChanged(window.location.hash)
         return
+
+    @heartBeat: ->
+        if @ws_api_trix
+            @ws_api_trix.beat()
 
     @updateProfile: (data) ->
         @profile.id = data.id
@@ -216,35 +221,34 @@ class App extends AppInterface
                 onerror: ( -> document.getElementById('trix-status').innerHTML = 'TRIX: error' )
                 onopen:  ( -> document.getElementById('trix-status').innerHTML = 'TRIX: opened' )
                 onmessage: ((wsapi, msg) ->
-                    method = msg.method
-                    switch method
-                        when 'connect'
-                            if msg.error
-                                document.getElementById('trix-status').innerHTML = 'TRIX: connection error'
-                                wsapi.close()
-                            else
-                                wsapi.state = 'connected'
+                    try
+                        if msg.error
+                            wsapi.close()
+                            throw msg.error
+                        switch msg.method
+                            when 'connect'
                                 wsapi.sessionId = msg.result.session_id
+                                wsapi.state = 'connected'
                                 document.getElementById('trix-status').innerHTML = 'TRIX: connected'
-                        when 'authorize'
-                            if msg.error
-                                wsapi.close()
-                            else
+                            when 'authorize'
                                 wsapi.state = 'authorized'
                                 @setMainStatus 'Authorized'
                                 document.getElementById('trix-status').innerHTML = 'TRIX: Authorized'
-                        else
-                            if msg.id and wsapi.requestPool[msg.id]
-                                if typeof wsapi.requestPool[msg.id].callback == 'function'
-                                    wsapi.requestPool[msg.id].callback msg
-                                    delete wsapi.requestPool[msg.id]
+                            else
+                                if msg.id and wsapi.requestPool[msg.id]
+                                    if typeof wsapi.requestPool[msg.id].callback == 'function'
+                                        wsapi.requestPool[msg.id].callback msg
+                                        delete wsapi.requestPool[msg.id]
+                    catch e
+                        console.log 'onmessage error: ' + e + '\n  message: ' + msg
+                        document.getElementById('trix-status').innerHTML = 'TRIX: connection error'
                     return
                 ).bind(@)
                 states:
-                    opened: ( (wsapi) -> wsapi.connect() )
+                    opened: ((wsapi) -> wsapi.connect() )
                     connected: ((wsapi) -> # authorize if we have user data
-                        if @profile.authorized
-                            wsapi.authorize @profile, device_token, serial_number
+                        if ! @profile.authorized
+                            wsapi.authorize @profile, @device_token, @serial_number
                         return
                     ).bind(@)
             }
@@ -254,7 +258,7 @@ class App extends AppInterface
     @init_api: ->
         state_handlers = {}
         state_handlers[Utils.WSAPI.States.authenticated] = [
-            ( (wsapi) -> # Check authority
+            ((wsapi) -> # Check authority
                 wsapi.state = wsapi.States.authorizing
                 wsapi.request({"method": "widgets_all", "params": {}})
             ).bind(@)

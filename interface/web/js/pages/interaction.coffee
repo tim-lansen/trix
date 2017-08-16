@@ -385,13 +385,13 @@ class InteractionPage
                 if @interactions[id].changed
                     console.log 'There are unsaved changes!'
                     return
-        @app.wsApiTrix.request { 'method': 'get_interactions' }, @interactionsRefreshHandler.bind(this)
+        @app.ws_api_trix.request { 'method': 'get_interactions' }, @interactionsRefreshHandler.bind(@)
         return
 
     interactionsRefreshHandler: (msg) ->
+        console.log 'interactionsRefreshHandler'
         answer = msg.result
         i = undefined
-        console.log 'interactionsRefreshHandler'
         if !answer
             console.log 'no results'
             return

@@ -44,6 +44,7 @@ class ApiClient(ApiClientClassBase):
         def _check_authority_(data):
             time.sleep(0.5)
             data['authorized'] = True
+            Logger.log('{}\n'.format(data))
         #     print(data)
         #     ws = websocket_client.create_connection('ws://napi.ayyo.ru')
         #     msg = json.dumps({
@@ -104,6 +105,10 @@ class meth:
     # Method handler default class
     need_auth = True
 
+    @staticmethod
+    def handler(params, client: ApiClient):
+        Logger.warning('Unhandled method: {}, client: {}\n'.format(params, client))
+
 
 class ApiTrix(ApiClassBase):
     # Trix API
@@ -115,6 +120,13 @@ class ApiTrix(ApiClassBase):
     Pool = ThreadPoolExecutor(max_workers=128)
 
     class Request:
+        class connect(meth):
+            need_auth = False
+
+            @staticmethod
+            def handler(params, client: ApiClient):
+                return {'session_id': client.ws_session_id}
+
         class authorize(meth):
             need_auth = False
 
@@ -161,7 +173,7 @@ class ApiTrix(ApiClassBase):
             params = request['params'] if 'params' in request else None
             respond = {
                 'method': request['method'],
-                'guid': request['guid']
+                'id': request['id']
             }
             if target.need_auth and not client.authorized():
                 respond['error'] = 'not authorized'
@@ -178,6 +190,10 @@ class ApiTrix(ApiClassBase):
         Logger.debug('ApiTrix.dispatch({}, {})\n'.format(message, client.data))
         try:
             request = json.loads(message)
+        except ValueError as e:
+            Logger.warning('{}\n'.format(e))
+            return
+        try:
             mpath = request['method'].split('.')
             # Pick target method class
             target = ApiTrix.Request
@@ -187,7 +203,8 @@ class ApiTrix(ApiClassBase):
             ApiTrix.Pool.submit(ApiTrix.execute, target, request, client)
         except Exception as e:
             Logger.warning('{}\n'.format(e))
-            traceback_debug()
+            # traceback_debug()
+            ApiTrix.Pool.submit(ApiTrix.execute, meth.handler, request, client)
 
     def new_client(self, client: ApiClient, server):
         Logger.info('Client connected: {} / {}\n'.format(client.addr, client.ws_handler.guid))
@@ -197,3 +214,6 @@ class ApiTrix(ApiClassBase):
 
     def message_received(self, client: ApiClient, server, msg):
         self.dispatch(msg, client)
+
+
+
