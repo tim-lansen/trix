@@ -108,11 +108,23 @@
                 expand: true
                 flatten: false
                 cwd: 'js'
-                src: ['**/*.coffee']
+                src: [
+                    'models/*.coffee'
+                    'pages/*.coffee'
+                    'pages/ui/*.coffee'
+                ]
                 dest: 'build'
                 ext: '.js'
                 options:
                     bare: true
+                    join: true
+            compile_joined:
+                expand: true
+                files:
+                    'build/main.js': ['js/lib/*.coffee', 'js/main.coffee']
+                options:
+                    bare: true
+                    join: true
 
         browserify:
             build:

@@ -26,7 +26,8 @@
         };
     };
 
-    const legalize  = require('../lib/legalize');
+    //const legalize  = require('../lib/legalize');
+    const legalize = function (x) { return x; };
 
     RightHolders.prototype.refresh = function (callback) {
         const wsNapi = this.app.shared.wsNapi;

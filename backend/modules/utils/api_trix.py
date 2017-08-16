@@ -45,47 +45,6 @@ class ApiClient(ApiClientClassBase):
             time.sleep(0.5)
             data['authorized'] = True
             Logger.log('{}\n'.format(data))
-        #     print(data)
-        #     ws = websocket_client.create_connection('ws://napi.ayyo.ru')
-        #     msg = json.dumps({
-        #         'method': 'connect',
-        #         'guid': str(data['message_id']),
-        #         'params': {
-        #             'version': '2',
-        #             'device_token': data['device_token'],
-        #             'application': {
-        #                 'name': 'web_admin',
-        #                 'version': '4.0.1'
-        #             },
-        #             'device_info': {
-        #                 'serial_number': data['serial_number'],
-        #                 'type': 'pc',
-        #                 'name': 'PC',
-        #                 'model': 'PC'
-        #             }
-        #         }
-        #     })
-        #     print(msg)
-        #     ws.send(msg)
-        #     result = json.loads(ws.recv())
-        #     print(result)
-        #     if result['error'] is None and int(result['guid']) == data['message_id']:
-        #         data['message_id'] += 1
-        #         msg = json.dumps({
-        #             'method': 'widgets_all',
-        #             'guid': str(data['message_id']),
-        #             'params': {}
-        #         })
-        #         ws.send(msg)
-        #         result = json.loads(ws.recv())
-        #         print(result)
-        #         if result['error'] is None and int(result['guid']) == data['message_id']:
-        #             print('Authorized {0}'.format(data['phone_number']))
-        #             self.data['authorized'] = True
-        #     data['message_id'] += 1
-        #     # pprint.pprint(result)
-        #     data['thread'] = None
-        #     ws.close()
 
         if self.data['authorized']:
             return 12345
@@ -147,8 +106,8 @@ class ApiTrix(ApiClassBase):
             class getList(meth):
                 @staticmethod
                 def handler(*args):
-                    """:param must contain\n""" \
-                    """    'status': None|<integer>|[<int>, <int>, ...]\n""" \
+                    """:param must contain""" \
+                    """    'status': None|<integer>|[<int>, <int>, ...]""" \
                     """    'condition': None|[<condition 1>, <condition 2>, ...]""" \
                     """                 <condition X> is a string like 'type=2' or 'priority>3'"""
                     interactions = DBInterface.Interaction.get_list(args[0]['status'], args[0]['condition'])

@@ -1,7 +1,18 @@
 
 $ = require('jquery')
-AppInterface = require('./app_interface')
+#AppInterface = require('./app_interface')
 ApiConfig = require('./api_config')
+
+
+class AppInterface
+    @moviesData: null,
+    @seriesData: null,
+    @rightholders: null,
+    @ws_api_trix: null,
+    @ws_api: null,
+    @update:
+        movies_extra: []
+    @setMainStatus: null
 
 
 class Profile
@@ -18,9 +29,12 @@ class Models
     @SeriesData   : require('./models/SeriesData')
 
 class Utils
-    @WSAPI    : require('./lib/wsapi')
-    @UUID     : require('./lib/uuid')
-    @legalize : require('./lib/legalize')
+#    @WSAPI    : require('./lib/wsapi')
+#    @UUID     : require('./lib/uuid')
+#    @legalize : require('./lib/legalize')
+    @WSAPI    : WSAPI
+    @UUID     : UUID
+    @legalize : Legalize
 
 class Templates
     @templates:

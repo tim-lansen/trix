@@ -36,4 +36,4 @@ class Legalize
             t = tt.join('_')
         t
 
-module.exports = Legalize
+#module.exports = Legalize

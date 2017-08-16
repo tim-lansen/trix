@@ -33,7 +33,7 @@ padz = (number, size) ->
 zeroez = '0000000000000000'
 
 zpad = (strnum, size) ->
-# Up to 16 leading zeroes
+    # Up to 16 leading zeroes
     if strnum.length < size
         strnum = zeroez.substring(0, size - (strnum.length)) + strnum
     strnum
@@ -385,7 +385,7 @@ class InteractionPage
                 if @interactions[id].changed
                     console.log 'There are unsaved changes!'
                     return
-        @app.ws_api_trix.request { 'method': 'get_interactions' }, @interactionsRefreshHandler.bind(@)
+        @app.ws_api_trix.request { 'method': 'interaction.getList', 'params': {''} }, @interactionsRefreshHandler.bind(@)
         return
 
     interactionsRefreshHandler: (msg) ->

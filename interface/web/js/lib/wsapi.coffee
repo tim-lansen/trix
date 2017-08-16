@@ -175,4 +175,4 @@ class WSAPI
                 'serial_number': serial_number
         return
 
-module.exports = WSAPI
+#module.exports = WSAPI
