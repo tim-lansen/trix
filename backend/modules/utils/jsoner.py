@@ -6,6 +6,14 @@ import datetime
 from .log_console import Logger
 
 
+class NonJSONSerializibleEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)
+
+
 # This helper class makes JSON <key:value> be accessible via class members
 class JSONer:
 

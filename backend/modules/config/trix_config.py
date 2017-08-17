@@ -57,6 +57,9 @@ class TrixConfig(JSONer):
             self.tables = None
             self.templates = None
 
+        def fields(self, table_name):
+            return [_[0] for _ in self.tables[table_name]]
+
         def conform_tables(self):
             _g_ = globals()
             # Update tables that use template

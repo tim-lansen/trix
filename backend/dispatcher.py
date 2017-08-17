@@ -21,7 +21,7 @@ from modules.utils.database import DBInterface
 # 7. Goto 1
 
 
-def run(period=3):
+def run(period=5):
     def test_job_condition(_job_):
         # First, check dependencies
         _dog_ = _job_['dependsongroupid']

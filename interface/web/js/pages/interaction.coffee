@@ -1,10 +1,10 @@
 'use strict'
 
 $ = require('jquery')
-LiveCrop = require('./ui/live_crop')
-InteractionPlayer = require('./ui/interaction_player')
-Interaction = require('../models/Interaction')
-Rightholders = require('../models/Rightholders')
+LiveCrop = require('./pages/ui/live_crop')
+InteractionPlayer = require('./pages/ui/interaction_player')
+InteractionInternal = require('./models/InteractionInternal')
+Rightholders = require('./models/Rightholders')
 AudioContext = window.AudioContext or window.webkitAudioContext
 
 
@@ -179,6 +179,8 @@ class InteractionPage
         @proposeAudioLang = null
         @interaction_initialized = false
         @interaction_selected = null
+        @interaction_requested = null
+        @interaction_internal = null
         @interactions = {}
         @interaction_player = null
         @interaction_audioContext = new AudioContext
@@ -385,7 +387,7 @@ class InteractionPage
                 if @interactions[id].changed
                     console.log 'There are unsaved changes!'
                     return
-        @app.ws_api_trix.request { 'method': 'interaction.getList', 'params': {''} }, @interactionsRefreshHandler.bind(@)
+        @app.ws_api_trix.request { 'method': 'interaction.getList', 'params': {'status': null, 'condition': null} }, @interactionsRefreshHandler.bind(@)
         return
 
     interactionsRefreshHandler: (msg) ->
@@ -402,31 +404,29 @@ class InteractionPage
         #<caption>Interactions</caption>
         html += '<tr>'
         cols = [
-            'studio'
-            'movie'
-            'movie_guid'
+            'name'
+            'guid'
+            'priority'
+            'assetIn'
         ]
-        i = 0
-        while i < cols.length
-            html += '<th>' + cols[i] + '</th>'
-            i++
+        for col in cols
+            html += '<th>' + col + '</th>'
         html += '</tr>'
         @interactions = {}
-        i = 0
-        while i < answer.length
-            html += '<tr id="' + answer[i].id + '" class="interaction row row' + i % 2 + '">'
-            html += '<td>' + answer[i].studio + '</td>'
-            html += '<td>' + answer[i].movie + '</td>'
-            html += '<td>' + answer[i].movie_guid + '</td>'
+        for i, ans of answer
+            ans.index = i
+            html += '<tr id="' + ans.guid + '" class="interaction row row' + i % 2 + '">'
+            for col in cols
+                html += '<td>' + ans[col] + '</td>'
             html += '</tr>'
-            @interactions[answer[i].id] = new Interaction(answer[i], @interaction_player)
-            @interactions[answer[i].id].index = i
+#            @interactions[answer[i].id] = new InteractionInternal(answer[i], @interaction_player)
+#            inter = new Interaction()
+#            UpdateObjectWithJSON(inter, ans)
+            @interactions[ans.guid] = ans
             i++
         document.getElementById('interaction-table').innerHTML = html
-        i = 0
-        while i < answer.length
-            $('#' + answer[i].id).bind 'click', @interactionClickRow.bind(this, answer[i].id)
-            i++
+        for ans in answer
+            $('#' + ans.guid).bind 'click', @interactionClickRow.bind(@, ans.guid)
         return
 
     interactionClickRow: (inter_id) ->
@@ -438,43 +438,54 @@ class InteractionPage
         if @interaction_selected == inter_id
             console.log 'already selected'
             return
+        # Reset selection
         if @interaction_selected != null
+            # TODO: delete @interaction_internal
             isel = @interactions[@interaction_selected]
-            document.getElementById(isel.id).className = 'interaction row row' + isel.index % 2
-        console.log @interactions
+            document.getElementById(isel.guid).className = 'interaction row row' + isel.index % 2
+            @interaction_selected = null
         inter = @interactions[inter_id]
-        if typeof inter.data_in == 'undefined' or inter.data_in == null
-# Request interaction data
-            @app.wsApiTrix.request {
-                'method': 'get_interaction'
-                'params': 'id': inter_id
-            }, @interactionSelectHandler.bind(this)
+        if typeof inter.assetIn == 'string'
+            # Request asset
+            @interaction_requested = inter_id
+            @app.ws_api_trix.request {
+                'method': 'asset.get'
+                'params': 'guid': inter.assetIn
+            }, @assetRequestHandler.bind(@)
         else
-            document.getElementById(inter.id).className = 'interaction row row' + inter.index % 2 + ' selected'
-            @interaction_selected = inter_id
-            @interactionCreatePlayer()
-            inter.showAudioOutputs()
-            @interactionShowInfo inter
+            @interactionLoad(inter.assetIn)
+#            @interactionCreatePlayer()
+#            inter.showAudioOutputs()
+#            @interactionShowInfo inter
         return
 
-    interactionSelectHandler: (msg) ->
-        console.log 'interactionSelectHandler'
+    assetRequestHandler: (msg) ->
+        console.log 'assetRequestHandler'
         console.log msg
-        answer = msg.result
-        inter_id = answer.id
+        asset = msg.result
+        inter_id = @interaction_requested
+        @interaction_selected = inter_id
         inter = @interactions[inter_id]
         html = '<text>ID: ' + inter_id + '</text>'
-        inter.data_in = JSON.parse(answer.data)
-        document.getElementById(inter.id).className = 'interaction row row' + inter.index % 2 + ' selected'
-        inter.data_out.video = inter.data_in.video
-        @interaction_selected = inter_id
-        @interactionCreatePlayer()
-        inter.showAudioOutputs()
-        @interactionShowInfo inter
+        inter.assetIn = JSON.parse asset
+        document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
+#        inter.data_out.video = inter.data_in.video
+        @interactionLoad inter.assetIn
+#        @interactionCreatePlayer()
+#        inter.showAudioOutputs()
+#        @interactionShowInfo inter
         return
 
-    interactionShowInfo: (inter) ->
-        html = '<text>ID: ' + inter.id + '</text>'
+    interactionLoad: (asset) ->
+        delete @interaction_internal
+        @interactionCreatePlayer
+        @interaction_internal = new InteractionInternal(asset, @interaction_player)
+        @interaction_internal.showAudioOutputs()
+        @interactionShowInfo
+
+    interactionShowInfo: ->
+        inter = @interactions[@interaction_selected]
+        html = '<text>ID: ' + inter.guid + '</text>'
         if typeof inter.data_in != 'undefined' and inter.data_in != null
             arr = Object.keys(inter.data_in)
             arr.sort()
@@ -498,7 +509,7 @@ class InteractionPage
         # TODO: data['program']['video']['crop'] contains crop data, use it to position crop frame
         console.log 'initialize player'
         if @interaction_player
-# Stop playback
+            # Stop playback
             @interaction_player.stop()
             # Unbind all clicks
             $('#interaction_player_play').unbind 'click'
@@ -531,7 +542,7 @@ class InteractionPage
         ci = undefined
         mi = 0
         while mi < info.length
-# count tracks and channels
+        # count tracks and channels
             ct = 0
             for ttype of info[mi]
                 `ttype = ttype`
@@ -826,4 +837,4 @@ class InteractionPage
     #     function() { var $page = $(this); return InteractionPage.interactionHandlerIn; },
     #     function() { var $page = $(this); return InteractionPage.interactionHandlerOut; }
     # ]);
-module.exports = InteractionPage
+#module.exports = InteractionPage

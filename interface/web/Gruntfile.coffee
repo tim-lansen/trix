@@ -110,18 +110,23 @@
                 cwd: 'js'
                 src: [
                     'models/*.coffee'
-                    'pages/*.coffee'
+#                    'pages/*.coffee'
                     'pages/ui/*.coffee'
                 ]
                 dest: 'build'
                 ext: '.js'
                 options:
                     bare: true
-                    join: true
+                    join: false
             compile_joined:
                 expand: true
                 files:
-                    'build/main.js': ['js/lib/*.coffee', 'js/main.coffee']
+                    'build/main.js': [
+                        'js/lib/*.coffee'
+                        'js/models_py/*.coffee'
+                        'js/pages/interaction.coffee'
+                        'js/main.coffee'
+                    ]
                 options:
                     bare: true
                     join: true

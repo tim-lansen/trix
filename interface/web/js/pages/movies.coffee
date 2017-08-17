@@ -14,4 +14,4 @@ class MoviesPage
         @app.setMainStatus('Movies page finished')
         return
 
-module.exports = MoviesPage
+#module.exports = MoviesPage

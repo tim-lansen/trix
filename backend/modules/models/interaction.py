@@ -15,31 +15,27 @@ class Interaction(Record):
         LOCK = 2
         INVALID = 3
 
-    class DataIn(JSONer):
+    class AssetIn(Guid):
         def __init__(self):
             super().__init__()
-            self.asset = Asset()
-            self.mediaFiles: List[MediaFile] = []
 
-    class DataOut(JSONer):
+    class AssetOut(Guid):
         def __init__(self):
             super().__init__()
-            self.asset = Asset()
-            self.mediaFiles: List[MediaFile] = []
 
     def __init__(self):
         super().__init__()
         self.status = Interaction.Status.FREE
-        self.dataIn = Interaction.DataIn()
-        self.dataOut = Interaction.DataOut()
+        self.assetIn = Interaction.AssetIn()
+        self.assetOut = Interaction.AssetOut()
         self.priority = 0
 
     TABLE_SETUP = {
         "relname": "trix_interactions",
         "fields": [
             ["status", "integer NOT NULL"],
-            ["dataIn", "json NOT NULL"],
-            ["dataOut", "json"],
+            ["assetIn", "uuid NOT NULL"],
+            ["assetOut", "uuid"],
             ["priority", "integer"]
         ],
         "fields_extra": [],

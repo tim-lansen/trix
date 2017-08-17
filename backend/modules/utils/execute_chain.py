@@ -58,6 +58,7 @@ def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQue
     tdir = Storage.storage_path('transit', str(mf.guid))
     pdir = Storage.storage_path('preview', str(mf.guid))
     res = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
+    res['asset'].name = 'auto'
     res['asset'].guid.set(params[1])
     data = base64.b64encode(pickle.dumps(res))
     out_final.put(data)
@@ -70,16 +71,19 @@ def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQue
     # out_final.put(json.dumps(result))
 
 
-def internal_ingest_aggregate_assets(params, out_progress: CPLQueue, out_final: CPLQueue):
-    """
-    Create interaction request from list of assets
-    :param params: [<pickle(['guid', 'guid', ...])>]
-    :param out_progress:
-    :param out_final:
-    :return:
-    """
-    assets = pickle.loads(base64.b64decode(params[0]))
-    Logger.critical('internal_ingest_aggregate_assets: {}\n'.format(assets))
+# def internal_ingest_assets(params, out_progress: CPLQueue, out_final: CPLQueue):
+#     """
+#     Create interaction request from list of assets
+#     :param params: [<pickle(['guid', 'guid', ...])>]
+#     :param out_progress:
+#     :param out_final:
+#     :return:
+#     """
+#     # List of asset.guid
+#     asset_guids = pickle.loads(base64.b64decode(params[0]))
+#     Logger.critical('internal_ingest_assets: {}\n'.format(asset_guids))
+#     # Request assets from DB
+#     assets =
 
 
 def execute_internal(params: List[str],

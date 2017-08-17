@@ -14,4 +14,4 @@ class SeriesPage
         @app.setMainStatus('Series page finished')
         return
 
-module.exports = SeriesPage
+#module.exports = SeriesPage

@@ -119,6 +119,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     for sti, v in enumerate(mediafile.videoTracks):
         vt = copy.deepcopy(v)
         preview = vt.ref_add()
+        preview.name = 'preview'
         vout_refs.append(preview)
         preview.source.url = os.path.join(dir_preview, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
         outputs.append('-map [pv{sti}] -c:v libx264 -preset fast -g 20 -b:v 320k {path}'.format(sti=sti, path=preview.source.url))
@@ -142,6 +143,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         else:
             at = copy.deepcopy(a)
             audio = MediaFile()
+            audio.name = 'transit audio'
             audio.guid.new()
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
@@ -152,6 +154,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
         for ci in range(a.channels):
             audio_preview = MediaFile()
+            audio_preview.name = 'preview audio'
             vout_refs.append(audio_preview)
             audio_preview.guid.new()
             audio_preview.master.set(audio.guid.guid)

@@ -389,6 +389,9 @@ class DBInterface:
         cur.close()
 
     class Interaction:
+        @staticmethod
+        def set(inter: Interaction):
+            return DBInterface.register_record(inter, user=DBInterface.Machine.USER)
 
         # Request interactions filtered by status, return list sorted
         # @staticmethod
@@ -399,11 +402,13 @@ class DBInterface:
         #                                    sort=['ctime ASC', 'mtime DESC', 'status'])
 
         @staticmethod
-        def get_list(status, cond):
+        def records(status, condition):
+            fields = TRIX_CONFIG.dBase.fields('Interaction')
             return DBInterface.get_records('Interaction',
-                                           fields=['guid', 'name', 'status', 'ctime', 'mtime'],
+                                           # fields=['guid', 'name', 'status'],
+                                           fields=fields,
                                            status=status,
-                                           cond=cond,
+                                           cond=condition,
                                            sort=['priority DESC', 'ctime ASC', 'mtime DESC', 'status'])
 
         @staticmethod
@@ -436,6 +441,14 @@ class DBInterface:
         #     return {'result': interactions}
 
     class Asset:
+        @staticmethod
+        def records(uids):
+            fields = TRIX_CONFIG.dBase.fields('Asset')
+            condition = ["guid=ANY('{{{}}}'::uuid[])".format(','.join(uids))]
+            return DBInterface.get_records('Asset',
+                                           fields=fields,
+                                           cond=condition)
+
         @staticmethod
         def get(uid):
             return DBInterface.get_record('Asset', uid)

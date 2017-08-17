@@ -8,6 +8,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from .log_console import Logger, tracer
 from .database import DBInterface
+from .jsoner import NonJSONSerializibleEncoder
 import time
 import json
 import threading
@@ -110,7 +111,7 @@ class ApiTrix(ApiClassBase):
                     """    'status': None|<integer>|[<int>, <int>, ...]""" \
                     """    'condition': None|[<condition 1>, <condition 2>, ...]""" \
                     """                 <condition X> is a string like 'type=2' or 'priority>3'"""
-                    interactions = DBInterface.Interaction.get_list(args[0]['status'], args[0]['condition'])
+                    interactions = DBInterface.Interaction.records(args[0]['status'], args[0]['condition'])
                     return interactions
 
             class submit(meth):
@@ -125,6 +126,14 @@ class ApiTrix(ApiClassBase):
                 def handler(*args):
                     params = args[0]
                     asset = DBInterface.Asset.get(params['guid'])
+                    return asset
+
+            class set(meth):
+                @staticmethod
+                def handler(*args):
+                    params = args[0]
+                    asset = DBInterface.Asset.set_str(params['asset'])
+                    return asset
 
     @staticmethod
     def execute(target, request, client: ApiClient):
@@ -140,7 +149,7 @@ class ApiTrix(ApiClassBase):
                 result = target.handler(params, client)
                 respond['result'] = result
             Logger.debug('Respond: {}\n'.format(respond))
-            client.ws_handler.send_message(json.dumps(respond))
+            client.ws_handler.send_message(json.dumps(respond, cls=NonJSONSerializibleEncoder))
         except Exception as e:
             Logger.warning('ApiTrix.execute exception: {}\n'.format(e))
 

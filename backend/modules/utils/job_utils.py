@@ -9,8 +9,49 @@ import pickle
 import base64
 from typing import List
 from modules.models.job import Job
+from modules.models.asset import Asset, Stream
+from modules.models.interaction import Interaction
 from modules.utils.database import DBInterface
 from .log_console import Logger
+
+
+def merge_assets(assets):
+    def _advance_stream(_s: Stream, _i):
+        for _ch in _s.channels:
+            _ch.src_stream_index += _i
+    asset = Asset()
+    asset.guid.new()
+    vii = 0
+    aii = 0
+    sii = 0
+    for a in assets:
+        vss = []
+        vss += a.videoStreams
+        if vii:
+            for vstr in vss:
+                _advance_stream(vstr, vii)
+        vii += len(a.videoStreams)
+
+        ass = []
+        ass += a.audioStreams
+        if aii:
+            for astr in ass:
+                _advance_stream(astr, aii)
+        aii += len(a.audioStreams)
+
+        sss = []
+        sss += a.subStreams
+        if sii:
+            for sstr in sss:
+                _advance_stream(sstr, sii)
+        sii += len(a.subStreams)
+
+        asset.videoStreams += vss
+        asset.audioStreams += ass
+        asset.subStreams += sss
+        asset.mediaFiles += a.mediaFiles
+
+    return asset
 
 
 class JobUtils:
@@ -115,11 +156,11 @@ class JobUtils:
             :param path: path to source directory
             :return:
             """
-            # Create final job
+            # Create final dummy job (trigger)
             agg = Job()
             agg.guid.new()
             agg.name = 'Ingest: aggregate assets'
-            agg.type = Job.Type.INGEST_AGGREGATE
+            agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
             agg.dependsOnGroupId.new()
             group_id = agg.dependsOnGroupId
 
@@ -144,12 +185,16 @@ class JobUtils:
                 DBInterface.Job.register(job)
 
             # Single job's step
-            step = Job.Info.Step()
-            step.name = 'Ingest: aggregate assets'
-            chain = Job.Info.Step.Chain()
-            chain.procs = [['internal_ingest_aggregate_assets', base64.b64encode(pickle.dumps(assets))]]
-            step.chains.append(chain)
-            agg.info.steps.append(step)
+            # step = Job.Info.Step()
+            # step.name = 'Ingest: aggregate assets'
+            # chain = Job.Info.Step.Chain()
+            # chain.procs = [['internal_ingest_assets', base64.b64encode(pickle.dumps(assets))]]
+            # step.chains.append(chain)
+            # agg.info.steps.append(step)
+            res = Job.Info.Result()
+            res.type = Job.Info.Result.Type.ASSETS_TO_INGEST
+            res.actual = assets
+            agg.info.results.append(res)
             # Register aggregator job
             DBInterface.Job.register(agg)
 
@@ -178,11 +223,29 @@ class JobUtils:
             for mf in res['trans'] + res['previews'] + res['archives']:
                 DBInterface.MediaFile.set(mf)
 
+        def _assets_to_ingest(r):
+            # Get assets from DB, merge and create Interaction
+            if len(r.actual) == 1:
+                auid = r.actual[0]
+            elif len(r.actual) > 1:
+                assets = DBInterface.Asset.records(r.actual)
+                asset = merge_assets(assets)
+                asset.name = 'merged'
+                DBInterface.Asset.set(asset)
+                auid = str(asset.guid)
+            # Create Interaction
+            inter = Interaction()
+            inter.name = 'inter'
+            inter.assetIn.set(auid)
+            inter.assetOut = None
+            DBInterface.Interaction.set(inter)
+
         Vectors = {
             Job.Info.Result.Type.MEDIAFILE:     _mediafile,
             Job.Info.Result.Type.ASSET:         _asset,
             Job.Info.Result.Type.INTERACTION:   _interaction,
             Job.Info.Result.Type.CPEAS:         _cpeas,
+            Job.Info.Result.Type.ASSETS_TO_INGEST: _assets_to_ingest,
             Job.Info.Result.Type.FILE:          _undefined,
             Job.Info.Result.Type.TASK:          _undefined,
             Job.Info.Result.Type.JOB:           _undefined,
@@ -192,10 +255,15 @@ class JobUtils:
 
         def process(self, results: List[Job.Info.Result]):
             for r in results:
-                if r.type in self.Vectors:
-                    self.Vectors[r.type](r)
+                t = r.type & (0x7FFFFFFF ^ Job.Type.TRIGGER)
+                if t in self.Vectors:
+                    self.Vectors[t](r)
                 else:
                     self._undefined(r)
+
+    @staticmethod
+    def get_assets_by_uids(uids):
+        return DBInterface.Asset.records(uids)
 
     @staticmethod
     def _resolve_aliases(params):

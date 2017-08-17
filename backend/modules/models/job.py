@@ -65,7 +65,9 @@ class Job(Record):
         NVENC        = 0x200
 
         # Special types
-
+        # This flag that tells that job is a DUMMY job that aggregates virtual 'promised' objects (uids) stored in args
+        # and all that dispatcher have to do is to copy params to result, and then launch result handler
+        TRIGGER = 0x0800
         # Create proxy video and audio tracks by channels, extract audio to separate tracks,
         #  scan A/V to detect in/out/padding/loudness/..., save frames info including hashes
         CPEAS = 0x8000
@@ -131,12 +133,13 @@ class Job(Record):
                 ASSET = 2
                 CPEAS = 3
                 INTERACTION = 4
-                # COMBINED_INFO = 4
-                FILE = 5
-                TASK = 6
-                JOB = 7
+                # After CPEASes for ingest there is a trigger job that aggregates assets created by CPEASes
+                ASSETS_TO_INGEST = 5
+                FILE = 6
+                TASK = 7
+                JOB = 8
                 # Reactive result type:
-                HOOK_ARCHIVE = 8
+                HOOK_ARCHIVE = 9
 
             def __init__(self):
                 super().__init__()

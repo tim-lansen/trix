@@ -65,6 +65,10 @@ class JobExecutor:
 
     @staticmethod
     def _process(ex: Execution):
+        if ex.job.type | Job.Type.TRIGGER:
+            Logger.info("Dummy job (trigger) {}\n".format(ex.job.name))
+            ex.finish.set()
+            return
         chain_enter = Event()
         chain_error = Event()
         ex.running.set()
