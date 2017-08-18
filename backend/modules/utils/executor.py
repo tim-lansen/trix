@@ -17,6 +17,7 @@ import shutil
 from copy import deepcopy
 from typing import List
 from multiprocessing import Process, Event
+import queue
 from modules.models.job import Job
 from modules.models.interaction import Interaction
 from modules.utils.log_console import Logger, tracer
@@ -65,13 +66,13 @@ class JobExecutor:
 
     @staticmethod
     def _process(ex: Execution):
-        if ex.job.type | Job.Type.TRIGGER:
-            Logger.info("Dummy job (trigger) {}\n".format(ex.job.name))
-            ex.finish.set()
-            return
+        ex.running.set()
+        # if ex.job.type & Job.Type.TRIGGER:
+        #     Logger.info("Dummy job (trigger) {}\n".format(ex.job.name))
+        #     ex.finish.set()
+        #     return
         chain_enter = Event()
         chain_error = Event()
-        ex.running.set()
         try:
             Logger.info("Starting job {}\n".format(ex.job.name))
             # Prepare paths
@@ -161,10 +162,18 @@ class JobExecutor:
         if self.exec.job.info.results is None:
             Logger.warning('No results to emit\n')
             return None
+        if self.exec.job.type & Job.Type.TRIGGER:
+            Logger.info("Dummy job results\n")
+            JobUtils.RESULTS.process(self.exec.job.info.results)
+            return len(self.exec.job.info.results)
+
         rc = 0
         for result in self.exec.job.info.results:
-            rs = self.exec.finals[rc].get(timeout=1)
-            result.actual = rs
+            try:
+                rs = self.exec.finals[rc].get(timeout=5)
+                result.actual = rs
+            except queue.Empty:
+                Logger.critical('Failed to retrieve job result #{}\n'.format(rc))
             rc += 1
         if rc:
             JobUtils.RESULTS.process(self.exec.job.info.results)
@@ -187,10 +196,19 @@ class JobExecutor:
                 Logger.error("JobExecutor.run: process is alive!\n")
                 return False
             self.process = None
-        self._last_captured_progress = 0.0
-        self.exec.reset(job.info.max_parallel_chains())
-        JobUtils.resolve_aliases(job)
+
         self.exec.job = job
+        self.exec.reset(job.info.max_parallel_chains())
+
+        # If job is trigger type, do not start it
+        if job.type & Job.Type.TRIGGER:
+            Logger.info("Dummy job (trigger) {}\n".format(job.name))
+            self._last_captured_progress = 1.0
+            self.exec.finish.set()
+            return True
+
+        JobUtils.resolve_aliases(job)
+        self._last_captured_progress = 0.0
         self.process = Process(target=JobExecutor._process, args=(self.exec,))
         self.process.start()
         self.exec.running.wait(timeout=10.0)

@@ -40,6 +40,7 @@ class Interaction(Record):
         ],
         "fields_extra": [],
         "creation": [
+            "GRANT INSERT  ON TABLE public.{relname} TO {node};",
             "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
         ]
     }

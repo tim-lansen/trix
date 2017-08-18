@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import modules.utils.database
-import modules.models.job
+from modules.utils.database import DBInterface
+from modules.models.asset import Asset
+from modules.utils.types import Guid
 
 
 if __name__ == '__main__':
@@ -13,6 +14,14 @@ if __name__ == '__main__':
     # modules.utils.database.config_table_using_class(modules.models.asset.Asset, dBase)
     # print(json.dumps(dBase, indent=2))
 
-    modules.utils.database.DBInterface.initialize()
-    # modules.utils.database.DBInterface._drop_all_tables()
+    DBInterface._drop_all_tables()
+    DBInterface.initialize()
+    asset = Asset()
+    asset.guid.new()
+    asset.name = ''
+    asset.mediaFiles = [Guid(0), Guid(0), Guid(0)]
+    DBInterface.Asset.set(asset)
+    asset = DBInterface.Asset.get(asset.guid)
+    print(asset.dumps(indent=2))
+    DBInterface.Asset.delete(asset.guid)
 

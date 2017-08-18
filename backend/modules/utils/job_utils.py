@@ -16,40 +16,40 @@ from .log_console import Logger
 
 
 def merge_assets(assets):
-    def _advance_stream(_s: Stream, _i):
-        for _ch in _s.channels:
-            _ch.src_stream_index += _i
+    # def _advance_stream(_s: Stream, _i):
+    #     for _ch in _s.channels:
+    #         _ch.src_stream_index += _i
+
+    def _advance_streams(_ss: List[dict], _i):
+        _ass = []
+        if _ss is not None and len(_ss) > 0:
+            for _s in _ss:
+                _ass.append(_s)
+                for _ch in _s['channels']:
+                    _ch['src_stream_index'] += _i
+        return _ass
+
     asset = Asset()
     asset.guid.new()
     vii = 0
     aii = 0
     sii = 0
     for a in assets:
-        vss = []
-        vss += a.videoStreams
-        if vii:
-            for vstr in vss:
-                _advance_stream(vstr, vii)
-        vii += len(a.videoStreams)
+        # a = Asset()
+        # a.update_json(axaxa)
+        # print(a.dumps(indent=2))
 
-        ass = []
-        ass += a.audioStreams
-        if aii:
-            for astr in ass:
-                _advance_stream(astr, aii)
-        aii += len(a.audioStreams)
-
-        sss = []
-        sss += a.subStreams
-        if sii:
-            for sstr in sss:
-                _advance_stream(sstr, sii)
-        sii += len(a.subStreams)
+        vss = _advance_streams(a['videoStreams'], vii)
+        vii += len(vss)
+        ass = _advance_streams(a['audioStreams'], aii)
+        aii += len(ass)
+        sss = _advance_streams(a['subStreams'], sii)
+        sii += len(sss)
 
         asset.videoStreams += vss
         asset.audioStreams += ass
         asset.subStreams += sss
-        asset.mediaFiles += a.mediaFiles
+        asset.mediaFiles += a['mediaFiles']
 
     return asset
 
@@ -235,6 +235,7 @@ class JobUtils:
                 auid = str(asset.guid)
             # Create Interaction
             inter = Interaction()
+            inter.guid.new()
             inter.name = 'inter'
             inter.assetIn.set(auid)
             inter.assetOut = None

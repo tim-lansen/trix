@@ -13,6 +13,7 @@ import select
 from typing import List
 from pprint import pformat
 import psycopg2
+import psycopg2.extras
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from .log_console import Logger, tracer
 from .types import Guid
@@ -23,7 +24,7 @@ from ..models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, No
 # Establish a connection to db using args
 def connect_to_db(args):
     try:
-        # Try to connect to DB as superuser
+        psycopg2.extras.register_uuid()
         conn = psycopg2.connect(**args)
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     except psycopg2.Error as e:
@@ -413,7 +414,7 @@ class DBInterface:
 
         @staticmethod
         def get(uid):
-            return DBInterface.get_record('Interaction', uid)
+            return DBInterface.get_record_to_class('Interaction', uid)
 
         # Lock the interaction and return it if success
         @staticmethod
@@ -451,7 +452,7 @@ class DBInterface:
 
         @staticmethod
         def get(uid):
-            return DBInterface.get_record('Asset', uid)
+            return DBInterface.get_record_to_class('Asset', uid)
 
         @staticmethod
         def set(asset: Asset):
@@ -463,10 +464,14 @@ class DBInterface:
             ass.update_str(asset)
             return DBInterface.register_record(ass, user=DBInterface.Machine.USER)
 
+        @staticmethod
+        def delete(uid):
+            DBInterface.delete_records('Asset', [uid])
+
     class MediaFile:
         @staticmethod
         def get(uid):
-            return DBInterface.get_record('MediaFile', uid)
+            return DBInterface.get_record_to_class('Asset', uid)('MediaFile', uid)
 
         @staticmethod
         def set(mediaFile: MediaFile):

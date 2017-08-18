@@ -39,7 +39,7 @@ class Guid:
         return str(self.guid)
 
     def update_json(self, v):
-        self.guid = uuid.UUID(v)
+        self.guid = uuid.UUID(str(v))
 
     def is_null(self):
         return self.guid == self.Zero

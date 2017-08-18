@@ -103,7 +103,7 @@ def run(period=5):
             check = "EXTRACT(EPOCH FROM AGE(localtimestamp, mtime))>{timeout}".format(timeout=5*period)
             suspicious_nodes = DBInterface.get_records('Node', fields=['guid', 'job'], cond=[check])
             if len(suspicious_nodes):
-                Logger.warning("Unregister node(s):\n{}\n".format('\n'.join([sn['guid'] for sn in suspicious_nodes])))
+                Logger.warning("Unregister node(s):\n{}\n".format('\n'.join([str(sn['guid']) for sn in suspicious_nodes])))
                 DBInterface.delete_records('Node', [sn['guid'] for sn in suspicious_nodes])
                 Logger.info("Check jobs were being executed on these nodes...\n")
                 jobs = DBInterface.get_records(

@@ -2,6 +2,7 @@
 # tim.lansen@gmail.com
 
 import json
+import uuid
 import datetime
 from .log_console import Logger
 
@@ -9,7 +10,7 @@ from .log_console import Logger
 class NonJSONSerializibleEncoder(json.JSONEncoder):
 
     def default(self, obj):
-        if isinstance(obj, datetime.datetime):
+        if isinstance(obj, datetime.datetime) or isinstance(obj, uuid.UUID):
             return str(obj)
         return json.JSONEncoder.default(self, obj)
 
@@ -180,6 +181,7 @@ class JSONer:
             if subclass:
                 if isinstance(self.__dict__[name], list):
                     if isinstance(val, list):
+                        Logger.log('{} / {}: {}\n'.format(name, subclass, val))
                         # Create new objects, initialize and store to list
                         for v in val:
                             obj = subclass()
@@ -222,7 +224,7 @@ class JSONer:
                                 sclass=class_name
                             ))
         # Simply set member value
-        if isinstance(val, datetime.datetime):
+        if isinstance(val, datetime.datetime) or isinstance(val, uuid.UUID):
             self.__dict__[name] = str(val)
         else:
             self.__dict__[name] = val
@@ -236,7 +238,8 @@ class JSONer:
                 try:
                     self._update_member(k, val)
                 except Exception as e:
-                    Logger.error('Failed to update member {} with {}\n'.format(k, val))
+                    Logger.error('Failed to update member {} with {}\nError: {}\n'.format(k, val, e))
+                    Logger.traceback()
                     exit(1)
         self.unmentioned.clear()
         for k in json_obj:

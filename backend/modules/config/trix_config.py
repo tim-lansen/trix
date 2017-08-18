@@ -58,7 +58,7 @@ class TrixConfig(JSONer):
             self.templates = None
 
         def fields(self, table_name):
-            return [_[0] for _ in self.tables[table_name]]
+            return [_[0] for _ in self.tables[table_name]['fields']]
 
         def conform_tables(self):
             _g_ = globals()
@@ -231,3 +231,8 @@ check_config_conformity()
 if __name__ == '__main__':
     import pprint
     pprint.pprint(TRIX_CONFIG.dBase.__dict__)
+    print(TRIX_CONFIG.dBase.fields('Asset'))
+    print(TRIX_CONFIG.dBase.fields('MediaFile'))
+    print(TRIX_CONFIG.dBase.fields('Job'))
+    print(TRIX_CONFIG.dBase.fields('Machine'))
+    print(TRIX_CONFIG.dBase.fields('Interaction'))
