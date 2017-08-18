@@ -128,11 +128,11 @@ class SubStream(Stream):
 class Asset(Record):
 
     class MediaFile(Guid):
-        def __init__(self):
-            super().__init__()
+        def __init__(self, v=None):
+            super().__init__(v)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name=None, guid=0):
+        super().__init__(name=name, guid=guid)
         # List of source media files (GUIDs)
         self.mediaFiles: List[Asset.MediaFile] = []
         # List of streams

@@ -7,9 +7,10 @@ import json
 import uuid
 import pickle
 import base64
+from pprint import pformat
 from typing import List
 from modules.models.job import Job
-from modules.models.asset import Asset, Stream
+from modules.models.asset import Asset, VideoStream, AudioStream, SubStream, Stream
 from modules.models.interaction import Interaction
 from modules.utils.database import DBInterface
 from .log_console import Logger
@@ -20,36 +21,39 @@ def merge_assets(assets):
     #     for _ch in _s.channels:
     #         _ch.src_stream_index += _i
 
-    def _advance_streams(_ss: List[dict], _i):
+    def _advance_streams(_class, _ss: List[dict], _i):
         _ass = []
         if _ss is not None and len(_ss) > 0:
             for _s in _ss:
-                _ass.append(_s)
                 for _ch in _s['channels']:
                     _ch['src_stream_index'] += _i
+                _cs = _class()
+                _cs.update_json(_s)
+                _ass.append(_cs)
         return _ass
 
     asset = Asset()
-    asset.guid.new()
     vii = 0
     aii = 0
     sii = 0
+    Logger.log('merge_assets:\n\n')
     for a in assets:
-        # a = Asset()
-        # a.update_json(axaxa)
-        # print(a.dumps(indent=2))
+        Logger.warning('{}\n\n'.format(pformat(a)))
 
-        vss = _advance_streams(a['videoStreams'], vii)
+        vss = _advance_streams(VideoStream, a['videoStreams'], vii)
         vii += len(vss)
-        ass = _advance_streams(a['audioStreams'], aii)
+        ass = _advance_streams(AudioStream, a['audioStreams'], aii)
         aii += len(ass)
-        sss = _advance_streams(a['subStreams'], sii)
+        sss = _advance_streams(SubStream, a['subStreams'], sii)
         sii += len(sss)
+
+        Logger.warning('vss: {}\nass: {}\n sss: {}\n\n'.format(vss, ass, sss))
 
         asset.videoStreams += vss
         asset.audioStreams += ass
         asset.subStreams += sss
-        asset.mediaFiles += a['mediaFiles']
+
+        asset.mediaFiles += [Asset.MediaFile(_) for _ in a['mediaFiles']]
 
     return asset
 
@@ -226,18 +230,22 @@ class JobUtils:
         def _assets_to_ingest(r):
             # Get assets from DB, merge and create Interaction
             if len(r.actual) == 1:
-                auid = r.actual[0]
+                asset_guid = r.actual[0]
             elif len(r.actual) > 1:
-                assets = DBInterface.Asset.records(r.actual)
+                assts = DBInterface.Asset.records(r.actual)
+                assm = {}
+                for i, asst in enumerate(assts):
+                    assm[str(asst['guid'])] = i
+                assets = [assts[assm[aid]] for aid in r.actual]
                 asset = merge_assets(assets)
                 asset.name = 'merged'
                 DBInterface.Asset.set(asset)
-                auid = str(asset.guid)
+                asset_guid = str(asset.guid)
             # Create Interaction
             inter = Interaction()
             inter.guid.new()
             inter.name = 'inter'
-            inter.assetIn.set(auid)
+            inter.assetIn.set(asset_guid)
             inter.assetOut = None
             DBInterface.Interaction.set(inter)
 

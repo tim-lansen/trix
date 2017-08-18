@@ -180,8 +180,10 @@ class JSONer:
                 is_root = True
             if subclass:
                 if isinstance(self.__dict__[name], list):
+                    if val is None:
+                        self.__dict__[name] = []
+                        return
                     if isinstance(val, list):
-                        Logger.log('{} / {}: {}\n'.format(name, subclass, val))
                         # Create new objects, initialize and store to list
                         for v in val:
                             obj = subclass()
@@ -239,7 +241,6 @@ class JSONer:
                     self._update_member(k, val)
                 except Exception as e:
                     Logger.error('Failed to update member {} with {}\nError: {}\n'.format(k, val, e))
-                    Logger.traceback()
                     exit(1)
         self.unmentioned.clear()
         for k in json_obj:

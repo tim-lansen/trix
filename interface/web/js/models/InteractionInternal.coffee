@@ -5,7 +5,6 @@ class InteractionInternal
     constructor: (asset, player) ->
 #        @id = data.id
         @assetIn = asset
-        @ctime = data.ctime
         @changed = false
         @assetOut = null
 #            'id': data.id

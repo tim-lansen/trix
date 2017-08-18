@@ -254,7 +254,6 @@ class MediaFile(Record):
         def ref_add(self, w=640, h=360):
             # Create ref mediafile for this stream
             mf = MediaFile()
-            mf.guid.new()
             mf.isRef = True
             self.refs.append(mf.guid)
             vt = MediaFile.VideoTrack()
@@ -346,21 +345,21 @@ class MediaFile(Record):
     # Support classes
 
     class Master(Guid):
-        def __init__(self):
-            super().__init__()
+        def __init__(self, v=None):
+            super().__init__(v)
 
     class Asset(Guid):
         def __init__(self):
             super().__init__()
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name='', guid=0):
+        super().__init__(name=name, guid=guid)
         # This flag is set when media file is created as reference of media component (video or audio channel)
         self.isRef = False
         # Master mediafile: guid of source media
-        self.master = Guid()
+        self.master = self.Master()
         # Set of ASSETs that use this mediafile
-        self.assets: List[Guid] = []
+        self.assets: List[self.Asset] = []
         self.source = self.Source()
         self.format = self.Format()
         self.videoTracks: List[self.VideoTrack] = []

@@ -222,27 +222,27 @@ class App extends AppInterface
                 onerror: ( -> document.getElementById('trix-status').innerHTML = 'TRIX: error' )
                 onopen:  ( -> document.getElementById('trix-status').innerHTML = 'TRIX: opened' )
                 onmessage: ((wsapi, msg) ->
-                    try
-                        if msg.error
-                            wsapi.close()
-                            throw msg.error
-                        switch msg.method
-                            when 'connect'
-                                wsapi.sessionId = msg.result.session_id
-                                wsapi.state = 'connected'
-                                document.getElementById('trix-status').innerHTML = 'TRIX: connected'
-                            when 'authorize'
-                                wsapi.state = 'authorized'
-                                @setMainStatus 'Authorized'
-                                document.getElementById('trix-status').innerHTML = 'TRIX: Authorized'
-                            else
-                                if msg.id and wsapi.requestPool[msg.id]
-                                    if typeof wsapi.requestPool[msg.id].callback == 'function'
-                                        wsapi.requestPool[msg.id].callback msg
-                                        delete wsapi.requestPool[msg.id]
-                    catch e
-                        console.log 'onmessage error: ' + e + '\n  message: ' + msg
-                        document.getElementById('trix-status').innerHTML = 'TRIX: connection error'
+                    #try
+                    if msg.error
+                        wsapi.close()
+                        throw msg.error
+                    switch msg.method
+                        when 'connect'
+                            wsapi.sessionId = msg.result.session_id
+                            wsapi.state = 'connected'
+                            document.getElementById('trix-status').innerHTML = 'TRIX: connected'
+                        when 'authorize'
+                            wsapi.state = 'authorized'
+                            @setMainStatus 'Authorized'
+                            document.getElementById('trix-status').innerHTML = 'TRIX: Authorized'
+                        else
+                            if msg.id and wsapi.requestPool[msg.id]
+                                if typeof wsapi.requestPool[msg.id].callback == 'function'
+                                    wsapi.requestPool[msg.id].callback msg
+                                    delete wsapi.requestPool[msg.id]
+                    #catch e
+                    #    console.log 'onmessage error: ' + e + '\n  message: ' + msg
+                    #    document.getElementById('trix-status').innerHTML = 'TRIX: connection error'
                     return
                 ).bind(@)
                 states:

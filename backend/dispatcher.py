@@ -49,7 +49,8 @@ def run(period=5):
     def archive_job(uid):
         # TODO: Archive job
         # Remove job from DB
-        DBInterface.Job.delete(uid)
+        Logger.log('Archive job: {}\n'.format(uid))
+        # DBInterface.Job.delete(uid)
 
     while True:
 
@@ -110,7 +111,8 @@ def run(period=5):
                     'Job',
                     fields=['guid', 'fails'],
                     status=Job.Status.EXECUTING,
-                    cond=["guid=ANY('{{{}}}'::uuid[])".format(','.join([sn['job'] for sn in suspicious_nodes if sn['job']]))]
+                    # use str() for sn['job'] to convert UUID() to string
+                    cond=["guid=ANY('{{{}}}'::uuid[])".format(','.join([str(sn['job']) for sn in suspicious_nodes if sn['job']]))]
                 )
                 for job in jobs:
                     Logger.info('Reset job {}\n'.format(job['guid']))

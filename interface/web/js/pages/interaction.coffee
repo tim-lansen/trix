@@ -72,32 +72,32 @@ class AudioMan
 
     @single_channel_re: /1\schannels\s\((.+)\)/
     @audioLayouts: [
-        {'code': 'mono',           'name': 'Mono',            'layout': ['FC']},
-        {'code': 'stereo',         'name': 'Stereo',          'layout': ['FL',  'FR']},
-        {'code': '2.1',            'name': '2.1',             'layout': ['FL',  'FR',  'LFE']},
-        {'code': '3.0',            'name': '3.0',             'layout': ['FL',  'FR',  'FC']},
-        #{'code': '3.0(back)',      'name': '3.0 (back)',      'layout': ['FL',  'FR',  'BC']},
-        {'code': '4.0',            'name': '4.0',             'layout': ['FL',  'FR',  'FC',  'BC']},
-        {'code': 'quad',           'name': 'Quadro',          'layout': ['FL',  'FR',  'BL',  'BR']},
-        #{'code': 'quad(side)',     'name': 'Quadro (side)',   'layout': ['FL',  'FR',  'SL',  'SR']},
-        {'code': '3.1',            'name': '3.1',             'layout': ['FL',  'FR',  'FC',  'LFE']},
-        #{'code': '5.0',            'name': '5.0 (back)',      'layout': ['FL',  'FR',  'FC',  'BL',  'BR']},
-        {'code': '5.0(side)',      'name': '5.0 (side)',      'layout': ['FL',  'FR',  'FC',  'SL',  'SR']},
-        {'code': '4.1',            'name': '4.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BC']},
-        {'code': '5.1',            'name': '5.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR']},
-        #{'code': '5.1(side)',      'name': '5.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'SL',  'SR']},
-        {'code': '6.0',            'name': '6.0',             'layout': ['FL',  'FR',  'FC',  'BC',  'SL',  'SR']},
-        #{'code': '6.0(front)',     'name': '6.0 (front)',     'layout': ['FL',  'FR',  'FLC', 'FRC', 'SL',  'SR']},
-        {'code': 'hexagonal',      'name': 'Hexagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC']},
-        #{'code': '6.1',            'name': '6.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BC',  'SL',  'SR']},
-        {'code': '6.1',            'name': '6.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'BC']},
-        {'code': '6.1(front)',     'name': '6.1 (front)',     'layout': ['FL',  'FR',  'LFE', 'FLC', 'FRC', 'SL',  'SR']},
-        {'code': '7.0',            'name': '7.0',             'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'SL',  'SR']},
-        #{'code': '7.0(front)',     'name': '7.0 (front)',     'layout': ['FL',  'FR',  'FC',  'FLC', 'FRC', 'SL',  'SR']},
-        {'code': '7.1',            'name': '7.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'SL',  'SR']},
-        #{'code': '7.1(wide)',      'name': '7.1 (wide)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'FLC', 'FRC']},
-        #{'code': '7.1(wide-side)', 'name': '7.1 (wide-side)', 'layout': ['FL',  'FR',  'FC',  'LFE', 'FLC', 'FRC', 'SL',  'SR']},
-        {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']},
+        {'code': 'mono',           'name': 'Mono',            'layout': ['FC']}
+        {'code': 'stereo',         'name': 'Stereo',          'layout': ['FL',  'FR']}
+        {'code': '2.1',            'name': '2.1',             'layout': ['FL',  'FR',  'LFE']}
+        {'code': '3.0',            'name': '3.0',             'layout': ['FL',  'FR',  'FC']}
+        #{'code': '3.0(back)',      'name': '3.0 (back)',      'layout': ['FL',  'FR',  'BC']}
+        {'code': '4.0',            'name': '4.0',             'layout': ['FL',  'FR',  'FC',  'BC']}
+        {'code': 'quad',           'name': 'Quadro',          'layout': ['FL',  'FR',  'BL',  'BR']}
+        #{'code': 'quad(side)',     'name': 'Quadro (side)',   'layout': ['FL',  'FR',  'SL',  'SR']}
+        {'code': '3.1',            'name': '3.1',             'layout': ['FL',  'FR',  'FC',  'LFE']}
+        #{'code': '5.0',            'name': '5.0 (back)',      'layout': ['FL',  'FR',  'FC',  'BL',  'BR']}
+        {'code': '5.0(side)',      'name': '5.0 (side)',      'layout': ['FL',  'FR',  'FC',  'SL',  'SR']}
+        {'code': '4.1',            'name': '4.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BC']}
+        {'code': '5.1',            'name': '5.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR']}
+        #{'code': '5.1(side)',      'name': '5.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'SL',  'SR']}
+        {'code': '6.0',            'name': '6.0',             'layout': ['FL',  'FR',  'FC',  'BC',  'SL',  'SR']}
+        #{'code': '6.0(front)',     'name': '6.0 (front)',     'layout': ['FL',  'FR',  'FLC', 'FRC', 'SL',  'SR']}
+        {'code': 'hexagonal',      'name': 'Hexagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC']}
+        #{'code': '6.1',            'name': '6.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BC',  'SL',  'SR']}
+        {'code': '6.1',            'name': '6.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'BC']}
+        {'code': '6.1(front)',     'name': '6.1 (front)',     'layout': ['FL',  'FR',  'LFE', 'FLC', 'FRC', 'SL',  'SR']}
+        {'code': '7.0',            'name': '7.0',             'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'SL',  'SR']}
+        #{'code': '7.0(front)',     'name': '7.0 (front)',     'layout': ['FL',  'FR',  'FC',  'FLC', 'FRC', 'SL',  'SR']}
+        {'code': '7.1',            'name': '7.1',             'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'SL',  'SR']}
+        #{'code': '7.1(wide)',      'name': '7.1 (wide)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'FLC', 'FRC']}
+        #{'code': '7.1(wide-side)', 'name': '7.1 (wide-side)', 'layout': ['FL',  'FR',  'FC',  'LFE', 'FLC', 'FRC', 'SL',  'SR']}
+        {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']}
         #{'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
     ]
     @audioChannels:
@@ -182,6 +182,7 @@ class InteractionPage
         @interaction_requested = null
         @interaction_internal = null
         @interactions = {}
+        @inter = null
         @interaction_player = null
         @interaction_audioContext = new AudioContext
         @api_rightholders_all = []
@@ -449,7 +450,7 @@ class InteractionPage
             # Request asset
             @interaction_requested = inter_id
             @app.ws_api_trix.request {
-                'method': 'asset.get'
+                'method': 'asset.get_expanded'
                 'params': 'guid': inter.assetIn
             }, @assetRequestHandler.bind(@)
         else
@@ -462,26 +463,25 @@ class InteractionPage
     assetRequestHandler: (msg) ->
         console.log 'assetRequestHandler'
         console.log msg
-        asset = msg.result
-        inter_id = @interaction_requested
-        @interaction_selected = inter_id
-        inter = @interactions[inter_id]
-        html = '<text>ID: ' + inter_id + '</text>'
-        inter.assetIn = JSON.parse asset
-        document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
+        @interaction_selected = @interaction_requested
+        @inter = @interactions[@interaction_selected]
+        html = '<text>ID: ' + @interaction_selected + '</text>'
+        @inter.assetIn = msg.result
+        document.getElementById(@inter.guid).className = 'interaction row row' + @inter.index % 2 + ' selected'
 #        inter.data_out.video = inter.data_in.video
-        @interactionLoad inter.assetIn
+        @interactionLoad()
 #        @interactionCreatePlayer()
 #        inter.showAudioOutputs()
 #        @interactionShowInfo inter
         return
 
-    interactionLoad: (asset) ->
+    interactionLoad: () ->
         delete @interaction_internal
-        @interactionCreatePlayer
-        @interaction_internal = new InteractionInternal(asset, @interaction_player)
+        @interactionCreatePlayer()
+        @interaction_internal = new InteractionInternal(@inter.assetIn, @interaction_player)
         @interaction_internal.showAudioOutputs()
         @interactionShowInfo
+        return
 
     interactionShowInfo: ->
         inter = @interactions[@interaction_selected]
@@ -502,10 +502,9 @@ class InteractionPage
         document.getElementById('interaction-info').innerHTML = html
         return
 
-    interactionCreatePlayer: ->
-        inter = @interactions[@interaction_selected]
-        data = inter.data_in
-        info = data.infos
+    interactionCreatePlayer: () ->
+#        data = inter.data_in
+#        info = data.infos
         # TODO: data['program']['video']['crop'] contains crop data, use it to position crop frame
         console.log 'initialize player'
         if @interaction_player
@@ -526,128 +525,98 @@ class InteractionPage
             $('#interaction_player_decreaseDelay').unbind 'click'
             $('#interaction_player_increaseDelay').unbind 'click'
             delete @interaction_player
-        #var video_src = null;
-        # Makeup source map
         html = ''
         audio_elements = []
         video_elements = []
         @audioMan.reset()
-        count_t = 0
+#        count_t = 0
         count_ac = 0
         count_vc = 0
         cc = 0
-        ttype = undefined
-        mi = undefined
-        ti = undefined
-        ci = undefined
-        mi = 0
-        while mi < info.length
-        # count tracks and channels
+
+        debugger
+        # Enumerate media files
+        for mf, mi in @inter.assetIn.mediaFiles
+
+            # count tracks and channels to set file rowspan (total channel count in file)
             ct = 0
-            for ttype of info[mi]
-                `ttype = ttype`
-                if ttype != 'video' and ttype != 'audio' and ttype != 'subtitles'
-                    mi++
-                    continue
-                ti = 0
-                while ti < info[mi][ttype].length
-                    if 'extracted' of info[mi][ttype][ti]
-# 'extracted' means that track is extracted to separate file
-                        console.log 'extracted: ' + info[mi][ttype][ti].extracted + ' mi: ' + mi
-                        if info[mi][ttype][ti].extracted == mi
-# ignore extracted info
-                            ti++
-                            continue
-                    if !('channels' of info[mi][ttype][ti].ffprobe)
-                        info[mi][ttype][ti].ffprobe.channels = 1
-                    ct += info[mi][ttype][ti].ffprobe.channels
-                    ti++
+            for track in mf.audioTracks
+                ct += track.channels
+            ct += mf.videoTracks.length
+            ct += mf.subTracks.length
             if ct == 0
-# Skip next step if no track found
-                ti++
                 continue
+
+            # File part
             id = 'src-' + padz(mi, 2) + '" rowspan="' + ct
             html_f = '<td id="' + id + '" class="src row' + mi % 2 + ' col0">file</td>'
-            channel_layout = undefined
-            ttype = 'video'
-            if ttype of info[mi]
-# Only one video source is currently supported
-                id = 'src-' + padz(mi, 2) + '-t00'
+
+            # Tracks part
+            for track, ti in mf.videoTracks
+                id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2)
                 channel_layout = 'mono'
                 video_src = document.createElement('source')
                 video_src.type = 'video/mp4'
-                video_src.src = info[mi][ttype][0].preview
+                video_src.src = track.refs[0]
                 video_elements.push video_src
                 # Add row
                 html += '<tr class="src">'
                 html += html_f
-                html += '<td id="' + id + '" rowspan="' + 1 + '" class="src row' + count_t % 2 + ' col1">' + ttype + '</td>'
+                html += '<td id="' + id + '" rowspan="' + 1 + '" class="src row' + ti % 2 + ' col1">video</td>'
                 html += '<td id="' + id + '" class="src row' + cc % 2 + ' col2">' + channel_layout + '</td>'
                 html += '</tr>'
                 html_f = ''
                 count_vc++
-                count_t++
+#                count_t++
                 cc++
-            ttype = 'audio'
-            if ttype of info[mi]
-                ti = 0
-                while ti < info[mi][ttype].length
-# Source file index
-                    fi = mi
-                    # It's being replaced by index of extracted file
-                    if 'extracted' of info[mi][ttype][ti]
-                        fi = info[mi][ttype][ti].extracted
-                    channels = info[mi][ttype][ti].ffprobe.channels
-                    channel_layout = info[mi][ttype][ti].ffprobe.channel_layout
-                    id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2)
-                    html_t = '<td id="' + id + '" rowspan="' + channels + '" class="src row' + count_t % 2 + ' col1">' + ttype + '</td>'
-                    count_t++
-                    ci = 0
-                    while ci < info[mi][ttype][ti].preview.length
-                        id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2) + '-c' + padz(ci, 2)
-                        # Create playable audio
-                        snd = new Audio
-                        src = document.createElement('source')
-                        src.type = 'audio/mpeg'
-                        src.src = info[mi][ttype][ti].preview[ci]
-                        snd.appendChild src
-                        node = @interaction_audioContext.createMediaElementSource(snd)
-                        ae =
-                            'abs': count_ac
-                            'html-id': id
-                            'audio': snd
-                            'node': node
-                            'delay_ms': 0
-                            'file': fi
-                            'track': ti
-                            'channel': ci
-                        if 'start_time' of info[mi][ttype][ti]
-                            st = parseFloat(+info[mi][ttype][ti].start_time)
-                            if !isNaN(st)
-                                ae.delay_ms = Math.round(1000 * st)
-                        audio_elements.push ae
-                        @audioMan.appendAudioChannelSelectOptions count_ac, mi, ti, ci
-                        count_ac++
-                        # Add row to Sources table
-                        html += '<tr class="src">'
-                        html += html_f
-                        html += html_t
-                        html += '<td id="' + id + '" class="src row' + cc % 2 + ' col2">' + @audioMan.audioChannelsLayout(channel_layout) + ' #' + ci + '</td>'
-                        html += '</tr>'
-                        html_f = ''
-                        html_t = ''
-                        cc++
-                        ci++
-                    ti++
+            for track, ti in mf.audioTracks
+                channels = track.channels
+                channel_layout = track.channel_layout
+                id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2)
+                html_t = '<td id="' + id + '" rowspan="' + channels + '" class="src row' + ti % 2 + ' col1">audio</td>'
+                for ci in [0...track.channels]
+                    id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2) + '-c' + padz(ci, 2)
+                    # Create playable audio
+                    snd = new Audio
+                    src = document.createElement('source')
+                    src.type = 'audio/mp4'
+                    src.src = track.refs[ci]
+                    snd.appendChild src
+                    node = @interaction_audioContext.createMediaElementSource(snd)
+                    ae =
+                        'abs': count_ac
+                        'html-id': id
+                        'audio': snd
+                        'node': node
+                        'delay_ms': 0
+#                        'file': fi
+                        'track': ti
+                        'channel': ci
+#                    if 'start_time' of info[mi][ttype][ti]
+#                        st = parseFloat(+info[mi][ttype][ti].start_time)
+#                        if !isNaN(st)
+#                            ae.delay_ms = Math.round(1000 * st)
+                    audio_elements.push ae
+                    @audioMan.appendAudioChannelSelectOptions count_ac, mi, ti, ci
+                    count_ac++
+                    # Add row to Sources table
+                    html += '<tr class="src">'
+                    html += html_f
+                    html += html_t
+                    html += '<td id="' + id + '" class="src row' + cc % 2 + ' col2">' + @audioMan.audioChannelsLayout(channel_layout) + ' #' + ci + '</td>'
+                    html += '</tr>'
+                    html_f = ''
+                    html_t = ''
+                    cc++
+                    ci++
+                ti++
             mi++
         document.getElementById('src-map').innerHTML = html
         @audioMan.updateAudioChannelSelect()
         # Bind clicks
         @interaction_player = new InteractionPlayer(document.getElementById('interaction-video'), video_elements, audio_elements, @interaction_channelMerger)
-        ci = 0
-        while ci < audio_elements.length
-            $('#' + audio_elements[ci]['html-id']).bind 'click', @interaction_player.selectChannel.bind(@interaction_player, ci)
-            ci++
+        for ae, ci in audio_elements
+            $('#' + ae['html-id']).bind 'click', @interaction_player.selectChannel.bind(@interaction_player, ci)
         vCrop = data.program.video.crop
         vMap = data.program.video.map[0]
         vInfo = data.infos[vMap.ii]

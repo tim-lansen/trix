@@ -19,7 +19,7 @@ if __name__ == '__main__':
     asset = Asset()
     asset.guid.new()
     asset.name = ''
-    asset.mediaFiles = [Guid(0), Guid(0), Guid(0)]
+    asset.mediaFiles = [Asset.MediaFile(0), Asset.MediaFile(0), Asset.MediaFile(0)]
     DBInterface.Asset.set(asset)
     asset = DBInterface.Asset.get(asset.guid)
     print(asset.dumps(indent=2))

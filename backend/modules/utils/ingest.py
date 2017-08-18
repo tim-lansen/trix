@@ -210,7 +210,6 @@ class Inputs:
             sample = '{0:02d}.{1:02d}.mp4'.format(ii, stream.stream_type_index)
             # Create video preview mediafile
             # video_preview = MediaFile()
-            # video_preview.guid.new()
             # video_preview.master.set(self.files[ii].guid.guid)
             video_preview = self.files[ii].videoTracks[stream.stream_type_index].ref_add()
             cref = utils.ffmpeg_create_reference_extract_audio_subtitles(

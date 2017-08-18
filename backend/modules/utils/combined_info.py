@@ -681,7 +681,6 @@ def combined_info(mf: MediaFile, url=None):
 
 def combined_info_mediafile(url) -> MediaFile:
     mf = MediaFile()
-    mf.guid.new()
     combined_info(mf, url)
     return mf
 
@@ -713,7 +712,6 @@ def combined_info_mediafile(url) -> MediaFile:
 
 def test():
     media_file = MediaFile()
-    media_file.guid.new()
     combined_info(media_file, '/mnt/server1_id/crude/in_work/39f8a04c1b6ee9d3c60650c8ed80eb.768x320.600k.AV.mp4')
 
     Logger.info(media_file.dumps(indent=2))

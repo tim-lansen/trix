@@ -26,7 +26,7 @@ class Guid:
         elif value == 0:
             self.guid = uuid.uuid4()
         else:
-            self.guid = uuid.UUID(value)
+            self.guid = uuid.UUID(str(value))
 
     def new(self):
         self.guid = uuid.uuid4()

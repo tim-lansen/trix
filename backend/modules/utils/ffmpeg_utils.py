@@ -112,6 +112,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     vout_arch: List[MediaFile] = []
     vout_refs: List[MediaFile] = []
     vout_trans: List[MediaFile] = []
+    advance_audio_index = 0 if len(mediafile.videoTracks) == 0 else len(mediafile.audioTracks)
 
     filters = []
     outputs = []
@@ -124,7 +125,6 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         preview.source.url = os.path.join(dir_preview, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
         outputs.append('-map [pv{sti}] -c:v libx264 -preset fast -g 20 -b:v 320k {path}'.format(sti=sti, path=preview.source.url))
         arch = MediaFile()
-        arch.guid.new()
         arch.videoTracks.append(vt)
         vout_arch.append(arch)
         vp = preview.videoTracks[0]
@@ -142,9 +142,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             at = a
         else:
             at = copy.deepcopy(a)
-            audio = MediaFile()
-            audio.name = 'transit audio'
-            audio.guid.new()
+            audio = MediaFile(name='transit audio')
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
             audio.source.url = os.path.join(dir_transit, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
@@ -153,10 +151,8 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         # Add silencedetect filter for 1st audio track only
         audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
         for ci in range(a.channels):
-            audio_preview = MediaFile()
-            audio_preview.name = 'preview audio'
+            audio_preview = MediaFile(name='preview audio')
             vout_refs.append(audio_preview)
-            audio_preview.guid.new()
             audio_preview.master.set(audio.guid.guid)
             audio_preview.isRef = True
             audio_preview.source.url = os.path.join(dir_preview, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
@@ -242,7 +238,6 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
 
     # Create asset
     asset = Asset()
-    asset.guid.new()
     # Add main video track and auto-detected params
     if len(vout_arch):
         if len(blacks):
@@ -282,7 +277,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         a_stream.layout = trans.audioTracks[0].channel_layout
         for ci in range(channels):
             chan = Stream.Channel()
-            chan.src_stream_index = ti + len(mediafile.audioTracks)
+            chan.src_stream_index = ti + advance_audio_index
             chan.src_channel_index = ci
             a_stream.channels.append(chan)
         asset.audioStreams.append(a_stream)

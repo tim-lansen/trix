@@ -7,10 +7,10 @@ from modules.utils.types import Guid
 
 # Database record template
 class Record(JSONer):
-    def __init__(self):
+    def __init__(self, name=None, guid=None):
         super().__init__()
-        self.guid = Guid()
-        self.name = None
+        self.guid = Guid(guid)
+        self.name = name
         self.ctime = None
         self.mtime = None
 

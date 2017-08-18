@@ -12,7 +12,9 @@ from .jsoner import NonJSONSerializibleEncoder
 import time
 import json
 import threading
+from pprint import pformat
 from modules.websocket_server import ApiClassBase, ApiClientClassBase, WebsocketServer
+from modules.models.mediafile import MediaFile
 import traceback
 
 
@@ -125,7 +127,34 @@ class ApiTrix(ApiClassBase):
                 @staticmethod
                 def handler(*args):
                     params = args[0]
-                    asset = DBInterface.Asset.get(params['guid'])
+                    asset = DBInterface.Asset.get_dict(params['guid'])
+                    return asset
+
+            class get_expanded(meth):
+                # Load MediaFile(s) objects in place of their GUIDs, and source urls of previews in place of refs
+                @staticmethod
+                def handler(*args):
+                    params = args[0]
+                    asset = DBInterface.Asset.get_dict(params['guid'])
+                    media_files = []
+                    for guid in asset['mediaFiles']:
+                        mf = DBInterface.MediaFile.get(guid)
+                        mf = json.loads(mf.dumps())
+                        for t in mf['videoTracks']:
+                            refs = []
+                            for ref_guid in t['refs']:
+                                ref_mf: MediaFile = DBInterface.MediaFile.get(ref_guid)
+                                refs.append(ref_mf.source.url)
+                            t['refs'] = refs
+                        # if isinstance(mf['audioTracks'], list):
+                        for t in mf['audioTracks']:
+                            refs = []
+                            for ref_guid in t['refs']:
+                                ref_mf: MediaFile = DBInterface.MediaFile.get(ref_guid)
+                                refs.append(ref_mf.source.url)
+                            t['refs'] = refs
+                        media_files.append(mf)
+                    asset['mediaFiles'] = media_files
                     return asset
 
             class set(meth):
@@ -135,21 +164,29 @@ class ApiTrix(ApiClassBase):
                     asset = DBInterface.Asset.set_str(params['asset'])
                     return asset
 
+        # class mediaFile:
+        #     class get(meth):
+        #         @staticmethod
+        #         def handler(*args):
+        #             params = args[0]
+        #             asset = DBInterface.Asset.get_dict(params['guid'])
+        #             return asset
+
     @staticmethod
     def execute(target, request, client: ApiClient):
         try:
             params = request['params'] if 'params' in request else None
-            respond = {
+            response = {
                 'method': request['method'],
                 'id': request['id']
             }
             if target.need_auth and not client.authorized():
-                respond['error'] = 'not authorized'
+                response['error'] = 'not authorized'
             else:
                 result = target.handler(params, client)
-                respond['result'] = result
-            Logger.debug('Respond: {}\n'.format(respond))
-            client.ws_handler.send_message(json.dumps(respond, cls=NonJSONSerializibleEncoder))
+                response['result'] = result
+            Logger.debug('Response: {}\n'.format(pformat(response, indent=0)))
+            client.ws_handler.send_message(json.dumps(response, cls=NonJSONSerializibleEncoder))
         except Exception as e:
             Logger.warning('ApiTrix.execute exception: {}\n'.format(e))
 

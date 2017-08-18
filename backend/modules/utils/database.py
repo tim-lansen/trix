@@ -41,6 +41,7 @@ def request_db(cur, req, exit_on_fail=False):
         cur.execute(req)
     except psycopg2.Error as e:
         Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
+        Logger.traceback()
         if exit_on_fail:
             cur.connection.close()
             sys.exit(1)
@@ -68,6 +69,7 @@ def request_db_return_dl(cur, tdata, fields, condition):
         cur.execute(request)
     except psycopg2.Error as e:
         Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
+        Logger.traceback()
     else:
         rows = cur.fetchall()
         for row in rows:
@@ -99,6 +101,7 @@ def request_db_return_dict(cur, tdata, key=None, fields=None, condition=''):
         cur.execute(request)
     except psycopg2.Error as e:
         Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
+        Logger.traceback()
     else:
         rows = cur.fetchall()
         for row in rows:
@@ -371,7 +374,7 @@ class DBInterface:
                     values=','.join([
                         "ARRAY[{}]::uuid[]".format(','.join(["'{}'".format(_)
                                                              for _ in rd[f]]))
-                                                                if type(rd[f]) is list and len(rd[f]) > 0 and type(rd[f][0]) is Guid
+                                                                if type(rd[f]) is list and len(rd[f]) > 0 and isinstance(rd[f][0], Guid)
                             else "'{}'".format(str(rd[f])) for f in fields
                     ])
                     # values=','.join(["'[1]'" if type(rd[f]) is list else "'{}'".format(str(rd[f])) for f in fields])
@@ -455,8 +458,17 @@ class DBInterface:
             return DBInterface.get_record_to_class('Asset', uid)
 
         @staticmethod
+        def get_dict(uid):
+            data = DBInterface.get_record('Asset', uid)
+            if data is None or len(data) != 1:
+                return None
+            return data[0]
+
+        @staticmethod
         def set(asset: Asset):
+            Logger.warning('{}\n'.format(asset.dumps(indent=2)))
             return DBInterface.register_record(asset, user=DBInterface.Machine.USER)
+            # return DBInterface.Asset.set_str(asset.dumps())
 
         @staticmethod
         def set_str(asset: str):
@@ -471,15 +483,22 @@ class DBInterface:
     class MediaFile:
         @staticmethod
         def get(uid):
-            return DBInterface.get_record_to_class('Asset', uid)('MediaFile', uid)
+            return DBInterface.get_record_to_class('MediaFile', uid)
 
         @staticmethod
-        def set(mediaFile: MediaFile):
-            return DBInterface.register_record(mediaFile, user=DBInterface.Machine.USER)
+        def get_dict(uid):
+            data = DBInterface.get_record('MediaFile', uid)
+            if data is None or len(data) != 1:
+                return None
+            return data[0]
+
+        @staticmethod
+        def set(mediafile: MediaFile):
+            return DBInterface.register_record(mediafile, user=DBInterface.Machine.USER)
 
         @staticmethod
         def set_str(mediaFile: str):
-            mf = MediaFile()
+            mf = MediaFile(guid=None)
             mf.update_str(mediaFile)
             return DBInterface.register_record(mf, user=DBInterface.Machine.USER)
 
