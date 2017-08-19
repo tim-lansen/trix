@@ -35,7 +35,7 @@ def connect_to_db(args):
 
 # Execute a request using cursor supplied
 def request_db(cur, req, exit_on_fail=False):
-    Logger.info('Request:\n{}\n'.format(req))
+    # Logger.info('Request:\n{}\n'.format(req))
     result = True
     try:
         cur.execute(req)
@@ -63,7 +63,7 @@ def request_db_return_dl(cur, tdata, fields, condition):
     else:
         fstr = ','.join(fields)
     request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
-    Logger.info('Request:\n{}\n'.format(request))
+    # Logger.info('Request:\n{}\n'.format(request))
     result = []
     try:
         cur.execute(request)
@@ -95,7 +95,7 @@ def request_db_return_dict(cur, tdata, key=None, fields=None, condition=''):
         Logger.warning('Key {} not in requested field list {}\n'.format(key, fields))
         key = fields[0]
     request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
-    Logger.info('Request:\n{}\n'.format(request))
+    # Logger.info('Request:\n{}\n'.format(request))
     result = {}
     try:
         cur.execute(request)
@@ -221,7 +221,7 @@ class DBInterface:
                 'password': TRIX_CONFIG.dBase.users[user]['password']
             }
             DBInterface.CONNECTIONS[user] = connect_to_db(params)
-        Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
+        # Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
         return DBInterface.CONNECTIONS[user]
 
     @staticmethod
@@ -466,7 +466,7 @@ class DBInterface:
 
         @staticmethod
         def set(asset: Asset):
-            Logger.warning('{}\n'.format(asset.dumps(indent=2)))
+            # Logger.warning('{}\n'.format(asset.dumps(indent=2)))
             return DBInterface.register_record(asset, user=DBInterface.Machine.USER)
             # return DBInterface.Asset.set_str(asset.dumps())
 
@@ -617,8 +617,8 @@ class DBInterface:
                     while conn.notifies:
                         notifications.append(conn.notifies.pop(0))
                     break
-                else:
-                    Logger.info('DBIinterface.Node.listen: timeout\n')
+                # else:
+                    # Logger.info('DBIinterface.Node.listen: timeout\n')
                 if not blocking:
                     break
 

@@ -131,7 +131,7 @@ class ApiTrix(ApiClassBase):
                     return asset
 
             class get_expanded(meth):
-                # Load MediaFile(s) objects in place of their GUIDs, and source urls of previews in place of refs
+                # Load MediaFile(s) objects in place of their GUIDs, and source urls of previews in place of their guids
                 @staticmethod
                 def handler(*args):
                     params = args[0]
@@ -141,18 +141,18 @@ class ApiTrix(ApiClassBase):
                         mf = DBInterface.MediaFile.get(guid)
                         mf = json.loads(mf.dumps())
                         for t in mf['videoTracks']:
-                            refs = []
-                            for ref_guid in t['refs']:
-                                ref_mf: MediaFile = DBInterface.MediaFile.get(ref_guid)
-                                refs.append(ref_mf.source.url)
-                            t['refs'] = refs
+                            previews = []
+                            for preview_guid in t['previews']:
+                                preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
+                                previews.append(preview_mf.source.url)
+                            t['previews'] = previews
                         # if isinstance(mf['audioTracks'], list):
                         for t in mf['audioTracks']:
-                            refs = []
-                            for ref_guid in t['refs']:
-                                ref_mf: MediaFile = DBInterface.MediaFile.get(ref_guid)
-                                refs.append(ref_mf.source.url)
-                            t['refs'] = refs
+                            previews = []
+                            for preview_guid in t['previews']:
+                                preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
+                                previews.append(preview_mf.source.url)
+                            t['previews'] = previews
                         media_files.append(mf)
                     asset['mediaFiles'] = media_files
                     return asset

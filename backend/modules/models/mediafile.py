@@ -11,7 +11,9 @@ class MediaFile(Record):
     class Source(JSONer):
         def __init__(self):
             super().__init__()
-            # File URL in case of single-file access
+            # File path in case of single-file access
+            self.path = None
+            # File URL for external access
             self.url = None
             # List of chunks IDs
             self.chunks = None
@@ -230,7 +232,7 @@ class MediaFile(Record):
 
             # ID(s) of reference video(s): separate video file for every component
             # single ID in case of mono input, two IDs for stereo, etc.
-            self.refs: List[str] = []
+            self.previews: List[str] = []
 
         @staticmethod
         def fit_video(src, dst, dw, dh, size_round=2):
@@ -252,10 +254,10 @@ class MediaFile(Record):
             dst.height = display_height
 
         def ref_add(self, w=640, h=360):
-            # Create ref mediafile for this stream
+            # Create preview mediafile for this stream
             mf = MediaFile()
-            mf.isRef = True
-            self.refs.append(mf.guid)
+            mf.isPreview = True
+            self.previews.append(mf.guid)
             vt = MediaFile.VideoTrack()
             MediaFile.VideoTrack.fit_video(self, vt, w, h)
             mf.videoTracks.append(vt)
@@ -326,7 +328,7 @@ class MediaFile(Record):
             self.extracted = None
             # ID(s) of reference audio(s): separate audio file for every channel
             # single ID in case of mono input, two IDs for stereo, 6 IDs for 5.1, etc.
-            self.refs: List[str] = []
+            self.previews: List[str] = []
 
     class SubTrack(JSONer):
         class MiSubTrack(JSONer):
@@ -355,7 +357,7 @@ class MediaFile(Record):
     def __init__(self, name='', guid=0):
         super().__init__(name=name, guid=guid)
         # This flag is set when media file is created as reference of media component (video or audio channel)
-        self.isRef = False
+        self.isPreview = False
         # Master mediafile: guid of source media
         self.master = self.Master()
         # Set of ASSETs that use this mediafile
@@ -369,7 +371,7 @@ class MediaFile(Record):
     TABLE_SETUP = {
         "relname": "trix_files",
         "fields": [
-            ["isRef", "boolean NOT NULL"],
+            ["isPreview", "boolean NOT NULL"],
             ["master", "uuid"],
             ["assets", "uuid[]"],
             ["source", "json NOT NULL"],

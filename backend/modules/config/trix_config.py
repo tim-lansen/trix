@@ -108,11 +108,13 @@ class TrixConfig(JSONer):
                     PRODUCTION = 3
                     PREVIEW = 4
 
-                def __init__(self):
+                def __init__(self, role=Role.UNDEFINED, net_path=None, web_path=None):
                     super().__init__()
-                    self.role: self.Role = self.Role.UNDEFINED
-                    self.path = None
-                    self.web_access = None
+                    self.role: self.Role = role
+                    # Local network access path
+                    self.net_path = net_path
+                    # WEB access path
+                    self.web_path = web_path
 
             def __init__(self):
                 super().__init__()
@@ -134,8 +136,8 @@ class TrixConfig(JSONer):
 
             def get_paths(self, role):
                 if os.name == 'nt':
-                    return [r'\\{}\{}'.format(self.address, _.path.replace('/', '\\')) for _ in self.paths if _.role == role]
-                return ['/mnt/{}/{}'.format(self.id, _.path) for _ in self.paths if _.role == role]
+                    return [self.Path(role, r'\\{}\{}'.format(self.address, _.net_path.replace('/', '\\')), _.web_path) for _ in self.paths if _.role == role]
+                return [self.Path(role, '/mnt/{}/{}'.format(self.id, _.net_path), _.web_path) for _ in self.paths if _.role == role]
 
         class Watchfolder(JSONer):
             class Action:

@@ -21,18 +21,19 @@ class Guid:
     # Guid may be initialized with string
     # To get new unique GUID pass 0 to value
     def __init__(self, value=None):
+        self.guid = None
+        self.set(value)
+
+    def new(self):
+        self.guid = uuid.uuid4()
+
+    def set(self, value):
         if value is None:
             self.guid = uuid.UUID(int=0)
         elif value == 0:
             self.guid = uuid.uuid4()
         else:
             self.guid = uuid.UUID(str(value))
-
-    def new(self):
-        self.guid = uuid.uuid4()
-
-    def set(self, value):
-        self.guid = uuid.UUID(str(value))
 
     def dump_alt(self):
         # return None if self.is_null() else str(self.guidx)

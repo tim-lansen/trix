@@ -18,15 +18,15 @@ MODELS_TO_TRANSLATE = [
 
 def translate_models_to_cs(basepath=None, prefix='', suffix='_py'):
     for c in MODELS_TO_TRANSLATE:
-        Logger.log('Translating model {} to coffee\n'.format(c.__name__))
+        Logger.info('Translating model {} to coffee\n'.format(c.__name__))
         cs = class_py2coffee(c)
         if basepath:
             script = os.path.join(basepath, '{}{}{}.coffee'.format(prefix, c.__name__, suffix))
-            Logger.log('Writing script file {}\n'.format(script))
+            Logger.warning('Writing script file {}\n'.format(script))
             f = open(script, 'w')
             f.write(cs)
             f.close()
-        Logger.info(cs + '\n')
+        Logger.log(cs + '\n')
 
 
 if __name__ == '__main__':

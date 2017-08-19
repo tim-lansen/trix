@@ -1,4 +1,4 @@
-'use strict'
+#'use strict'
 
 class LiveCrop
     constructor: ->
@@ -101,4 +101,4 @@ class LiveCrop
         document.getElementById('crop-y2').style.top = v + 'px'
         return
 
-module.exports = LiveCrop
+#module.exports = LiveCrop

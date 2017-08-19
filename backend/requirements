@@ -27,9 +27,15 @@ PostgreSQL
 ===================
 Network
 ===================
-   44  ip a
-   45  sudo vim /etc/network/interfaces
-        # whole file
+        # change hostname
+
+      > sudo vim /etc/hosts
+      > sudo vim /etc/hostname
+
+        # change IP
+
+      > sudo vim /etc/network/interfaces
+
         auto lo
         iface lo inet loopback
 
@@ -43,21 +49,19 @@ Network
                 address 1.1.1.3
                 netmask 255.255.255.0
                 network 1.1.1.255
-   50  sudo /etc/init.d/networking restart
+
+      > sudo /etc/init.d/networking restart
 ===================
 Nginx
 ===================
-        # Change hostname
-        sudo vim /etc/hostname
-        sudo vim /etc/hosts
         # Create share
-        sudo mkdir -p /mnt/server1/web
-        sudo chmod 777 /mnt/server1/web
+        sudo mkdir -p /mnt/server1_id/web
+        sudo chmod 777 /mnt/server1_id/web
         # Mount storage
         sudo mount //1.1.1.1/web /mnt/server1/web -t cifs -o username=tim,password=1604001,dir_mode=0777,file_mode=0777
             or in fstab (mount permanently)
-        //1.1.1.1/web /mnt/server1/web cifs rw,username=tim,password=1604001,file_mode=0777,dir_mode=0777 0 0
-        ls /mnt/server1/web/
+        //1.1.1.1/web /mnt/server1_id/web cifs rw,username=tim,password=1604001,file_mode=0777,dir_mode=0777 0 0
+        ls /mnt/server1_id/web/
 
 # Build NGINX from sources
 mkdir ~/git/libs
@@ -106,6 +110,30 @@ cd nginx-1.12.1
 
 # --add-module=/usr/build/nginx-rtmp-module
 # --add-dynamic-module=/usr/build/3party_module
+
+
+# Config: rewrites should be set in accordance to trix config
+> sudo vim /opt/nginx/nginx.conf
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile          on;
+    keepalive_timeout 65;
+    server {
+        listen       80;
+        server_name  trix_web;
+        access_log  /opt/nginx/logs/trix.access.log;
+
+        rewrite ^/media/(.*)$ /preview/$1 last;
+        rewrite ^/interface/(.*)$ /dist/$1 last;
+
+        location / {
+            root   /mnt/server1_id/web;
+            index  index.html;
+        }
+    }
+}
 
 ===================
 Python 3.6 + psycopg2

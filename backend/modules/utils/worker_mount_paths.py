@@ -49,7 +49,7 @@ def mount_paths():
             _wrap_call_(['sudo', 'mount', np, desired_mp] + server.mount_opts())
     for server in TRIX_CONFIG.storage.servers:
         for path in server.paths:
-            mp = server.mount_point(path['path'])
+            mp = server.mount_point(path['net_path'])
             _make_dirs_(mp)
     for wf in TRIX_CONFIG.storage.watchfolders:
         _make_dirs_(os.path.join(wf.path, wf.map.downl), _pin=True)

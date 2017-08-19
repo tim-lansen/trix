@@ -104,11 +104,11 @@ def ffmpeg_cropdetect(url,  video_track: MediaFile.VideoTrack, cd_black=0.08, cd
 def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None):
     # First, call cropdetect
     if len(mediafile.videoTracks):
-        cropdetect = ffmpeg_cropdetect(mediafile.source.url, mediafile.videoTracks[0])
+        cropdetect = ffmpeg_cropdetect(mediafile.source.path, mediafile.videoTracks[0])
         dur = mediafile.videoTracks[0].Duration
     else:
         dur = mediafile.format.duration
-    src = mediafile.source.url
+    src = mediafile.source.path
     vout_arch: List[MediaFile] = []
     vout_refs: List[MediaFile] = []
     vout_trans: List[MediaFile] = []
@@ -122,8 +122,10 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         preview = vt.ref_add()
         preview.name = 'preview'
         vout_refs.append(preview)
-        preview.source.url = os.path.join(dir_preview, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
-        outputs.append('-map [pv{sti}] -c:v libx264 -preset fast -g 20 -b:v 320k {path}'.format(sti=sti, path=preview.source.url))
+        preview.source.path = os.path.join(dir_preview.net_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
+        preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
+        # preview.source.url
+        outputs.append('-map [pv{sti}] -c:v libx264 -preset fast -g 20 -b:v 320k {path}'.format(sti=sti, path=preview.source.path))
         arch = MediaFile()
         arch.videoTracks.append(vt)
         vout_arch.append(arch)
@@ -145,8 +147,8 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             audio = MediaFile(name='transit audio')
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
-            audio.source.url = os.path.join(dir_transit, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
-            outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.url))
+            audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
+            outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.path))
         vout_trans.append(audio)
         # Add silencedetect filter for 1st audio track only
         audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
@@ -154,14 +156,15 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             audio_preview = MediaFile(name='preview audio')
             vout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
-            audio_preview.isRef = True
-            audio_preview.source.url = os.path.join(dir_preview, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
+            audio_preview.isPreview = True
+            audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
+            audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
             if audio_filter is None:
                 audio_filter = '[0:a:{sti}]pan=mono|c0=c{ci}[ap_{sti:02d}_{ci:02d}]'.format(sti=sti, ci=ci)
             filters.append(audio_filter)
             audio_filter = None
-            outputs.append('-map [ap_{sti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(sti=sti, ci=ci, path=audio_preview.source.url))
-            at.refs.append(str(audio_preview.guid))
+            outputs.append('-map [ap_{sti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(sti=sti, ci=ci, path=audio_preview.source.path))
+            at.previews.append(str(audio_preview.guid))
 
     # Finally, compose the command
     command_cli = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex "{filters}" {outputs}'.format(src=src, filters=';'.join(filters), outputs=' '.join(outputs))
@@ -170,12 +173,12 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     Logger.log('{}\n'.format(command_cli))
 
     # Create dirs if needed
-    if len(vout_refs) and not os.path.isdir(dir_preview):
-        Logger.log('Creating dir: {}\n'.format(dir_preview))
-        os.makedirs(dir_preview)
-    if len(vout_trans) and not os.path.isdir(dir_transit):
-        Logger.log('Creating dir: {}\n'.format(dir_transit))
-        os.makedirs(dir_transit)
+    if len(vout_refs) and not os.path.isdir(dir_preview.net_path):
+        Logger.log('Creating dir: {}\n'.format(dir_preview.net_path))
+        os.makedirs(dir_preview.net_path)
+    if len(vout_trans) and not os.path.isdir(dir_transit.net_path):
+        Logger.log('Creating dir: {}\n'.format(dir_transit.net_path))
+        os.makedirs(dir_transit.net_path)
 
     proc = Popen(command_py.split(' '), stdin=sys.stdin, stderr=PIPE)
     pipe_nowait(proc.stderr)
@@ -301,7 +304,7 @@ def test_ffmpeg_cropdetect():
     mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AV)
     Logger.warning('Combined info:\n{}\n'.format(mf.videoTracks[0].dumps(indent=2)))
     cd = VideoStream.Cropdetect()
-    cd.update_json(ffmpeg_cropdetect(mf.source.url, mf.videoTracks[0]))
+    cd.update_json(ffmpeg_cropdetect(mf.source.path, mf.videoTracks[0]))
     Logger.log('Cropdetect:\n{}\n'.format(cd.dumps(indent=2)))
 
 

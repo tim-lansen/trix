@@ -661,22 +661,22 @@ def combine_ffprobe_mediainfo(ffstr, mistr):
     return result
 
 
-def combined_info(mf: MediaFile, url=None):
-    if url is None:
-        url = mf.source.url
-        if url is None:
+def combined_info(mf: MediaFile, path=None):
+    if path is None:
+        path = mf.source.path
+        if path is None:
             return
-    ffstr = get_ffprobe_info(url)
-    mistr = get_media_info(url)
+    ffstr = get_ffprobe_info(path)
+    mistr = get_media_info(path)
     combined = combine_ffprobe_mediainfo(ffstr, mistr)
     mf.update_json(combined)
-    mf.source.url = url
-    if '/' in url:
-        mf.name = url.rsplit('/', 1)[1].rsplit('.', 1)[0]
-    elif '\\' in url:
-        mf.name = url.rsplit('\\', 1)[1].rsplit('.', 1)[0]
+    mf.source.path = path
+    if '/' in path:
+        mf.name = path.rsplit('/', 1)[1].rsplit('.', 1)[0]
+    elif '\\' in path:
+        mf.name = path.rsplit('\\', 1)[1].rsplit('.', 1)[0]
     else:
-        mf.name = url
+        mf.name = path
 
 
 def combined_info_mediafile(url) -> MediaFile:

@@ -144,6 +144,14 @@ class Asset(Record):
         # UID of target program (movie id, series, whatever...)
         self.programId = None
 
+    def full_instance(self):
+        self.guid.set(None)
+        self.videoStreams = [VideoStream()]
+        self.audioStreams = [AudioStream()]
+        self.subStreams = [SubStream()]
+        self.proxyId = Guid()
+        self.programId = Guid()
+
     TABLE_SETUP = {
         "relname": "trix_assets",
         "fields": [

@@ -9,6 +9,11 @@ from modules.config import TRIX_CONFIG
 
 class Storage:
 
+    # class Location:
+    #     def __init__(self):
+    #         self.path = None
+    #         self.url = None
+
     if os.name == 'nt':
         DEVNULL = 'nul'
     else:
@@ -21,8 +26,12 @@ class Storage:
         for server in TRIX_CONFIG.storage.servers:
             paths += server.get_paths(role)
         if len(paths):
-            path = '{}{}{}'.format(paths[randint(0, len(paths) - 1)], os.path.sep, guid)
+            # path = '{}{}{}'.format(paths[randint(0, len(paths) - 1)].net_path, os.path.sep, guid)
+            path = paths[randint(0, len(paths) - 1)]
+            path.net_path += os.path.sep + guid
+            if path.web_path:
+                path.web_path += '/' + guid
         else:
-            path = Storage.DEVNULL
+            path = None #Storage.DEVNULL
         return path
 

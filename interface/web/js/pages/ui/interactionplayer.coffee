@@ -1,6 +1,6 @@
-'use strict'
-$ = require('jquery')
-Timeline = require('./Timeline')
+#'use strict'
+#$ = require('jquery')
+#Timeline = require('./Timeline')
 
 class InteractionPlayer
     constructor: (video_object, video_elements, audio_elements, interaction_channelMerger) ->

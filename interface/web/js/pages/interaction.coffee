@@ -1,9 +1,9 @@
 'use strict'
 
-$ = require('jquery')
-LiveCrop = require('./pages/ui/live_crop')
-InteractionPlayer = require('./pages/ui/interaction_player')
-InteractionInternal = require('./models/InteractionInternal')
+#$ = require('jquery')
+#LiveCrop = require('./pages/ui/live_crop')
+#InteractionPlayer = require('./pages/ui/interaction_player')
+#InteractionInternal = require('./models/InteractionInternal')
 Rightholders = require('./models/Rightholders')
 AudioContext = window.AudioContext or window.webkitAudioContext
 
@@ -66,9 +66,9 @@ createStyleSequence = (baseName, h, s, l, a, hH, sH, lH, aH, rotOddEvenH, gainOd
     return
 
 
+g_InteractionPlayer = null
+
 class AudioMan
-    constructor: ->
-        @audioChannelSelectOptionsHtml = ''
 
     @single_channel_re: /1\schannels\s\((.+)\)/
     @audioLayouts: [
@@ -100,32 +100,36 @@ class AudioMan
         {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']}
         #{'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
     ]
-    @audioChannels:
-        'FL': 'front left'
-        'FR': 'front right'
-        'FC': 'front center'
-        'LFE': 'low frequency'
-        'BL': 'back left'
-        'BR': 'back right'
-        'FLC': 'front left-of-center'
-        'FRC': 'front right-of-center'
-        'BC': 'back center'
-        'SL': 'side left'
-        'SR': 'side right'
-        'TC': 'top center'
-        'TFL': 'top front left'
-        'TFC': 'top front center'
-        'TFR': 'top front right'
-        'TBL': 'top back left'
-        'TBC': 'top back center'
-        'TBR': 'top back right'
-        'DL': 'downmix left'
-        'DR': 'downmix right'
-        'WL': 'wide left'
-        'WR': 'wide right'
-        'SDL': 'surround direct left'
-        'SDR': 'surround direct right'
-        'LFE2': 'low frequency 2'
+#    @audioChannels:
+#        'FL': 'front left'
+#        'FR': 'front right'
+#        'FC': 'front center'
+#        'LFE': 'low frequency'
+#        'BL': 'back left'
+#        'BR': 'back right'
+#        'FLC': 'front left-of-center'
+#        'FRC': 'front right-of-center'
+#        'BC': 'back center'
+#        'SL': 'side left'
+#        'SR': 'side right'
+#        'TC': 'top center'
+#        'TFL': 'top front left'
+#        'TFC': 'top front center'
+#        'TFR': 'top front right'
+#        'TBL': 'top back left'
+#        'TBC': 'top back center'
+#        'TBR': 'top back right'
+#        'DL': 'downmix left'
+#        'DR': 'downmix right'
+#        'WL': 'wide left'
+#        'WR': 'wide right'
+#        'SDL': 'surround direct left'
+#        'SDR': 'surround direct right'
+#        'LFE2': 'low frequency 2'
+
+    constructor: ->
+        @audioChannelSelectOptionsHtml = ''
+        return
 
     reset: ->
         @audioChannelSelectOptionsHtml = ''
@@ -140,8 +144,7 @@ class AudioMan
         console.log layout
         # Re-populate map list
         html = ''
-        for ci of @audioLayouts[layout].layout
-            pos = @audioLayouts[layout].layout[ci]
+        for pos, ci in AudioMan.audioLayouts[layout].layout
             html += '<tr id="map' + ci + '-' + pos + '" class="audio-out row0">'
             html += '<td class="audio-out col0">' + pos + '</td>'
             html += '<td class="audio-out col1">'
@@ -155,18 +158,19 @@ class AudioMan
             return ''
         if channel_layout == 'mono'
             return 'FC'
-        m = channel_layout.match(@single_channel_re)
+        m = channel_layout.match(AudioMan.single_channel_re)
         if m != null and m.length == 2
             return m[1]
         channel_layout
 
     audioLayoutPullChannels: ->
         # Place channels sequence to layout, starting from current 'left' channel
-        if interaction_player != null
-            i = interaction_player.LI
+        console.log g_InteractionPlayer
+        if g_InteractionPlayer != null
+            i = g_InteractionPlayer.LI
             layout = document.getElementById('pro-audio-layout-select').value
-            for ci of @audioLayouts[layout].layout
-                id = 'map' + ci + '-' + @audioLayouts[layout].layout[ci] + '-select'
+            for ci of AudioMan.audioLayouts[layout].layout
+                id = 'map' + ci + '-' + AudioMan.audioLayouts[layout].layout[ci] + '-select'
                 document.getElementById(id).value = i++
         return
 
@@ -183,7 +187,7 @@ class InteractionPage
         @interaction_internal = null
         @interactions = {}
         @inter = null
-        @interaction_player = null
+#        @interaction_player = null
         @interaction_audioContext = new AudioContext
         @api_rightholders_all = []
         @api_rightholders = {}
@@ -193,7 +197,6 @@ class InteractionPage
         @interaction_channelMerger.connect @interaction_audioContext.destination
 
         @audioMan = new AudioMan()
-        $('#pro-audio-layout-pull').bind 'click', @audioMan.audioLayoutPullChannels.bind(@audioMan)
         @liveCrop = new LiveCrop
         return
 
@@ -206,15 +209,15 @@ class InteractionPage
         data.program.video.crop.x = liveCrop.liveCrop[0]
         data.program.video.crop.y = liveCrop.liveCrop[2]
         # Program in/out/duration
-        data.video.map.in = @interaction_player.timeStart
-        data.video.map.out = @interaction_player.timeEnd
+        data.video.map.in = g_InteractionPlayer.timeStart
+        data.video.map.out = g_InteractionPlayer.timeEnd
         # Sample fragments considering program start time
         data.sample = []
         i = 0
-        while i < @interaction_player.bars.length
-            bar = @interaction_player.bars[i]
+        while i < g_InteractionPlayer.bars.length
+            bar = g_InteractionPlayer.bars[i]
             data.sample.push [
-                bar.timeStart - (@interaction_player.timeStart)
+                bar.timeStart - (g_InteractionPlayer.timeStart)
                 bar.timeEnd - (bar.timeStart)
             ]
             i++
@@ -376,8 +379,8 @@ class InteractionPage
 
     disable: (param) ->
         console.log 'interaction.js Out handler'
-        if @interaction_player
-            @interaction_player.pause()
+        if g_InteractionPlayer
+            g_InteractionPlayer.pause()
         return
 
     interactionsRefreshClick: ->
@@ -420,7 +423,7 @@ class InteractionPage
             for col in cols
                 html += '<td>' + ans[col] + '</td>'
             html += '</tr>'
-#            @interactions[answer[i].id] = new InteractionInternal(answer[i], @interaction_player)
+#            @interactions[answer[i].id] = new InteractionInternal(answer[i], g_InteractionPlayer)
 #            inter = new Interaction()
 #            UpdateObjectWithJSON(inter, ans)
             @interactions[ans.guid] = ans
@@ -478,7 +481,7 @@ class InteractionPage
     interactionLoad: () ->
         delete @interaction_internal
         @interactionCreatePlayer()
-        @interaction_internal = new InteractionInternal(@inter.assetIn, @interaction_player)
+        @interaction_internal = new InteractionInternal(@inter.assetIn, g_InteractionPlayer)
         @interaction_internal.showAudioOutputs()
         @interactionShowInfo
         return
@@ -507,9 +510,9 @@ class InteractionPage
 #        info = data.infos
         # TODO: data['program']['video']['crop'] contains crop data, use it to position crop frame
         console.log 'initialize player'
-        if @interaction_player
+        if g_InteractionPlayer
             # Stop playback
-            @interaction_player.stop()
+            g_InteractionPlayer.stop()
             # Unbind all clicks
             $('#interaction_player_play').unbind 'click'
             $('#interaction_player_pause').unbind 'click'
@@ -524,7 +527,10 @@ class InteractionPage
             $('#interaction_player_cueProgramOut').unbind 'click'
             $('#interaction_player_decreaseDelay').unbind 'click'
             $('#interaction_player_increaseDelay').unbind 'click'
-            delete @interaction_player
+
+            $('#pro-audio-layout-pull').unbind 'click'
+#            delete g_InteractionPlayer
+            g_InteractionPlayer = null
         html = ''
         audio_elements = []
         video_elements = []
@@ -534,7 +540,8 @@ class InteractionPage
         count_vc = 0
         cc = 0
 
-        debugger
+        vInfo = null
+
         # Enumerate media files
         for mf, mi in @inter.assetIn.mediaFiles
 
@@ -553,11 +560,15 @@ class InteractionPage
 
             # Tracks part
             for track, ti in mf.videoTracks
+                if vInfo == null
+                    vInfo = track
+                else
+                    throw 'More than 1 video tracks!'
                 id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2)
                 channel_layout = 'mono'
                 video_src = document.createElement('source')
                 video_src.type = 'video/mp4'
-                video_src.src = track.refs[0]
+                video_src.src = track.previews[0]
                 video_elements.push video_src
                 # Add row
                 html += '<tr class="src">'
@@ -580,7 +591,7 @@ class InteractionPage
                     snd = new Audio
                     src = document.createElement('source')
                     src.type = 'audio/mp4'
-                    src.src = track.refs[ci]
+                    src.src = track.previews[ci]
                     snd.appendChild src
                     node = @interaction_audioContext.createMediaElementSource(snd)
                     ae =
@@ -614,33 +625,37 @@ class InteractionPage
         document.getElementById('src-map').innerHTML = html
         @audioMan.updateAudioChannelSelect()
         # Bind clicks
-        @interaction_player = new InteractionPlayer(document.getElementById('interaction-video'), video_elements, audio_elements, @interaction_channelMerger)
+        g_InteractionPlayer = new InteractionPlayer(document.getElementById('interaction-video'), video_elements, audio_elements, @interaction_channelMerger)
         for ae, ci in audio_elements
-            $('#' + ae['html-id']).bind 'click', @interaction_player.selectChannel.bind(@interaction_player, ci)
-        vCrop = data.program.video.crop
-        vMap = data.program.video.map[0]
-        vInfo = data.infos[vMap.ii]
+            $('#' + ae['html-id']).bind 'click', g_InteractionPlayer.selectChannel.bind(g_InteractionPlayer, ci)
+
+        # Video crop setup
+        vCrop = @inter.assetIn.videoStreams[0].cropdetect
+#        vMap = data.program.video.map[0]
+
         console.log vCrop
-        console.log vMap
         console.log vInfo
-        @liveCrop.setVideoSrcDimensions vInfo.video[vMap.ti].ffprobe.width, vInfo.video[vMap.ti].ffprobe.height
+        @liveCrop.setVideoSrcDimensions vInfo.width, vInfo.height
         @liveCrop.setVideoSrcCrop vCrop.x, vCrop.x + vCrop.w, vCrop.y, vCrop.y + vCrop.h
-        @liveCrop.snapLiveCrop 8
+        @liveCrop.snapLiveCrop 4
         @liveCrop.updateCropString()
         @liveCrop.positionCropLines()
-        $('#interaction_player_play').bind 'click', @interaction_player.play.bind(@interaction_player)
-        $('#interaction_player_pause').bind 'click', @interaction_player.pause.bind(@interaction_player)
-        $('#interaction_player_setBlockIn').bind 'click', @interaction_player.setBlockIn.bind(@interaction_player)
-        $('#interaction_player_setBlockRemove').bind 'click', @interaction_player.blockRemove.bind(@interaction_player)
-        $('#interaction_player_setBlockOut').bind 'click', @interaction_player.setBlockOut.bind(@interaction_player)
-        $('#interaction_player_setProgramIn').bind 'click', @interaction_player.setProgramIn.bind(@interaction_player)
-        $('#interaction_player_setProgramOut').bind 'click', @interaction_player.setProgramOut.bind(@interaction_player)
-        $('#interaction_player_cueBlockIn').bind 'click', @interaction_player.cueBlockIn.bind(@interaction_player)
-        $('#interaction_player_cueBlockOut').bind 'click', @interaction_player.cueBlockOut.bind(@interaction_player)
-        $('#interaction_player_cueProgramIn').bind 'click', @interaction_player.cueProgramIn.bind(@interaction_player)
-        $('#interaction_player_cueProgramOut').bind 'click', @interaction_player.cueProgramOut.bind(@interaction_player)
-        $('#interaction_player_decreaseDelay').bind 'click', @interaction_player.decreaseDelay.bind(@interaction_player)
-        $('#interaction_player_increaseDelay').bind 'click', @interaction_player.increaseDelay.bind(@interaction_player)
+        $('#interaction_player_play').bind 'click', g_InteractionPlayer.play.bind(g_InteractionPlayer)
+        $('#interaction_player_pause').bind 'click', g_InteractionPlayer.pause.bind(g_InteractionPlayer)
+        $('#interaction_player_setBlockIn').bind 'click', g_InteractionPlayer.setBlockIn.bind(g_InteractionPlayer)
+        $('#interaction_player_setBlockRemove').bind 'click', g_InteractionPlayer.blockRemove.bind(g_InteractionPlayer)
+        $('#interaction_player_setBlockOut').bind 'click', g_InteractionPlayer.setBlockOut.bind(g_InteractionPlayer)
+        $('#interaction_player_setProgramIn').bind 'click', g_InteractionPlayer.setProgramIn.bind(g_InteractionPlayer)
+        $('#interaction_player_setProgramOut').bind 'click', g_InteractionPlayer.setProgramOut.bind(g_InteractionPlayer)
+        $('#interaction_player_cueBlockIn').bind 'click', g_InteractionPlayer.cueBlockIn.bind(g_InteractionPlayer)
+        $('#interaction_player_cueBlockOut').bind 'click', g_InteractionPlayer.cueBlockOut.bind(g_InteractionPlayer)
+        $('#interaction_player_cueProgramIn').bind 'click', g_InteractionPlayer.cueProgramIn.bind(g_InteractionPlayer)
+        $('#interaction_player_cueProgramOut').bind 'click', g_InteractionPlayer.cueProgramOut.bind(g_InteractionPlayer)
+        $('#interaction_player_decreaseDelay').bind 'click', g_InteractionPlayer.decreaseDelay.bind(g_InteractionPlayer)
+        $('#interaction_player_increaseDelay').bind 'click', g_InteractionPlayer.increaseDelay.bind(g_InteractionPlayer)
+
+        $('#pro-audio-layout-pull').bind('click', @audioMan.audioLayoutPullChannels)
+
         return
 
     proposeSelectMovie: (index) ->

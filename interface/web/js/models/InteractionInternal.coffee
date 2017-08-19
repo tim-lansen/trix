@@ -1,4 +1,4 @@
-'use strict'
+#'use strict'
 $ = require('jquery')
 
 class InteractionInternal
@@ -89,4 +89,4 @@ class InteractionInternal
         document.getElementById('dst-movie-studio').innerHTML = @data_out.studio
         return
 
-module.exports = InteractionInternal
+#module.exports = InteractionInternal

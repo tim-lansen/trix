@@ -5,12 +5,20 @@
     grunt.loadNpmTasks 'grunt-contrib-jade'
     grunt.loadNpmTasks 'grunt-contrib-watch'
     grunt.loadNpmTasks 'grunt-contrib-copy'
+    grunt.loadNpmTasks 'grunt-contrib-clean'
     grunt.loadNpmTasks 'grunt-umd'
     grunt.loadNpmTasks 'grunt-browserify'
     #grunt.loadNpmTasks 'grunt-coffee'
     grunt.loadNpmTasks 'grunt-contrib-coffee'
 
     grunt.initConfig
+        clean:
+            build:
+                ['build', 'dist']
+            distd:
+                ['D:\\storage\\web\\dist']
+            distf:
+                ['F:\\storage\\web\\dist']
         jade:
             build:
                 options:
@@ -75,12 +83,20 @@
                     dest: 'build'
                     filter: 'isFile'
                 ]
-            dist:
+            distd:
                 files: [
                     expand: true
                     src: '**'
                     cwd: 'dist'
                     dest: 'D:\\storage\\web\\dist'
+                    filter: 'isFile'
+                ]
+            distf:
+                files: [
+                    expand: true
+                    src: '**'
+                    cwd: 'dist'
+                    dest: 'F:\\storage\\web\\dist'
                     filter: 'isFile'
                 ]
 
@@ -104,26 +120,28 @@
             }
 
         coffee:
-            compile:
-                expand: true
-                flatten: false
-                cwd: 'js'
-                src: [
-                    'models/*.coffee'
-#                    'pages/*.coffee'
-                    'pages/ui/*.coffee'
-                ]
-                dest: 'build'
-                ext: '.js'
-                options:
-                    bare: true
-                    join: false
+#            compile:
+#                expand: true
+#                flatten: false
+#                cwd: 'js'
+#                src: [
+#                    'models/*.coffee'
+##                    'pages/*.coffee'
+##                    'pages/ui/*.coffee'
+#                ]
+#                dest: 'build'
+#                ext: '.js'
+#                options:
+#                    bare: true
+#                    join: false
             compile_joined:
                 expand: true
                 files:
                     'build/main.js': [
                         'js/lib/*.coffee'
                         'js/models_py/*.coffee'
+                        'js/models/InteractionInternal.coffee'
+                        'js/pages/ui/*.coffee'
                         'js/pages/interaction.coffee'
                         'js/main.coffee'
                     ]
@@ -168,6 +186,7 @@
 
     #grunt.registerTask 'coffee'
 
-    grunt.registerTask 'build', ['copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:build']
-    grunt.registerTask 'dist', ['less', 'jade', 'umd', 'browserify:build', 'copy:dist']
-    grunt.registerTask 'test', ['copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:test']
+    grunt.registerTask 'build', ['clean:build', 'copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:build']
+    grunt.registerTask 'distd', ['clean:distd',                         'less', 'jade', 'umd', 'browserify:build', 'copy:distd']
+    grunt.registerTask 'distf', ['clean:distf',                         'less', 'jade', 'umd', 'browserify:build', 'copy:distf']
+    grunt.registerTask 'test',  [               'copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:test']

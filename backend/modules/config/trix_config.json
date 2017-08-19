@@ -49,20 +49,20 @@
         "paths": [
           {
             "role": "archive",
-            "path": "store/archive"
+            "net_path": "store/archive"
           },
           {
             "role": "production",
-            "path": "store/production"
+            "net_path": "store/production"
           },
           {
             "role": "preview",
-            "path": "web/preview",
-            "web_access": "http://1.1.1.1/web/preview"
+            "net_path": "web/preview",
+            "web_path": "http://1.1.1.101/media"
           },
           {
             "role": "transit",
-            "path": "store/_transit"
+            "net_path": "store/_transit"
           }
         ],
         "username": "tim",
