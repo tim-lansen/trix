@@ -43,8 +43,8 @@ class MediaFile_AudioTrack
         @bits_per_sample = 0
         @disposition = {}
         @tags = {}
-        @extracted = null  # None
         @previews = []
+        @extract = "00000000-0000-0000-0000-000000000000"
 
 
 class MediaFile_VideoTrack_Tags

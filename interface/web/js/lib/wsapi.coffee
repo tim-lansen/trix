@@ -59,7 +59,7 @@ class WSAPI
             @ws = new WebSocket(@address)
             @ws.onmessage = ((e) ->
                 msg = e.data
-                console.log 'onmessage ' + @address + ' ' + e.data
+#                console.log 'onmessage ' + @address + ' ' + e.data
                 #console.log('wsOnMessage: ' + msg);
                 if msg
                     try

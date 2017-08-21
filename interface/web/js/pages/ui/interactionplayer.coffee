@@ -12,7 +12,7 @@ class InteractionPlayer
             @timeEnd = e.currentTarget.duration
             @duration = e.currentTarget.duration
             return
-        ).bind(this)
+        ).bind(@)
         @video.load()
         @audioSwitchingInProgress = false
         @LI = 0
@@ -38,6 +38,7 @@ class InteractionPlayer
         return
 
     play: ->
+        console.log('player.play()')
         @video.play()
         @audio_inter[@LI].node.connect @interaction_channelMerger, 0, 0
         @audio_inter[@RI].node.connect @interaction_channelMerger, 0, 1

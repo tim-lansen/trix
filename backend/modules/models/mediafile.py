@@ -324,11 +324,11 @@ class MediaFile(Record):
             self.disposition = self.Disposition()
             self.tags = self.Tags()
 
-            # Extracted flag, == newly created audio file's index in ingest set
-            self.extracted = None
             # ID(s) of reference audio(s): separate audio file for every channel
             # single ID in case of mono input, two IDs for stereo, 6 IDs for 5.1, etc.
             self.previews: List[str] = []
+            # ID of mediafile that consists of extracted audio track
+            self.extract = None
 
     class SubTrack(JSONer):
         class MiSubTrack(JSONer):

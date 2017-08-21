@@ -124,6 +124,7 @@ http {
         listen       80;
         server_name  trix_web;
         access_log  /opt/nginx/logs/trix.access.log;
+        error_log  /opt/nginx/logs/trix.errors.log;
 
         rewrite ^/media/(.*)$ /preview/$1 last;
         rewrite ^/interface/(.*)$ /dist/$1 last;

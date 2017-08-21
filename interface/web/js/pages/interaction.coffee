@@ -141,7 +141,7 @@ class AudioMan
 
     updateAudioChannelSelect: ->
         layout = document.getElementById('pro-audio-layout-select').value
-        console.log layout
+        console.log(layout)
         # Re-populate map list
         html = ''
         for pos, ci in AudioMan.audioLayouts[layout].layout
@@ -235,17 +235,17 @@ class InteractionPage
         return
 
     disableSelect: ->
-        $('body').addClass 'unselectable'
+        $('body').addClass('unselectable')
         return
 
     enableSelect: ->
-        $('body').removeClass 'unselectable'
+        $('body').removeClass('unselectable')
         return
 
     enable: (param) ->
         if !@interaction_initialized
             @interaction_initialized = true
-            $('#interaction-refresh').bind 'click', @interactionsRefreshClick.bind(this)
+            $('#interaction-refresh').bind('click', @interactionsRefreshClick.bind(@))
             # Populate layouts
             html = ''
             i = 0
@@ -256,29 +256,34 @@ class InteractionPage
             $('#pro-audio-lang').bind 'change', ((a) ->
                 @proposeAudioLang = a.target.value
                 return
-            ).bind(this)
+            ).bind(@)
             $('#pro-audio-layout-select').bind 'change', @audioMan.updateAudioChannelSelect.bind(@audioMan)
             $('#pro-movie-select').bind 'change', ((a) ->
-                @proposeSelectMovie a.target.value
+                @proposeSelectMovie(a.target.value)
                 return
-            ).bind(this)
-            $('#napi-register').bind 'click', @getAllMoviesData.bind(this)
+            ).bind(@)
+            $('#napi-register').bind 'click', @getAllMoviesData.bind(@)
             $('#pro-audio-layout-add').bind 'click', (->
-                `var i`
                 # Add audio layout to output
+                console.log('====================\npro-audio-layout-add')
                 lang = document.getElementById('pro-audio-lang').value
                 layout = document.getElementById('pro-audio-layout-select').value
                 cl = []
                 i = 0
-                while i < AudioMan.audioLayouts[layout].layout.length
-                    pos = AudioMan.audioLayouts[layout].layout[i]
-                    id = 'map' + i + '-' + pos + '-select'
+                for pos, idx in AudioMan.audioLayouts[layout].layout
+#                while i < AudioMan.audioLayouts[layout].layout.length
+#                    pos = AudioMan.audioLayouts[layout].layout[i]
+                    id = 'map' + idx + '-' + pos + '-select'
+                    console.log(id)
                     sel = document.getElementById(id).value
+                    console.log(sel)
                     cl.push sel
                     i++
-                @interactions[@interaction_selected].addAudioOutput lang, AudioMan.audioLayouts[layout].code, cl
+                console.log(cl)
+                console.log('====================')
+                @interactions[@interaction_selected].addAudioOutput(lang, AudioMan.audioLayouts[layout].code, cl)
                 return
-            ).bind(this)
+            ).bind(@)
             $('#interaction-submit').bind 'click', (->
                 if !@interactions[@interaction_selected]
                     console.log 'No interaction selected'
@@ -288,10 +293,10 @@ class InteractionPage
                     'method': 'submit_interaction'
                     'interaction': @interactions[@interaction_selected].data_out
                 }, (answer) ->
-                    console.log 'submit_interaction response' + answer
+                    console.log('submit_interaction response' + answer)
                     return
                 return
-            ).bind(this)
+            ).bind(@)
             $('#interaction-cancel').bind 'click', (->
                 if !@interactions[@interaction_selected]
                     console.log 'No interaction selected'
@@ -303,14 +308,14 @@ class InteractionPage
                     console.log 'cancel_interaction response' + answer
                     return
                 return
-            ).bind(this)
+            ).bind(@)
             $('#interactions-unlock').bind 'click', (->
                 @interaction_selected = null
                 @app.wsApiTrix.request { 'method': 'cancel_all_interactions' }, (answer) ->
                     console.log 'cancel_all_interaction response', answer
                     return
                 return
-            ).bind(this)
+            ).bind(@)
             @makeDragX '#crop-x1', 0
             @makeDragX '#crop-x2', 1
             @makeDragY '#crop-y1', 2
@@ -430,11 +435,11 @@ class InteractionPage
             i++
         document.getElementById('interaction-table').innerHTML = html
         for ans in answer
-            $('#' + ans.guid).bind 'click', @interactionClickRow.bind(@, ans.guid)
+            $('#' + ans.guid).bind('click', @interactionClickRow.bind(@, ans.guid))
         return
 
     interactionClickRow: (inter_id) ->
-        @interactionSelect inter_id
+        @interactionSelect(inter_id)
         return
 
     interactionSelect: (inter_id) ->
@@ -471,19 +476,22 @@ class InteractionPage
         html = '<text>ID: ' + @interaction_selected + '</text>'
         @inter.assetIn = msg.result
         document.getElementById(@inter.guid).className = 'interaction row row' + @inter.index % 2 + ' selected'
-#        inter.data_out.video = inter.data_in.video
         @interactionLoad()
-#        @interactionCreatePlayer()
-#        inter.showAudioOutputs()
-#        @interactionShowInfo inter
         return
 
     interactionLoad: () ->
+        console.log('interactionLoad begin')
         delete @interaction_internal
         @interactionCreatePlayer()
         @interaction_internal = new InteractionInternal(@inter.assetIn, g_InteractionPlayer)
-        @interaction_internal.showAudioOutputs()
-        @interactionShowInfo
+#        @interaction_internal.showAudioOutputs()
+        @interactionShowInfo()
+
+        g_InteractionPlayer.timeStart = @inter.assetIn.videoStreams[0].program_in
+        g_InteractionPlayer.timeEnd = @inter.assetIn.videoStreams[0].program_out
+        g_InteractionPlayer.updateBar()
+
+        console.log('interactionLoad done')
         return
 
     interactionShowInfo: ->
@@ -505,13 +513,14 @@ class InteractionPage
         document.getElementById('interaction-info').innerHTML = html
         return
 
-    interactionCreatePlayer: () ->
+    interactionCreatePlayer: ->
 #        data = inter.data_in
 #        info = data.infos
         # TODO: data['program']['video']['crop'] contains crop data, use it to position crop frame
-        console.log 'initialize player'
+        console.log 'interactionCreatePlayer begin'
         if g_InteractionPlayer
             # Stop playback
+            console.log('Stopping player')
             g_InteractionPlayer.stop()
             # Unbind all clicks
             $('#interaction_player_play').unbind 'click'
@@ -529,22 +538,39 @@ class InteractionPage
             $('#interaction_player_increaseDelay').unbind 'click'
 
             $('#pro-audio-layout-pull').unbind 'click'
-#            delete g_InteractionPlayer
             g_InteractionPlayer = null
         html = ''
         audio_elements = []
         video_elements = []
         @audioMan.reset()
-#        count_t = 0
         count_ac = 0
         count_vc = 0
         cc = 0
 
         vInfo = null
 
-        # Enumerate media files
-        for mf, mi in @inter.assetIn.mediaFiles
+        # Map media files
+        mf_map = {}
+        for mf in @inter.assetIn.mediaFiles
+            mf_map[mf.guid] = mf
 
+#        debugger
+
+        # Collect transit files, audio previews
+        transit_files = {}
+        for mf in @inter.assetIn.mediaFiles
+            for track in mf.audioTracks
+                tid = track.extract
+                if mf_map.hasOwnProperty(tid)
+                    transit_files[tid] = 1
+                    # Copy previews
+                    track.previews = mf_map[tid].audioTracks[0].previews
+
+        # Enumerate media files excluding transit
+        for mf, mi in @inter.assetIn.mediaFiles
+            if transit_files.hasOwnProperty(mf.guid)
+                console.log('Skip transit media file ' + mf.guid)
+                continue
             # count tracks and channels to set file rowspan (total channel count in file)
             ct = 0
             for track in mf.audioTracks
@@ -578,7 +604,6 @@ class InteractionPage
                 html += '</tr>'
                 html_f = ''
                 count_vc++
-#                count_t++
                 cc++
             for track, ti in mf.audioTracks
                 channels = track.channels
@@ -588,11 +613,11 @@ class InteractionPage
                 for ci in [0...track.channels]
                     id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2) + '-c' + padz(ci, 2)
                     # Create playable audio
-                    snd = new Audio
+                    snd = new Audio()
                     src = document.createElement('source')
                     src.type = 'audio/mp4'
                     src.src = track.previews[ci]
-                    snd.appendChild src
+                    snd.appendChild(src)
                     node = @interaction_audioContext.createMediaElementSource(snd)
                     ae =
                         'abs': count_ac
@@ -624,6 +649,11 @@ class InteractionPage
             mi++
         document.getElementById('src-map').innerHTML = html
         @audioMan.updateAudioChannelSelect()
+
+#        console.log(video_elements)
+#        console.log(audio_elements)
+        for ae in audio_elements
+            console.log(ae.toString())
         # Bind clicks
         g_InteractionPlayer = new InteractionPlayer(document.getElementById('interaction-video'), video_elements, audio_elements, @interaction_channelMerger)
         for ae, ci in audio_elements
@@ -635,6 +665,7 @@ class InteractionPage
 
         console.log vCrop
         console.log vInfo
+
         @liveCrop.setVideoSrcDimensions vInfo.width, vInfo.height
         @liveCrop.setVideoSrcCrop vCrop.x, vCrop.x + vCrop.w, vCrop.y, vCrop.y + vCrop.h
         @liveCrop.snapLiveCrop 4
@@ -656,6 +687,7 @@ class InteractionPage
 
         $('#pro-audio-layout-pull').bind('click', @audioMan.audioLayoutPullChannels)
 
+        console.log 'interactionCreatePlayer done'
         return
 
     proposeSelectMovie: (index) ->

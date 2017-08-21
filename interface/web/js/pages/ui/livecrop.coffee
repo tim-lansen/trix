@@ -2,6 +2,8 @@
 
 class LiveCrop
     constructor: ->
+        @canW = 960
+        @canH = 540
         # Source dims
         @srcW = 960
         @srcH = 540
@@ -23,8 +25,29 @@ class LiveCrop
     setVideoSrcDimensions: (width, height) ->
         @srcW = width
         @srcH = height
-        @scaleX = (@maxX - (@minX)) / width
-        @scaleY = (@maxY - (@minY)) / height
+        aspect_src = parseInt(10000.0 * width / height)
+        aspect_can = parseInt(10000.0 * @canW / @canH)
+
+#        if aspect_src == aspect_can
+        @scaleX = @canW / width
+        @scaleY = @canH / height
+        @minX = 0
+        @minY = 0
+        @maxX = @canW
+        @maxY = @canH
+
+        # Change verticals
+        if aspect_src > aspect_can
+            @scaleY = @scaleX
+            h = height * @scaleY
+            @minY = parseInt((@canH - h) / 2)
+            @maxY = @minY + parseInt(h)
+        else if aspect_src < aspect_can
+            @scaleX = @scaleY
+            w = width * @scaleX
+            @minX = parseInt((@canW - w) / 2)
+            @maxX = @minX + parseInt(w)
+
         @liveCrop = [
             0
             width

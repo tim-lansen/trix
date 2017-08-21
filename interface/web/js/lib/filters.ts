@@ -36,13 +36,13 @@
             values: null,
             filter:    function (rec) { return new Set(Object.keys(rec.subtitles_r)); },
             condition: function (val) { return ['PATH:subtitles_r|' + val]; }
-        }
+        },
     ];
 
     const getKeyVal = function (obj, path) {
-        var p = path.split('|');
-        var v = obj;
-        for (var i = 0; i < p.length && v !== undefined; i++) {
+        let p = path.split('|');
+        let v = obj;
+        for (let i = 0; i < p.length && v !== undefined; i++) {
             v = v[p[i]];
         }
         return v;
@@ -77,7 +77,7 @@
                     this.tokens[i].values = f;
                 } else {
                     // this.tokens[i].values = new Set([...f, ...this.tokens[i].values]);
-                    for (var t in f)
+                    for (let t of f)
                         this.tokens[i].values.add(t);
                 }
             }

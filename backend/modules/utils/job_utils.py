@@ -226,6 +226,7 @@ class JobUtils:
             DBInterface.Asset.set(res['asset'])
             for mf in res['trans'] + res['previews'] + res['archives']:
                 DBInterface.MediaFile.set(mf)
+            DBInterface.MediaFile.set(res['src'])
 
         def _assets_to_ingest(r):
             # Get assets from DB, merge and create Interaction
