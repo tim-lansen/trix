@@ -3,14 +3,22 @@
 #Timeline = require('./Timeline')
 
 class InteractionPlayer
-    constructor: (video_object, video_elements, audio_elements, interaction_channelMerger) ->
+    constructor: (video_object, video_elements, audio_elements, interaction_channelMerger, program_in, program_out) ->
         @video = video_object
+        @video.appendChild video_elements[0]
         @audio_inter = audio_elements
         @interaction_channelMerger = interaction_channelMerger
-        @video.appendChild video_elements[0]
+        @timeStart = program_in
+        @timeEnd = program_out
+        @duration = program_out - program_in
         $(@video).one 'loadedmetadata', ((e) ->
-            @timeEnd = e.currentTarget.duration
+            console.log('InteractionPlayer.video loaded')
             @duration = e.currentTarget.duration
+            if @timeEnd > @duration
+                @timeEnd = @duration
+            if @timeStart >= @timeEnd
+                @timeStart = 0.0
+            @updateBar()
             return
         ).bind(@)
         @video.load()
@@ -23,7 +31,7 @@ class InteractionPlayer
         @timeline_back = document.getElementById('timeline-back')
         @bars = []
         # Program in/out data to use Timeline.update()
-        @timeStart = 0.0
+
         @id = 'program-selection-bar'
         @doc_currentTime = document.getElementById('current-time')
         @doc_audioDelay = document.getElementById('audio-delay')

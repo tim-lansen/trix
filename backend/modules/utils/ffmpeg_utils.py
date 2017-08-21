@@ -280,6 +280,8 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         a_stream.program_in = program_in
         a_stream.program_out = program_out
         a_stream.layout = a.channel_layout
+        if a.tags and a.tags.language:
+            a_stream.language = a.tags.language
         for ci in range(channels):
             chan = Stream.Channel()
             chan.src_stream_index = ti

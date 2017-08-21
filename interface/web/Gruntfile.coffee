@@ -188,5 +188,5 @@
 
     grunt.registerTask 'build', ['clean:build', 'copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:build']
     grunt.registerTask 'distd', ['clean:distd', 'build', 'copy:distd', 'clean:build']
-    grunt.registerTask 'distf', ['clean:distf',                         'less', 'jade', 'umd', 'browserify:build', 'copy:distf']
+    grunt.registerTask 'distf', ['clean:distf', 'build', 'copy:distf', 'clean:build']
     grunt.registerTask 'test',  [               'copy:build', 'coffee', 'less', 'jade', 'umd', 'browserify:test']

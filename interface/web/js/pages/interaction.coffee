@@ -34,9 +34,10 @@ zeroez = '0000000000000000'
 
 zpad = (strnum, size) ->
     # Up to 16 leading zeroes
-    if strnum.length < size
-        strnum = zeroez.substring(0, size - (strnum.length)) + strnum
-    strnum
+    x = strnum.toString()
+    if x.length < size
+        x = zeroez.substring(0, size - (x.length)) + x
+    x
 
 odev = (number) ->
     if number % 2 then 'odd' else 'even'
@@ -248,11 +249,11 @@ class InteractionPage
             $('#interaction-refresh').bind('click', @interactionsRefreshClick.bind(@))
             # Populate layouts
             html = ''
-            i = 0
-            while i < AudioMan.audioLayouts.length
-                html += '<option value="' + i + '">' + AudioMan.audioLayouts[i].name + '</option>'
-                i++
-            document.getElementById('pro-audio-layout-select').innerHTML = html
+            for layout, i in AudioMan.audioLayouts
+                html += '<option value="' + i + '">' + layout.name + '</option>'
+            layout_select = document.getElementById('pro-audio-layout-select')
+            layout_select.innerHTML = html
+            layout_select.value = 1
             $('#pro-audio-lang').bind 'change', ((a) ->
                 @proposeAudioLang = a.target.value
                 return
@@ -263,7 +264,7 @@ class InteractionPage
                 return
             ).bind(@)
             $('#napi-register').bind 'click', @getAllMoviesData.bind(@)
-            $('#pro-audio-layout-add').bind 'click', (->
+            $('#pro-audio-layout-add').bind('click', (->
                 # Add audio layout to output
                 console.log('====================\npro-audio-layout-add')
                 lang = document.getElementById('pro-audio-lang').value
@@ -271,8 +272,6 @@ class InteractionPage
                 cl = []
                 i = 0
                 for pos, idx in AudioMan.audioLayouts[layout].layout
-#                while i < AudioMan.audioLayouts[layout].layout.length
-#                    pos = AudioMan.audioLayouts[layout].layout[i]
                     id = 'map' + idx + '-' + pos + '-select'
                     console.log(id)
                     sel = document.getElementById(id).value
@@ -281,9 +280,9 @@ class InteractionPage
                     i++
                 console.log(cl)
                 console.log('====================')
-                @interactions[@interaction_selected].addAudioOutput(lang, AudioMan.audioLayouts[layout].code, cl)
+                @interaction_internal.addAudioOutput(lang, AudioMan.audioLayouts[layout].code, cl)
                 return
-            ).bind(@)
+            ).bind(@))
             $('#interaction-submit').bind 'click', (->
                 if !@interactions[@interaction_selected]
                     console.log 'No interaction selected'
@@ -483,40 +482,29 @@ class InteractionPage
         console.log('interactionLoad begin')
         delete @interaction_internal
         @interactionCreatePlayer()
-        @interaction_internal = new InteractionInternal(@inter.assetIn, g_InteractionPlayer)
-#        @interaction_internal.showAudioOutputs()
-        @interactionShowInfo()
-
-        g_InteractionPlayer.timeStart = @inter.assetIn.videoStreams[0].program_in
-        g_InteractionPlayer.timeEnd = @inter.assetIn.videoStreams[0].program_out
-        g_InteractionPlayer.updateBar()
-
         console.log('interactionLoad done')
         return
 
     interactionShowInfo: ->
         inter = @interactions[@interaction_selected]
         html = '<text>ID: ' + inter.guid + '</text>'
-        if typeof inter.data_in != 'undefined' and inter.data_in != null
-            arr = Object.keys(inter.data_in)
-            arr.sort()
-            i = 0
-            while i < arr.length
-                key = arr[i]
-                outputData = ''
-                if typeof inter.data_in[key] == 'object'
-                    outputData = JSON.stringify(inter.data_in[key])
-                else
-                    outputData = inter.data_in[key]
-                html += '<br/><text>' + key + ': ' + outputData + '</text>'
-                i++
+#        if typeof inter.data_in != 'undefined' and inter.data_in != null
+#            arr = Object.keys(inter.data_in)
+#            arr.sort()
+#            i = 0
+#            while i < arr.length
+#                key = arr[i]
+#                outputData = ''
+#                if typeof inter.data_in[key] == 'object'
+#                    outputData = JSON.stringify(inter.data_in[key])
+#                else
+#                    outputData = inter.data_in[key]
+#                html += '<br/><text>' + key + ': ' + outputData + '</text>'
+#                i++
         document.getElementById('interaction-info').innerHTML = html
         return
 
     interactionCreatePlayer: ->
-#        data = inter.data_in
-#        info = data.infos
-        # TODO: data['program']['video']['crop'] contains crop data, use it to position crop frame
         console.log 'interactionCreatePlayer begin'
         if g_InteractionPlayer
             # Stop playback
@@ -554,12 +542,16 @@ class InteractionPage
         for mf in @inter.assetIn.mediaFiles
             mf_map[mf.guid] = mf
 
-#        debugger
-
         # Collect transit files, audio previews
         transit_files = {}
+        # Abs channel index to track:channel map
+        audio_channels_map_to_tracks = []
+        ti = 0
         for mf in @inter.assetIn.mediaFiles
             for track in mf.audioTracks
+                for ci in [0...track.channels]
+                    audio_channels_map_to_tracks.push([ti, ci])
+                ti++
                 tid = track.extract
                 if mf_map.hasOwnProperty(tid)
                     transit_files[tid] = 1
@@ -650,18 +642,20 @@ class InteractionPage
         document.getElementById('src-map').innerHTML = html
         @audioMan.updateAudioChannelSelect()
 
-#        console.log(video_elements)
-#        console.log(audio_elements)
         for ae in audio_elements
             console.log(ae.toString())
         # Bind clicks
-        g_InteractionPlayer = new InteractionPlayer(document.getElementById('interaction-video'), video_elements, audio_elements, @interaction_channelMerger)
+        g_InteractionPlayer = new InteractionPlayer(document.getElementById('interaction-video'),
+                                                    video_elements,
+                                                    audio_elements,
+                                                    @interaction_channelMerger,
+                                                    @inter.assetIn.videoStreams[0].program_in,
+                                                    @inter.assetIn.videoStreams[0].program_out)
         for ae, ci in audio_elements
             $('#' + ae['html-id']).bind 'click', g_InteractionPlayer.selectChannel.bind(g_InteractionPlayer, ci)
 
         # Video crop setup
         vCrop = @inter.assetIn.videoStreams[0].cropdetect
-#        vMap = data.program.video.map[0]
 
         console.log vCrop
         console.log vInfo
@@ -686,6 +680,12 @@ class InteractionPage
         $('#interaction_player_increaseDelay').bind 'click', g_InteractionPlayer.increaseDelay.bind(g_InteractionPlayer)
 
         $('#pro-audio-layout-pull').bind('click', @audioMan.audioLayoutPullChannels)
+
+
+        @interaction_internal = new InteractionInternal(@inter.assetIn, audio_channels_map_to_tracks, g_InteractionPlayer)
+        @interaction_internal.showAudioOutputs()
+        @interaction_internal.audioRemoveBindAll()
+        @interactionShowInfo()
 
         console.log 'interactionCreatePlayer done'
         return
@@ -847,10 +847,3 @@ class InteractionPage
     #    this.interaction_player.timeline_pb.style.width = 100*(this.interaction_player.video.currentTime/this.interaction_player.video.duration) + '%';
     #    this.interaction_player.synchronize();
     # }
-    #InteractionPage.name = 'interaction';
-    # })();
-    # app.handlers([
-    #     function() { var $page = $(this); return InteractionPage.interactionHandlerIn; },
-    #     function() { var $page = $(this); return InteractionPage.interactionHandlerOut; }
-    # ]);
-#module.exports = InteractionPage

@@ -105,6 +105,37 @@ class AudioStream(Stream):
         QUADRO_LFE = '4.1'
         SURROUND_51 = '5.1'
 
+        # From Interaction.AudioMan
+        LAYOUTS = [
+            {'code': 'mono', 'name': 'Mono', 'layout': ['FC']},
+            {'code': 'stereo', 'name': 'Stereo', 'layout': ['FL', 'FR']},
+            {'code': '2.1', 'name': '2.1', 'layout': ['FL', 'FR', 'LFE']},
+            {'code': '3.0', 'name': '3.0', 'layout': ['FL', 'FR', 'FC']},
+            # {'code': '3.0(back)',      'name': '3.0 (back)',      'layout': ['FL',  'FR',  'BC']},
+            {'code': '4.0', 'name': '4.0', 'layout': ['FL', 'FR', 'FC', 'BC']},
+            {'code': 'quad', 'name': 'Quadro', 'layout': ['FL', 'FR', 'BL', 'BR']},
+            # {'code': 'quad(side)',     'name': 'Quadro (side)',   'layout': ['FL',  'FR',  'SL',  'SR']},
+            {'code': '3.1', 'name': '3.1', 'layout': ['FL', 'FR', 'FC', 'LFE']},
+            # {'code': '5.0',            'name': '5.0 (back)',      'layout': ['FL',  'FR',  'FC',  'BL',  'BR']},
+            {'code': '5.0(side)', 'name': '5.0 (side)', 'layout': ['FL', 'FR', 'FC', 'SL', 'SR']},
+            {'code': '4.1', 'name': '4.1', 'layout': ['FL', 'FR', 'FC', 'LFE', 'BC']},
+            {'code': '5.1', 'name': '5.1', 'layout': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR']},
+            # {'code': '5.1(side)',      'name': '5.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'SL',  'SR']},
+            {'code': '6.0', 'name': '6.0', 'layout': ['FL', 'FR', 'FC', 'BC', 'SL', 'SR']},
+            # {'code': '6.0(front)',     'name': '6.0 (front)',     'layout': ['FL',  'FR',  'FLC', 'FRC', 'SL',  'SR']},
+            {'code': 'hexagonal', 'name': 'Hexagonal', 'layout': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC']},
+            # {'code': '6.1',            'name': '6.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BC',  'SL',  'SR']},
+            {'code': '6.1', 'name': '6.1', 'layout': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'BC']},
+            {'code': '6.1(front)', 'name': '6.1 (front)', 'layout': ['FL', 'FR', 'LFE', 'FLC', 'FRC', 'SL', 'SR']},
+            {'code': '7.0', 'name': '7.0', 'layout': ['FL', 'FR', 'FC', 'BL', 'BR', 'SL', 'SR']},
+            # {'code': '7.0(front)',     'name': '7.0 (front)',     'layout': ['FL',  'FR',  'FC',  'FLC', 'FRC', 'SL',  'SR']},
+            {'code': '7.1', 'name': '7.1', 'layout': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'SL', 'SR']},
+            # {'code': '7.1(wide)',      'name': '7.1 (wide)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'BL',  'BR',  'FLC', 'FRC']},
+            # {'code': '7.1(wide-side)', 'name': '7.1 (wide-side)', 'layout': ['FL',  'FR',  'FC',  'LFE', 'FLC', 'FRC', 'SL',  'SR']},
+            {'code': 'octagonal', 'name': 'Octagonal', 'layout': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR']},
+            # {'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
+        ]
+
         DEFAULT = [
             INVALID,
             MONO,
