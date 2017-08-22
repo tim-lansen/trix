@@ -3,10 +3,8 @@ $ = require('jquery')
 
 class InteractionInternal
     constructor: (asset, audio_channels_map, player) ->
-#        @id = data.id
-        @assetIn = asset
+        @asset = asset
         @changed = false
-        @assetOut = JSON.parse(JSON.stringify(asset))
 #            'id': data.id
 #            'movie': data.movie
 #            'studio': data.studio
@@ -15,19 +13,29 @@ class InteractionInternal
         console.log(audio_channels_map)
         return
 
+    update_asset: (livecrop) ->
+        if @asset != null and @player != null
+            vs = @asset.videoStreams[0]
+            vs.program_in = @player.timeStart
+            vs.program_out = @player.timeEnd
+            livecrop.updateCropDetect(vs.cropdetect)
+
+
     audioRemoveUnbindAll: ->
-        for stream, i in @assetOut.audioStreams
+        for stream, i in @asset.audioStreams
             rmid = 'audio-out-remove-' + zpad(i, 2)
-            $(rmid).unbind()
+            $('#' + rmid).unbind()
         return
 
     audioRemoveBindAll: ->
+        rao = (i) ->
+            ->
+                int.removeAudioOutput(Number(i))
+
         int = @
-        for stream, i in @assetOut.audioStreams
+        for stream, i in @asset.audioStreams
             rmid = 'audio-out-remove-' + zpad(i, 2)
-            $(rmid).bind('click',  ->
-                return int.removeAudioOutput(Number(i))
-            )
+            $('#' + rmid).bind('click', rao(i))
         return
 
     addAudioOutput: (language, layout_code, channel_map) ->
@@ -46,13 +54,8 @@ class InteractionInternal
         # TODO: calc program_in, program_out
         stream.delay = @player.audio_inter[@player.LI].delay_ms / 1000.0
 
-        @assetOut.audioStreams.push(stream)
+        @asset.audioStreams.push(stream)
 
-#        @data_out.audio_map.push
-#            'lang': language
-#            'layout': layout_code
-#            'map': channel_map
-#            'delay': @player.audio_inter[@player.LI].delay_ms / 1000.0
         @showAudioOutputs()
         @audioRemoveBindAll()
         return
@@ -60,7 +63,7 @@ class InteractionInternal
     removeAudioOutput: (index) ->
         console.log 'remove audio ' + index
         @audioRemoveUnbindAll()
-        @assetOut.audioStreams.splice(index, 1)
+        @asset.audioStreams.splice(index, 1)
         @showAudioOutputs()
         @audioRemoveBindAll()
         return
@@ -68,7 +71,7 @@ class InteractionInternal
     showAudioOutputs: ->
         # Rebuild audio destination table
         html = ''
-        for stream, i in @assetOut.audioStreams
+        for stream, i in @asset.audioStreams
             rmid = 'audio-out-remove-' + zpad(i, 2)
             html += '<tr class="audio-out row' + i % 2 + '">'
             html += '<td class="audio-out col0">' + stream.language + '</td>'
@@ -83,10 +86,6 @@ class InteractionInternal
         return
 
     showMovie: ->
-#        document.getElementById('dst-movie-title').innerHTML = @data_out.movie
-#        document.getElementById('dst-movie-studio').innerHTML = @data_out.studio
-        document.getElementById('dst-movie-title').innerHTML = 'TODO InteractionInternal::showMovie'
-        document.getElementById('dst-movie-studio').innerHTML = 'TODO InteractionInternal::showMovie'
+        document.getElementById('dst-content-title').innerHTML = @asset.name
+        document.getElementById('dst-content-id').innerHTML = @asset.programId
         return
-
-#module.exports = InteractionInternal

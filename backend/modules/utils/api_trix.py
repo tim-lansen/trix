@@ -119,7 +119,8 @@ class ApiTrix(ApiClassBase):
             class submit(meth):
                 @staticmethod
                 def handler(*args):
-                    params = args[0]
+                    # params = args[0]
+                    Logger.log('{}\n'.format(args[0]))
                     return True
 
         class asset:

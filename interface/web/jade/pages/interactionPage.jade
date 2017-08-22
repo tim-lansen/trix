@@ -12,14 +12,14 @@
                 #program-selection-bar.interaction.player_program-selection-bar
             #timeline-pb.interaction.player_timeline-pb
 
-    button#interaction_player_play &rtrif; 
-    button#interaction_player_pause &mid;&#8202;&mid;
-    br
+
     button#interaction_player_cueBlockIn.playerButton_block &larrb;
     button#interaction_player_setBlockIn.playerButton_block {
     button#interaction_player_setBlockRemove.playerButton_block &otimes;
     button#interaction_player_setBlockOut.playerButton_block }
     button#interaction_player_cueBlockOut.playerButton_block &rarrb;
+    button#interaction_player_play(style="font-size: 22px;padding-bottom: 2px;") &rtrif;
+    button#interaction_player_pause(style="font-size: 22px;padding-bottom: 2px;") &mid;&#8202;&mid;
     button#interaction_player_cueProgramIn.playerButton_program &larrb;
     button#interaction_player_setProgramIn.playerButton_program [
     button#interaction_player_setProgramOut.playerButton_program ]
@@ -28,8 +28,9 @@
     br
     button#interaction_player_decreaseDelay &LeftTeeArrow; -50ms
     button#interaction_player_increaseDelay +50ms &map;
-    #audio-delay 0.0
-    #current-time 0.0
+    #current-time(style="float: left;width: 80px;text-align: center;padding-top: 8px;") 0.0
+    #audio-delay(style="float: left;width: 100px;text-align: center;padding-top: 8px;") 0.0
+
     br
     .interactions
         button#interaction-refresh Interactions refresh
@@ -109,7 +110,7 @@
                 td.setup.d2
                     table.propose
                         tr.propose.row0
-                            td#napi-register.propose.col0.clickable Movie
+                            td#update-content-list.propose.col0.clickable Movie
                             td.propose.col1
                                 select#pro-movie-select
                                     option(value="1234") Some movie (Some studio)
@@ -163,10 +164,10 @@
                     table.dst
                         tr.dst.row0
                             td.dst.col0 Movie
-                            td#dst-movie-title.dst.col1 Some title
+                            td#dst-content-title.dst.col1 Some title
                         tr.dst.row1
-                            td.dst.col0 Studio
-                            td#dst-movie-studio.dst.col1 Some rightholder
+                            td.dst.col0 ID
+                            td#dst-content-id.dst.col1 111
                         tr.dst.row0
                             td.dst.col0 Video
                             td.dst.col1 Video info

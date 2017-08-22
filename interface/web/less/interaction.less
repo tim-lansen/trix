@@ -53,7 +53,7 @@ th.interaction td.interaction { overflow: hidden; vertical-align: top; }
 
 .interaction.right_side {
     height: 100%;
-    width: 920px;
+    width: 860px;
     position: relative;
     top: 0;
     left: 976px;
@@ -201,15 +201,15 @@ th.setup {
     font-weight: normal;
 }
 th.setup.d1 {
-    width: 24%;
+    width: 30%;
     background-color: rgb(30, 25, 20);
 }
 th.setup.d2 {
-    width: 30%;
+    width: 32%;
     background-color: rgb(25, 20, 30);
 }
 th.setup.d3 {
-    width: 46%;
+    width: 38%;
     background-color: rgb(20, 30, 25);
 }
 td.setup {
@@ -217,15 +217,15 @@ td.setup {
     vertical-align: top;
 }
 td.setup.d1 {
-    width: 27%;
+    //width: 30%;
     background-color: rgb(30, 25, 20);
 }
 td.setup.d2 {
-    width: 27%;
+    //width: 32%;
     background-color: rgb(25, 20, 30);
 }
 td.setup.d3 {
-    width: 46%;
+    //width: 38%;
     background-color: rgb(20, 30, 25);
 }
 
@@ -249,7 +249,6 @@ tr.propose {
 td.propose.col0 {
     width: 20%;
     padding: 0px 6px 0px 0px;
-    //padding-right: 6px;
 }
 td.propose.col1 {
     text-align: center;
@@ -318,10 +317,12 @@ tr.dst:last-child td.dst {
     border-bottom: none;
 }
 td.dst.col0 {
-    width: 16%;
+    width: 8%;
+    padding: 0px 6px 0px 0px;
 }
 td.dst.col1 {
     text-align: left;
+    padding: 0px 0px 0px 6px;
 }
 td.dst.colX {
     padding: 0px;
@@ -363,7 +364,7 @@ td.audio-out:hover {
 }
 td.audio-out.col0 {
     border-right: 1px solid rgb(20, 30, 25);
-    width: 18%;
+    width: 10%;
 }
 td.audio-out.col1 {
 
@@ -509,12 +510,19 @@ button {
 
     &.playerButton_ {
         &block {
+            visibility: hidden;
+            font-size: 22px;
+            padding-top: 2px;
+            padding-bottom: 6px;
             background: @sampleBarBG;
             &:hover {
                 background-color: lighten(@sampleBarBG, 15%);
             }
         }
         &program {
+            font-size: 22px;
+            padding-top: 2px;
+            padding-bottom: 6px;
             background: @programBarBG;
             &:hover {
                 background-color: lighten(@programBarBG, 15%);

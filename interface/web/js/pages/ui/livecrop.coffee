@@ -82,6 +82,12 @@ class LiveCrop
         return
 
     updateCropString: ->
+#        crop = [
+#            parseInt((@liveCrop[1] - (@liveCrop[0]))/@scaleX)
+#            parseInt((@liveCrop[3] - (@liveCrop[2]))/@scaleY)
+#            parseInt(@liveCrop[0]/@scaleX)
+#            parseInt(@liveCrop[2]/@scaleY)
+#        ]
         crop = [
             @liveCrop[1] - (@liveCrop[0])
             @liveCrop[3] - (@liveCrop[2])
@@ -90,6 +96,16 @@ class LiveCrop
         ]
         # Update crop string in document
         document.getElementById('pro-video-crop').innerHTML = crop.join(':')
+        return
+
+    updateCropDetect: (cd) ->
+        cd.w = @liveCrop[1] - (@liveCrop[0])
+        cd.h = @liveCrop[3] - (@liveCrop[2])
+        cd.x = @liveCrop[0]
+        cd.y = @liveCrop[2]
+        cd.sar = @scaleX/@scaleY
+        cd.aspect = ((@liveCrop[1] - (@liveCrop[0]))/@scaleX) / ((@liveCrop[3] - (@liveCrop[2]))/@scaleY)
+        console.log(cd)
         return
 
     updateLiveCropX: (v, r) ->
@@ -124,4 +140,3 @@ class LiveCrop
         document.getElementById('crop-y2').style.top = v + 'px'
         return
 
-#module.exports = LiveCrop

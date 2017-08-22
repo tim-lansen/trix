@@ -183,45 +183,49 @@ class InteractionPage
         @app = app
         @proposeAudioLang = null
         @interaction_initialized = false
-        @interaction_selected = null
+        @interaction_selected = null        # Currently selected interaction's GUID
         @interaction_requested = null
         @interaction_internal = null
         @interactions = {}
-        @inter = null
+#        @inter = null
 #        @interaction_player = null
         @interaction_audioContext = new AudioContext
-        @api_rightholders_all = []
-        @api_rightholders = {}
-        @api_movies_all = []
-        @api_movies = {}
+#        @api_rightholders_all = []
+#        @api_rightholders = {}
+#        @api_movies_all = []
+#        @api_movies = {}
+        @content_cards = [
+            {title: 'dummy', id: '1'}
+        ]
         @interaction_channelMerger = @interaction_audioContext.createChannelMerger(2)
         @interaction_channelMerger.connect @interaction_audioContext.destination
 
         @audioMan = new AudioMan()
         @liveCrop = new LiveCrop
+        @populateContentCardSelection()
         return
 
     updateInteractionDataOut: ->
-        data = @interactions[@interaction_selected].data_out
-        # Video part
-        # Copy crop data
-        data.program.video.crop.w = liveCrop.liveCrop[1] - (liveCrop.liveCrop[0])
-        data.program.video.crop.h = liveCrop.liveCrop[3] - (liveCrop.liveCrop[2])
-        data.program.video.crop.x = liveCrop.liveCrop[0]
-        data.program.video.crop.y = liveCrop.liveCrop[2]
-        # Program in/out/duration
-        data.video.map.in = g_InteractionPlayer.timeStart
-        data.video.map.out = g_InteractionPlayer.timeEnd
-        # Sample fragments considering program start time
-        data.sample = []
-        i = 0
-        while i < g_InteractionPlayer.bars.length
-            bar = g_InteractionPlayer.bars[i]
-            data.sample.push [
-                bar.timeStart - (g_InteractionPlayer.timeStart)
-                bar.timeEnd - (bar.timeStart)
-            ]
-            i++
+#        data = @interactions[@interaction_selected].data_out
+#        # Video part
+#        # Copy crop data
+#        data.program.video.crop.w = liveCrop.liveCrop[1] - (liveCrop.liveCrop[0])
+#        data.program.video.crop.h = liveCrop.liveCrop[3] - (liveCrop.liveCrop[2])
+#        data.program.video.crop.x = liveCrop.liveCrop[0]
+#        data.program.video.crop.y = liveCrop.liveCrop[2]
+#        # Program in/out/duration
+#        data.video.map.in = g_InteractionPlayer.timeStart
+#        data.video.map.out = g_InteractionPlayer.timeEnd
+#        # Sample fragments considering program start time
+#        data.sample = []
+#        i = 0
+#        while i < g_InteractionPlayer.bars.length
+#            bar = g_InteractionPlayer.bars[i]
+#            data.sample.push [
+#                bar.timeStart - (g_InteractionPlayer.timeStart)
+#                bar.timeEnd - (bar.timeStart)
+#            ]
+#            i++
         # Audio part
         # Color generation
         #var fileCWS = 6;
@@ -263,7 +267,7 @@ class InteractionPage
                 @proposeSelectMovie(a.target.value)
                 return
             ).bind(@)
-            $('#napi-register').bind 'click', @getAllMoviesData.bind(@)
+            $('#update-content-list').bind 'click', @getAllContentCards.bind(@)
             $('#pro-audio-layout-add').bind('click', (->
                 # Add audio layout to output
                 console.log('====================\npro-audio-layout-add')
@@ -284,13 +288,16 @@ class InteractionPage
                 return
             ).bind(@))
             $('#interaction-submit').bind 'click', (->
-                if !@interactions[@interaction_selected]
-                    console.log 'No interaction selected'
-                    return false
-                @updateInteractionDataOut()
-                @app.wsApiTrix.request {
-                    'method': 'submit_interaction'
-                    'interaction': @interactions[@interaction_selected].data_out
+#                if !@interactions[@interaction_selected]
+#                    console.log 'No interaction selected'
+#                    return false
+#                @updateInteractionDataOut()
+                @interaction_internal.update_asset(@liveCrop)
+                @app.ws_api_trix.request {
+                    'method': 'interaction.submit'
+                    'params':
+                        'interaction': @interaction_selected
+                        'asset': @interactions[@interaction_selected].assetOut
                 }, (answer) ->
                     console.log('submit_interaction response' + answer)
                     return
@@ -448,37 +455,61 @@ class InteractionPage
             return
         # Reset selection
         if @interaction_selected != null
-            # TODO: delete @interaction_internal
-            isel = @interactions[@interaction_selected]
-            document.getElementById(isel.guid).className = 'interaction row row' + isel.index % 2
-            @interaction_selected = null
+            # TODO: delete @interaction_internal, player, etc.
+            @interaction_internal.update_asset(@liveCrop)
+            inter = @interactions[@interaction_selected]
+#            inter.assetOut = @interaction_internal.asset    # ???
+            document.getElementById(@interaction_selected).className = 'interaction row row' + inter.index % 2
+        @interaction_selected = inter_id
         inter = @interactions[inter_id]
-        if typeof inter.assetIn == 'string'
-            # Request asset
-            @interaction_requested = inter_id
-            @app.ws_api_trix.request {
+        if typeof(inter.assetIn) == 'string'
+            # Request asset(s)
+            @app.ws_api_trix.request({
                 'method': 'asset.get_expanded'
                 'params': 'guid': inter.assetIn
-            }, @assetRequestHandler.bind(@)
+            }, @assetInRequestHandler.bind(@))
+            if @interactions[inter_id].assetOut != null
+                @app.ws_api_trix.request({
+                    'method': 'asset.get'
+                    'params': 'guid': inter.assetOut
+                }, @assetOutRequestHandler.bind(@))
         else
-            @interactionLoad(inter.assetIn)
+            @interactionLoad()
 #            @interactionCreatePlayer()
 #            inter.showAudioOutputs()
 #            @interactionShowInfo inter
         return
 
-    assetRequestHandler: (msg) ->
-        console.log 'assetRequestHandler'
+    assetInRequestHandler: (msg) ->
+        console.log 'assetInRequestHandler'
         console.log msg
-        @interaction_selected = @interaction_requested
-        @inter = @interactions[@interaction_selected]
-        html = '<text>ID: ' + @interaction_selected + '</text>'
-        @inter.assetIn = msg.result
-        document.getElementById(@inter.guid).className = 'interaction row row' + @inter.index % 2 + ' selected'
+        inter = @interactions[@interaction_selected]
+#        @interaction_selected = @interaction_requested
+#        @inter = @interactions[@interaction_selected]
+#        html = '<text>ID: ' + @interaction_selected + '</text>'
+        inter.assetIn = msg.result
+        if inter.assetOut == null or inter.assetOut == undefined
+            inter.assetOut = JSON.parse(JSON.stringify(inter.assetIn))
+            inter.assetOut.mediaFiles = []
+            for mf in inter.assetIn.mediaFiles
+                inter.assetOut.mediaFiles.push(mf.guid)
+        document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
+        @interactionLoad()
+        return
+
+    assetOutRequestHandler: (msg) ->
+        console.log 'assetOutRequestHandler'
+        console.log msg
+        inter = @interactions[@interaction_selected]
+        inter.assetOut = msg.result
+        document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
         @interactionLoad()
         return
 
     interactionLoad: () ->
+        inter = @interactions[@interaction_selected]
+        if typeof(inter.assetIn) == 'string' or typeof(inter.assetOut) == 'string'
+            return
         console.log('interactionLoad begin')
         delete @interaction_internal
         @interactionCreatePlayer()
@@ -506,6 +537,7 @@ class InteractionPage
 
     interactionCreatePlayer: ->
         console.log 'interactionCreatePlayer begin'
+        inter = @interactions[@interaction_selected]
         if g_InteractionPlayer
             # Stop playback
             console.log('Stopping player')
@@ -539,7 +571,7 @@ class InteractionPage
 
         # Map media files
         mf_map = {}
-        for mf in @inter.assetIn.mediaFiles
+        for mf in inter.assetIn.mediaFiles
             mf_map[mf.guid] = mf
 
         # Collect transit files, audio previews
@@ -547,7 +579,7 @@ class InteractionPage
         # Abs channel index to track:channel map
         audio_channels_map_to_tracks = []
         ti = 0
-        for mf in @inter.assetIn.mediaFiles
+        for mf in inter.assetIn.mediaFiles
             for track in mf.audioTracks
                 for ci in [0...track.channels]
                     audio_channels_map_to_tracks.push([ti, ci])
@@ -559,7 +591,7 @@ class InteractionPage
                     track.previews = mf_map[tid].audioTracks[0].previews
 
         # Enumerate media files excluding transit
-        for mf, mi in @inter.assetIn.mediaFiles
+        for mf, mi in inter.assetIn.mediaFiles
             if transit_files.hasOwnProperty(mf.guid)
                 console.log('Skip transit media file ' + mf.guid)
                 continue
@@ -649,13 +681,13 @@ class InteractionPage
                                                     video_elements,
                                                     audio_elements,
                                                     @interaction_channelMerger,
-                                                    @inter.assetIn.videoStreams[0].program_in,
-                                                    @inter.assetIn.videoStreams[0].program_out)
+                                                    inter.assetOut.videoStreams[0].program_in,
+                                                    inter.assetOut.videoStreams[0].program_out)
         for ae, ci in audio_elements
             $('#' + ae['html-id']).bind 'click', g_InteractionPlayer.selectChannel.bind(g_InteractionPlayer, ci)
 
         # Video crop setup
-        vCrop = @inter.assetIn.videoStreams[0].cropdetect
+        vCrop = inter.assetOut.videoStreams[0].cropdetect
 
         console.log vCrop
         console.log vInfo
@@ -682,7 +714,7 @@ class InteractionPage
         $('#pro-audio-layout-pull').bind('click', @audioMan.audioLayoutPullChannels)
 
 
-        @interaction_internal = new InteractionInternal(@inter.assetIn, audio_channels_map_to_tracks, g_InteractionPlayer)
+        @interaction_internal = new InteractionInternal(inter.assetOut, audio_channels_map_to_tracks, g_InteractionPlayer)
         @interaction_internal.showAudioOutputs()
         @interaction_internal.audioRemoveBindAll()
         @interactionShowInfo()
@@ -691,11 +723,28 @@ class InteractionPage
         return
 
     proposeSelectMovie: (index) ->
-        @interactions[@interaction_selected].data_out.movie = @api_movies_all[index][2]
-        @interactions[@interaction_selected].data_out.studio = @api_rightholders[@api_movies_all[index][1]].alias
-        @interactions[@interaction_selected].data_out.movie_guid = @api_movies_all[index][4]
-        @interactions[@interaction_selected].showMovie()
+        @interaction_internal.assetOut.name = @content_cards[index].title
+        @interaction_internal.assetOut.programId = @content_cards[index].id
+        @interaction_internal.showMovie()
         return
+
+    getAllContentCards: ->
+        console.log 'Get all content cards'
+        @content_cards = [
+            {title: 'Sunrise', id: '47504'}
+            {title: 'Moonshine', id: '124385'}
+            {title: 'Sun & Moon ', id: '180685'}
+            {title: 'Sunset', id: '139328'}
+            {title: 'Sunshine', id: '16640'}
+        ]
+        @populateContentCardSelection()
+        return
+
+    populateContentCardSelection: ->
+        html = ''
+        for c, i in @content_cards
+            html += '<option value="' + i + '">' + c.title + ' (' + c.id + ')' + '</option>'
+        document.getElementById('pro-movie-select').innerHTML = html
 
     getAllMoviesData: ->
         console.log 'Get All Movies #1'
