@@ -298,6 +298,7 @@ class MediaFile(Record):
         CHANNELS         = {'src': [['ff', 'channels']]}
         CHANNEL_LAYOUT   = {'src': [['ff', 'channel_layout']]}
         BITS_PER_SAMPLE  = {'src': [['ff', 'bits_per_sample']]}
+        START_TIME       = {'src': [['ff', 'start_time']]}
         DISPOSITION      = {'src': [['ff', 'disposition']]}
         TAGS             = {'src': [['ff', 'tags']]}
 
@@ -320,7 +321,7 @@ class MediaFile(Record):
             self.channels = None
             self.channel_layout = None
             self.bits_per_sample = 0
-            # start_time???
+            self.start_time = 0.0
             self.disposition = self.Disposition()
             self.tags = self.Tags()
 
@@ -331,18 +332,19 @@ class MediaFile(Record):
             self.extract = None
 
     class SubTrack(JSONer):
-        class MiSubTrack(JSONer):
-            def __init__(self):
-                super().__init__()
-
-        class FfSubTrack(JSONer):
-            def __init__(self):
-                super().__init__()
+        INDEX = {'src': [['ff', 'index']]}
+        CODEC = {'src': [['ff', 'codec_name']]}
+        START_TIME = {'src': [['ff', 'start_time']]}
+        # DISPOSITION = {'src': [['ff', 'disposition']]}
+        # TAGS = {'src': [['ff', 'tags']]}
 
         def __init__(self):
             super().__init__()
-            self.miSubTrack = self.MiSubTrack()
-            self.ffSubTrack = self.FfSubTrack()
+            self.index = None
+            self.codec = None
+            self.start_time = 0.0
+            # self.disposition = self.Disposition()
+            # self.tags = self.Tags()
 
     # Support classes
 

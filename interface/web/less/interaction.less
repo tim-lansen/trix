@@ -161,6 +161,7 @@ th.interaction td.interaction { overflow: hidden; vertical-align: top; }
     height: 50%;
     background: #407040;
     pointer-events: none;
+    z-index: 0;
 }
 
 .interaction.player_program-selection-bar {
@@ -171,6 +172,18 @@ th.interaction td.interaction { overflow: hidden; vertical-align: top; }
     height: 50%;
     background: #205060;
     pointer-events: none;
+    z-index: 0;
+}
+
+.interaction.player_program-sync-point {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 100%;
+    background: white;
+    pointer-events: none;
+    z-index: 1;
 }
 
 .setup_container {

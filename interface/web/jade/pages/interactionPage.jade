@@ -10,6 +10,8 @@
         #timeline-back.interaction.player_timeline-back
             #selection-bar-back.interaction.player_selection-bar-back
                 #program-selection-bar.interaction.player_program-selection-bar
+                #bar-sync1.interaction.player_program-sync-point
+                #bar-sync2.interaction.player_program-sync-point
             #timeline-pb.interaction.player_timeline-pb
 
 
@@ -27,9 +29,12 @@
 
     br
     button#interaction_player_decreaseDelay &LeftTeeArrow; -50ms
+    button#interaction_player_addSyncPoint &#9885;
     button#interaction_player_increaseDelay +50ms &map;
-    #current-time(style="float: left;width: 80px;text-align: center;padding-top: 8px;") 0.0
-    #audio-delay(style="float: left;width: 100px;text-align: center;padding-top: 8px;") 0.0
+    #current-time(style="float: left;width: 120px;text-align: center;padding-top: 8px;") 0.0
+    #audio-delay(style="float: left;width: 80px;text-align: center;padding-top: 8px;") 0ms
+    #audio-sync1(style="float: left;width: 120px;text-align: center;padding-top: 8px;") No sync point
+    #audio-sync2(style="float: left;width: 120px;text-align: center;padding-top: 8px;") No sync point
 
     br
     .interactions

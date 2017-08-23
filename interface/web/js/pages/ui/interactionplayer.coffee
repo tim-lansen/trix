@@ -35,6 +35,12 @@ class InteractionPlayer
         @id = 'program-selection-bar'
         @doc_currentTime = document.getElementById('current-time')
         @doc_audioDelay = document.getElementById('audio-delay')
+        @doc_audioSync1 = document.getElementById('audio-sync1')
+        @doc_audioSync2 = document.getElementById('audio-sync2')
+        @doc_barSync1 = document.getElementById('bar-sync1')
+        @doc_barSync2 = document.getElementById('bar-sync2')
+        @timeBend = 1.0
+        @timeOffset = 0.0
         @updateDelay()
         @update_counter = 10
         @sync_counter = 2
@@ -196,8 +202,18 @@ class InteractionPlayer
             @audio_inter[@RI].audio.play()
         return
 
+    _sync_str: (sync, elm) ->
+        if sync == null or sync == undefined
+            elm.style.display = 'none'
+            return 'No sync point'
+        elm.style.left = (100.0 * sync[0]/@duration) + '%'
+        elm.style.display = 'block'
+        return 't:'+sync[0].toFixed(1)+' d:'+sync[1].toFixed(2)
+
     updateDelay: ->
         @doc_audioDelay.innerHTML = @audio_inter[@LI].delay_ms + 'ms'
+        @doc_audioSync1.innerHTML = @_sync_str(@audio_inter[@LI].sync1, @doc_barSync1)
+        @doc_audioSync2.innerHTML = @_sync_str(@audio_inter[@LI].sync2, @doc_barSync2)
         return
 
     decreaseDelay: ->
@@ -210,23 +226,47 @@ class InteractionPlayer
         @doc_audioDelay.innerHTML = @audio_inter[@LI].delay_ms + 'ms'
         return
 
+    addSyncPoint: ->
+        aint = @audio_inter[@LI]
+        audioCurrentTime = aint.audio.currentTime
+        delay = 0.001 * aint.delay_ms
+        if aint.sync1 == null or audioCurrentTime <= aint.sync1[0]
+            aint.sync1 = [audioCurrentTime, delay]
+            aint.sync2 = null
+        else
+            aint.sync2 = [audioCurrentTime, delay]
+            ta1 = aint.sync1[0]
+            ta2 = aint.sync2[0]
+            tv1 = ta1 + aint.sync1[1]
+            tv2 = ta2 + aint.sync2[1]
+            @timeBend = (tv2 - tv1) / (ta2 - ta1)
+            @timeOffset = tv1 - @timeBend*ta1
+        @updateDelay()
+
+
     synchronize: ->
         if @audioSwitchingInProgress
             @audioSwitchingInProgress = false
             return
-        currentTime = @video.currentTime
+        videoCurrentTime = @video.currentTime
         audioCurrentTime = @audio_inter[@LI].audio.currentTime
-        delta = currentTime - (@audio_inter[@LI].delay_ms / 1000.0) - audioCurrentTime
+        if @audio_inter[@LI].sync2 == null
+            videoCalcTime = audioCurrentTime + (@audio_inter[@LI].delay_ms / 1000.0)
+        else
+            videoCalcTime = @timeOffset + @timeBend*audioCurrentTime
+        delta = videoCurrentTime - videoCalcTime
         @sync_counter = 2
         if @video.readyState > 0 and Math.abs(delta) > 0.05
-            @video.controller.currentTime = audioCurrentTime + @audio_inter[@LI].delay_ms / 1000.0
+            @video.currentTime = videoCalcTime
             @sync_counter = 20
         return
 
     updateTime: ->
         @update_counter -= 1
         if @update_counter < 1
-            @doc_currentTime.innerHTML = @video.currentTime.toFixed(2)
+            vct = @video.currentTime
+            delay_ms = parseInt(1000.0 * (vct - @audio_inter[@LI].audio.currentTime))
+            @doc_currentTime.innerHTML = vct.toFixed(2) + ' (' + delay_ms + 'ms)'
             @timeline_pb.style.width = 100 * @video.currentTime / @video.duration + '%'
             @update_counter = 10
         @sync_counter -= 1

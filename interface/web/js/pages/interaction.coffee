@@ -70,7 +70,6 @@ createStyleSequence = (baseName, h, s, l, a, hH, sH, lH, aH, rotOddEvenH, gainOd
 g_InteractionPlayer = null
 
 class AudioMan
-
     @single_channel_re: /1\schannels\s\((.+)\)/
     @audioLayouts: [
         {'code': 'mono',           'name': 'Mono',            'layout': ['FC']}
@@ -239,6 +238,14 @@ class InteractionPage
         #createStyleSequence('src-audio-channel.c',    0,    4,   16,  0.5,    0,    4,    0, 0.75,  180,  6.0, channelCWS);
         return
 
+    updateAssetOut: ->
+        asset = @interaction_internal.asset
+        # @interaction_internal.asset must be the same as @interactions[@interaction_selected].assetOut
+        # Update crop dimensions
+        @interaction_internal.update_asset(@liveCrop)
+        # Calculate in/out for every audio stream?
+        return
+
     disableSelect: ->
         $('body').addClass('unselectable')
         return
@@ -291,13 +298,12 @@ class InteractionPage
 #                if !@interactions[@interaction_selected]
 #                    console.log 'No interaction selected'
 #                    return false
-#                @updateInteractionDataOut()
-                @interaction_internal.update_asset(@liveCrop)
+                @updateAssetOut()
                 @app.ws_api_trix.request {
                     'method': 'interaction.submit'
                     'params':
                         'interaction': @interaction_selected
-                        'asset': @interactions[@interaction_selected].assetOut
+                        'asset': @interaction_internal.asset
                 }, (answer) ->
                     console.log('submit_interaction response' + answer)
                     return
@@ -556,12 +562,14 @@ class InteractionPage
             $('#interaction_player_cueProgramOut').unbind 'click'
             $('#interaction_player_decreaseDelay').unbind 'click'
             $('#interaction_player_increaseDelay').unbind 'click'
+            $('#interaction_player_addSyncPoint').unbind 'click'
 
             $('#pro-audio-layout-pull').unbind 'click'
             g_InteractionPlayer = null
         html = ''
         audio_elements = []
         video_elements = []
+        delay_ms_v = 0.0
         @audioMan.reset()
         count_ac = 0
         count_vc = 0
@@ -614,6 +622,7 @@ class InteractionPage
                     vInfo = track
                 else
                     throw 'More than 1 video tracks!'
+                delay_ms_v = parseInt(1000.0 * track.start_time)
                 id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2)
                 channel_layout = 'mono'
                 video_src = document.createElement('source')
@@ -630,6 +639,7 @@ class InteractionPage
                 count_vc++
                 cc++
             for track, ti in mf.audioTracks
+                delay_ms_a = parseInt(1000.0 * track.start_time)
                 channels = track.channels
                 channel_layout = track.channel_layout
                 id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2)
@@ -648,7 +658,9 @@ class InteractionPage
                         'html-id': id
                         'audio': snd
                         'node': node
-                        'delay_ms': 0
+                        'delay_ms': delay_ms_a - delay_ms_v
+                        'sync1': null
+                        'sync2': null
 #                        'file': fi
                         'track': ti
                         'channel': ci
@@ -710,6 +722,7 @@ class InteractionPage
         $('#interaction_player_cueProgramOut').bind 'click', g_InteractionPlayer.cueProgramOut.bind(g_InteractionPlayer)
         $('#interaction_player_decreaseDelay').bind 'click', g_InteractionPlayer.decreaseDelay.bind(g_InteractionPlayer)
         $('#interaction_player_increaseDelay').bind 'click', g_InteractionPlayer.increaseDelay.bind(g_InteractionPlayer)
+        $('#interaction_player_addSyncPoint').bind 'click', g_InteractionPlayer.addSyncPoint.bind(g_InteractionPlayer)
 
         $('#pro-audio-layout-pull').bind('click', @audioMan.audioLayoutPullChannels)
 
