@@ -543,6 +543,7 @@ class InteractionPage
 
     interactionCreatePlayer: ->
         console.log 'interactionCreatePlayer begin'
+        doc_video = document.getElementById('interaction-video')
         inter = @interactions[@interaction_selected]
         if g_InteractionPlayer
             # Stop playback
@@ -566,13 +567,17 @@ class InteractionPage
 
             $('#pro-audio-layout-pull').unbind 'click'
             g_InteractionPlayer = null
+
         html = ''
         audio_elements = []
         video_elements = []
+        sub_elements = []
+
         delay_ms_v = 0.0
         @audioMan.reset()
         count_ac = 0
         count_vc = 0
+        count_sc = 0
         cc = 0
 
         vInfo = null
@@ -661,7 +666,6 @@ class InteractionPage
                         'delay_ms': delay_ms_a - delay_ms_v
                         'sync1': null
                         'sync2': null
-#                        'file': fi
                         'track': ti
                         'channel': ci
 #                    if 'start_time' of info[mi][ttype][ti]
@@ -681,7 +685,32 @@ class InteractionPage
                     html_t = ''
                     cc++
                     ci++
-                ti++
+#                ti++
+            for track, ti in mf.subTracks
+                id = 'sub-abs-' + padz(count_sc, 2)
+                codec = track.codec
+
+                sub = document.createElement("track");
+                sub.kind = "captions";
+                sub.label = "English";
+                sub.srclang = "en";
+                sub.src = "captions/sintel-en.vtt";
+#                track.addEventListener("load", function() {
+#                    this.mode = "showing";
+#                video.textTracks[0].mode = "showing"; // thanks Firefox
+#                });
+#                this.appendChild(track);
+
+                sub_elements.push sub
+                # Add row
+                html += '<tr class="src">'
+                html += html_f
+                html += '<td id="' + id + '" rowspan="' + 1 + '" class="src row' + ti % 2 + ' col1">subtitles</td>'
+                html += '<td id="' + id + '" class="src row' + cc % 2 + ' col2">' + codec + '</td>'
+                html += '</tr>'
+                html_f = ''
+                count_sc++
+                cc++
             mi++
         document.getElementById('src-map').innerHTML = html
         @audioMan.updateAudioChannelSelect()
@@ -692,11 +721,15 @@ class InteractionPage
         g_InteractionPlayer = new InteractionPlayer(document.getElementById('interaction-video'),
                                                     video_elements,
                                                     audio_elements,
+                                                    sub_elements,
                                                     @interaction_channelMerger,
                                                     inter.assetOut.videoStreams[0].program_in,
                                                     inter.assetOut.videoStreams[0].program_out)
         for ae, ci in audio_elements
             $('#' + ae['html-id']).bind 'click', g_InteractionPlayer.selectChannel.bind(g_InteractionPlayer, ci)
+        for se, ci in sub_elements
+            id = 'sub-abs-' + padz(ci, 2)
+            $('#' + id).bind 'click', g_InteractionPlayer.selectSubtitles.bind(g_InteractionPlayer, ci)
 
         # Video crop setup
         vCrop = inter.assetOut.videoStreams[0].cropdetect

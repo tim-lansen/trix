@@ -662,6 +662,7 @@ def combine_ffprobe_mediainfo(ffstr, mistr):
 
 
 def combined_info(mf: MediaFile, path=None):
+
     if path is None:
         path = mf.source.path
         if path is None:
@@ -677,6 +678,9 @@ def combined_info(mf: MediaFile, path=None):
         mf.name = path.rsplit('\\', 1)[1].rsplit('.', 1)[0]
     else:
         mf.name = path
+    for track in mf.videoTracks + mf.audioTracks + mf.subTracks:
+        if track.Duration_ms:
+            track.duration = track.Duration_ms / 1000.0
 
 
 def combined_info_mediafile(url) -> MediaFile:

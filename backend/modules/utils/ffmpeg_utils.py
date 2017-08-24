@@ -19,6 +19,7 @@ from modules.models.asset import Asset, Stream, VideoStream, AudioStream, SubStr
 
 if os.name == 'nt':
     DEVNULL = 'nul'
+    FFMPEG_UTILS_TEST_FILE_AVS = r'D:\storage\crude\watch\test.src.avs\test_src.AVS.mkv'
     FFMPEG_UTILS_TEST_FILE_AV = r'D:\storage\crude\watch\test.src\test_src.AV.mp4'
     FFMPEG_UTILS_TEST_FILE_A1 = r'D:\storage\crude\watch\test.src\test_src.A1.mkv'
     FFMPEG_UTILS_TEST_FILE_A2 = r'D:\storage\crude\watch\test.src\test_src.A2.mkv'
@@ -27,14 +28,15 @@ if os.name == 'nt':
 else:
     import fcntl
     DEVNULL = '/dev/null'
+    FFMPEG_UTILS_TEST_FILE_AVS = '/mnt/server1_id/crude/watch/test.src.avs/test_src.AVS.mkv'
     FFMPEG_UTILS_TEST_FILE_AV = '/mnt/server1_id/crude/watch/test.src/test_src.AV.mp4'
     FFMPEG_UTILS_STORAGE_TRANSIT = '/mnt/server1_id/crude/_transit'
     FFMPEG_UTILS_STORAGE_PREVIEW = '/mnt/server1_id/crude/_preview'
 
 
 def ffmpeg_cropdetect(url,  video_track: MediaFile.VideoTrack, cd_black=0.08, cd_round=4, cd_reset=40, frames=100):
-    start = video_track.Duration/12.0
-    step = video_track.Duration/11.0
+    start = video_track.duration/12.0
+    step = video_track.duration/11.0
     width = video_track.width
     height = video_track.height
 
@@ -56,7 +58,7 @@ def ffmpeg_cropdetect(url,  video_track: MediaFile.VideoTrack, cd_black=0.08, cd
         cdxb = 50000
         cdyb = 50000
         start0 = int(start - 3)
-        command = 'ffmpeg -y -ss {start:.2f} -i {src} -map v:0 -ss 3 -vsync 0 -copyts -vframes {vframes} -vf showinfo,cropdetect={cd0}:{cd1}:{cd2} -f null {nul}' \
+        command = 'ffmpeg -y -ss {start:.2f} -i {src} -ss 3 -vsync 0 -copyts -vframes {vframes} -filter_complex "[0:v:0]showinfo,cropdetect={cd0}:{cd1}:{cd2}[v]" -map [v] -f null {nul}' \
                   ''.format(start=start0, src=url, vframes=frames, cd0=cd_black, cd1=2, cd2=cd_reset, nul=DEVNULL)
         Logger.debug('{}\n'.format(command))
         proc = Popen(command.split(' '), stderr=PIPE)
@@ -64,6 +66,8 @@ def ffmpeg_cropdetect(url,  video_track: MediaFile.VideoTrack, cd_black=0.08, cd
             lines = proc.stderr.readline().decode().split('\r')
             for line in lines:
                 fn, parse = Parsers.parse_auto(line)
+                if parse is None:
+                    continue
                 if fn == 'cropdetect':
                     # Workaround neg CD values: there may be no 'w', 'x' or 'h', 'y' keys
                     if 'h' in parse:
@@ -105,14 +109,14 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     # First, call cropdetect
     if len(mediafile.videoTracks):
         cropdetect = ffmpeg_cropdetect(mediafile.source.path, mediafile.videoTracks[0])
-        dur = mediafile.videoTracks[0].Duration
+        dur = mediafile.videoTracks[0].duration
     else:
         dur = mediafile.format.duration
     src = mediafile.source.path
     vout_arch: List[MediaFile] = []
     vout_refs: List[MediaFile] = []
     vout_trans: List[MediaFile] = []
-    advance_audio_index = 0 if len(mediafile.videoTracks) == 0 else len(mediafile.audioTracks)
+    # advance_audio_index = 0 if len(mediafile.videoTracks) == 0 else len(mediafile.audioTracks)
 
     filters = []
     outputs = []
@@ -132,6 +136,17 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
                            ''.format(sti=sti, fps=v.fps, pw=vp.width, ph=vp.height))
         else:
             filters.append('[0:v:{sti}]format=yuv420p,scale={pw}:{ph}[pv{sti}]'.format(sti=sti, pw=vp.width, ph=vp.height))
+
+    for sti, s in enumerate(mediafile.subTracks):
+        preview = MediaFile()
+        preview.name = 'preview'
+        st = copy.deepcopy(s)
+        s.index = 0
+        preview.subTracks.append(st)
+        preview.source.path = os.path.join(dir_preview.net_path, '{}.s{}.preview.vtt'.format(mediafile.guid, sti))
+        preview.source.url = '{}/{}.s{}.preview.vtt'.format(dir_preview.web_path, mediafile.guid, sti)
+        vout_refs.append(preview)
+        outputs.append('-map s:{sti} -c:s webvtt {path}'.format(sti=sti, path=preview.source.path))
 
     # Enumerate audio tracks, collect pan filters and outputs for previews and extracted tracks
     for sti, a in enumerate(mediafile.audioTracks):
@@ -324,7 +339,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
     # First, call cropdetect
     if len(mediafile.videoTracks):
         cropdetect = ffmpeg_cropdetect(mediafile.source.path, mediafile.videoTracks[0])
-        dur = mediafile.videoTracks[0].Duration
+        dur = mediafile.videoTracks[0].duration
     else:
         dur = mediafile.format.duration
     src = mediafile.source.path
@@ -550,9 +565,12 @@ def test_ffmpeg_cropdetect():
 
 def test_ffmpeg_create_preview_extract_audio_subtitles():
     from .combined_info import combined_info_mediafile
-    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_A1)
-    print(mf.dumps())
-    result = ffmpeg_create_preview_extract_audio_subtitles(mf, FFMPEG_UTILS_STORAGE_TRANSIT, FFMPEG_UTILS_STORAGE_PREVIEW)
+    from modules.config.trix_config import TrixConfig
+    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AVS)
+    print(mf.dumps(indent=2, expose_unmentioned=True))
+    dir_tr = TrixConfig.Storage.Server.Path(net_path=FFMPEG_UTILS_STORAGE_TRANSIT)
+    dir_pr = TrixConfig.Storage.Server.Path(net_path=FFMPEG_UTILS_STORAGE_PREVIEW)
+    result = ffmpeg_create_preview_extract_audio_subtitles(mf, dir_tr, dir_pr)
     Logger.debug('asset:\n{}\n'.format(result['asset'].dumps(indent=2)))
     Logger.debug('trans:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['trans']])))
     Logger.debug('previews:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['previews']])))

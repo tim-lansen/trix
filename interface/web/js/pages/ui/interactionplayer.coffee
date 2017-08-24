@@ -3,28 +3,34 @@
 #Timeline = require('./Timeline')
 
 class InteractionPlayer
-    constructor: (video_object, video_elements, audio_elements, interaction_channelMerger, program_in, program_out) ->
+    constructor: (video_object, video_elements, audio_elements, sub_elements, interaction_channelMerger, program_in, program_out) ->
         @video = video_object
         @video.appendChild video_elements[0]
         @audio_inter = audio_elements
+        @subtitles = sub_elements
         @interaction_channelMerger = interaction_channelMerger
         @timeStart = program_in
         @timeEnd = program_out
         @duration = program_out - program_in
-        $(@video).one 'loadedmetadata', ((e) ->
+        $(@video).one 'loadedmetadata', ((elm) ->
             console.log('InteractionPlayer.video loaded')
-            @duration = e.currentTarget.duration
+            @duration = elm.currentTarget.duration
             if @timeEnd > @duration
                 @timeEnd = @duration
             if @timeStart >= @timeEnd
                 @timeStart = 0.0
             @updateBar()
+
+            for sub in @subtitles
+                elm.appendChild(sub)
+
             return
         ).bind(@)
         @video.load()
         @audioSwitchingInProgress = false
         @LI = 0
         @RI = 1
+        @SI = undefined
         $('#' + @audio_inter[@LI]['html-id']).addClass 'left'
         $('#' + @audio_inter[@RI]['html-id']).addClass 'right'
         @timeline_pb = document.getElementById('timeline-pb')
@@ -185,6 +191,18 @@ class InteractionPlayer
             @audio_inter[@RI].audio.currentTime = @video.currentTime - delay
         $('#' + @audio_inter[@LI]['html-id']).addClass 'left'
         $('#' + @audio_inter[@RI]['html-id']).addClass 'right'
+        return
+
+    selectSubtitles: (si) ->
+        if @SI != undefined
+            @subtitles[@SI].mode = 'hidden'
+            @video.textTracks[@SI].mode = 'hidden'
+        if @SI == si
+            @SI = undefined
+        else
+            @SI = si
+            @subtitles[@SI].mode = 'showing'
+            @video.textTracks[@SI].mode = 'showing'
         return
 
     seek: (e) ->

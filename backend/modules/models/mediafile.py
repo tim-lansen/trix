@@ -70,7 +70,7 @@ class MediaFile(Record):
         #         # FileSize/String2                 : 1.7 GiB
         #         # FileSize/String3                 : 1.69 GiB
         #         # FileSize/String4                 : 1.690 GiB
-        #         self.Duration = None
+        #         self.duration = None
         #         # Duration/String                  : 1h 28mn
         #         # Duration/String1                 : 1h 28mn 38s 869ms
         #         # Duration/String2                 : 1h 28mn
@@ -156,7 +156,7 @@ class MediaFile(Record):
             self.Encoded_Library_Name = None
 
     class VideoTrack(JSONer):
-        # DURATION        = {'src': [['mi', 'Duration'], ['ff', 'duration']]}
+        DURATION_MS = {'src': [['mi', 'Duration']]}
         DURATION = {'src': [['ff', 'duration']]}
 
         INDEX           = {'src': [['ff', 'index']]}
@@ -208,7 +208,10 @@ class MediaFile(Record):
         def __init__(self):
             super().__init__()
             # Auto-captured info
-            self.Duration = 0
+            # MediaInfo track duration
+            self.Duration_ms = None
+            # FFMpeg track duration
+            self.duration = None
             self.index = None
             self.codec = None
             self.width = None
@@ -286,8 +289,8 @@ class MediaFile(Record):
                 self.attached_pic = None
                 self.timed_thumbnails = None
 
-        # DURATION         = {'src': [['mi', 'Duration'], ['ff', 'duration']]}
-        DURATION = {'src': [['ff', 'duration']]}
+        DURATION_MS      = {'src': [['mi', 'Duration']]}
+        DURATION         = {'src': [['ff', 'duration']]}
         CHANNELPOSITIONS = {'src': [['mi', 'ChannelPositions']]}
         CHANNELLAYOUT    = {'src': [['mi', 'ChannelLayout']]}
 
@@ -305,8 +308,10 @@ class MediaFile(Record):
         def __init__(self):
             super().__init__()
             # self.Codec = None
-            # MediaInfo reads individual track duration
-            self.Duration = None
+            # MediaInfo track duration
+            self.Duration_ms = None
+            # FFMpeg track duration
+            self.duration = None
             # self.BitRate = None
             self.ChannelPositions = None
             # self.Channels = None
@@ -332,19 +337,32 @@ class MediaFile(Record):
             self.extract = None
 
     class SubTrack(JSONer):
+        class Tags(JSONer):
+            def __init__(self):
+                super().__init__()
+                self.language = None
+
+        DURATION_MS = {'src': [['mi', 'Duration']]}
+        DURATION = {'src': [['ff', 'duration']]}
+
         INDEX = {'src': [['ff', 'index']]}
         CODEC = {'src': [['ff', 'codec_name']]}
         START_TIME = {'src': [['ff', 'start_time']]}
         # DISPOSITION = {'src': [['ff', 'disposition']]}
-        # TAGS = {'src': [['ff', 'tags']]}
+        TAGS = {'src': [['ff', 'tags']]}
 
         def __init__(self):
             super().__init__()
+            # MediaInfo track duration
+            self.Duration_ms = None
+            # FFMpeg track duration
+            self.duration = None
+
             self.index = None
             self.codec = None
             self.start_time = 0.0
             # self.disposition = self.Disposition()
-            # self.tags = self.Tags()
+            self.tags = self.Tags()
 
     # Support classes
 
