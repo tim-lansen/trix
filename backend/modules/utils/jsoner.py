@@ -237,11 +237,14 @@ class JSONer:
         for k in self.__dict__:
             if json_obj.__contains__(k):
                 val = json_obj.pop(k)
-                try:
-                    self._update_member(k, val)
-                except Exception as e:
-                    Logger.error('Failed to update member {} with {}\nError: {}\n'.format(k, val, e))
-                    exit(1)
+                if type(val) is dict and len(val) == 0:
+                    Logger.warning('Key {} contains empty dict\n'.format(k))
+                else:
+                    try:
+                        self._update_member(k, val)
+                    except Exception as e:
+                        Logger.error('Failed to update member {} with {}\nError: {}\n'.format(k, val, e))
+                        # exit(1)
         self.unmentioned.clear()
         for k in json_obj:
             self.unmentioned[k] = json_obj[k]

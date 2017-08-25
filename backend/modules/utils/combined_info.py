@@ -625,6 +625,10 @@ def combine_ffprobe_mediainfo_track(ffv, miv, baseclass):
 def combine_ffprobe_mediainfo(ffstr, mistr):
     ffi = json.loads(ffstr, object_hook=object_hook)
     mii = mediainfo2dict(mistr)
+    # Workaround absence of 'StreamOrder'
+    defaultStreamOrder = None
+    if mii['General'][0]['StreamCount'] == 1:
+        defaultStreamOrder = 0
     guide = [
         {
             'dst': {'section': 'format', 'list': False, 'class': MediaFile.Format},
@@ -652,7 +656,11 @@ def combine_ffprobe_mediainfo(ffstr, mistr):
             if dst['list']:
                 result[dst['section']] = []
                 for track_mi in src_mi:
-                    index = track_mi[g['src']['index']]
+                    try:
+                        index = track_mi[g['src']['index']]
+                    except:
+                        Logger.warning('Track\'s MediaInfo does not contain StreamOrder, try default: {}\n'.format(defaultStreamOrder))
+                        index = defaultStreamOrder
                     track_ff = src_ff[index]
                     combined_track = combine_ffprobe_mediainfo_track(track_ff, track_mi, dst['class'])
                     result[dst['section']].append(combined_track)
@@ -714,8 +722,14 @@ def combined_info_mediafile(url) -> MediaFile:
 #     return info
 
 
-def test():
-    media_file = MediaFile()
-    combined_info(media_file, '/mnt/server1_id/crude/in_work/39f8a04c1b6ee9d3c60650c8ed80eb.768x320.600k.AV.mp4')
-
-    Logger.info(media_file.dumps(indent=2))
+def test(urls=None):
+    if type(urls) is list:
+        for url in urls:
+            mf = combined_info_mediafile(url)
+            Logger.log(mf.dumps(indent=2) + '\n')
+    elif type(urls) is str:
+        mf = combined_info_mediafile(urls)
+        Logger.log(mf.dumps(indent=2) + '\n')
+    else:
+        mf = combined_info_mediafile('/mnt/server1_id/crude/in_work/39f8a04c1b6ee9d3c60650c8ed80eb.768x320.600k.AV.mp4')
+        Logger.info(mf.dumps(indent=2) + '\n')
