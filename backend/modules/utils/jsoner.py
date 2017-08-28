@@ -92,6 +92,18 @@ class JSONer:
         for k in self.unmentioned:
             yield k
 
+    def __jsoner2dict__(self):
+        d = {}
+        for k in self.__dict__:
+            v = self.__dict__[k]
+            if v is None or ('__len__' in dir(v) and len(v) == 0):
+                continue
+            if isinstance(v, JSONer):
+                d[k] = v.__jsoner2dict__()
+            else:
+                d[k] = v
+        return d
+
     def dumps(self, ensure_ascii=True, indent=None, separators=None, expose_unmentioned=False, expose_empty=True, expose_none=False):
         # Exclude unmentioned, None and empty lists
         json_string = json.dumps(
@@ -237,14 +249,16 @@ class JSONer:
         for k in self.__dict__:
             if json_obj.__contains__(k):
                 val = json_obj.pop(k)
-                if type(val) is dict and len(val) == 0:
-                    Logger.warning('Key {} contains empty dict\n'.format(k))
-                else:
-                    try:
-                        self._update_member(k, val)
-                    except Exception as e:
-                        Logger.error('Failed to update member {} with {}\nError: {}\n'.format(k, val, e))
-                        # exit(1)
+                # if type(val) is dict and len(val) == 0:
+                #     Logger.warning('Key {} contains empty dict\n'.format(k))
+                # else:
+                try:
+                    self._update_member(k, val)
+                except Exception as e:
+                    Logger.error('Failed to update member {} with {}\nError: {}\n'.format(k, val, e))
+                    # if type(val) is dict:
+                    #     self.__dict__[k] = val
+                    # exit(1)
         self.unmentioned.clear()
         for k in json_obj:
             self.unmentioned[k] = json_obj[k]

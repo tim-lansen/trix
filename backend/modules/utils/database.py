@@ -17,8 +17,8 @@ import psycopg2.extras
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from .log_console import Logger, tracer
 from .types import Guid
-from ..config.trix_config import TRIX_CONFIG
-from ..models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record
+from modules.config import TRIX_CONFIG
+from modules.models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record
 
 
 # Establish a connection to db using args

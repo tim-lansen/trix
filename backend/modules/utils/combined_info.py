@@ -10,6 +10,7 @@ from pprint import pprint
 from subprocess import Popen, PIPE
 
 from modules.models.mediafile import MediaFile
+from .jsoner import JSONer
 from .types import Guid, Rational, guess_type
 from .log_console import Logger
 
@@ -585,14 +586,17 @@ def combine_ffprobe_mediainfo_track(ffv, miv, baseclass):
         model_name = k.upper()
         if model_name not in baseclass.__dict__:
             continue
-        model = baseclass.__dict__[model_name]
-        for src in model['src']:
+        member_model = baseclass.__dict__[model_name]
+        for src in member_model['src']:
             # Default value
+            # It may be JSONer object, in this case we have to convert it to dict
             val = inst.__dict__[k]
+            if isinstance(val, JSONer):
+                val = val.__jsoner2dict__()
             if src[1] in srcdata[src[0]]:
                 val = srcdata[src[0]][src[1]]
             if val is not None:
-                result[k] = val if 'map' not in model else model['map'][val]
+                result[k] = val if 'map' not in member_model else member_model['map'][val]
                 break
     # Final pass for D10 support
     if 'height_original' in result:
