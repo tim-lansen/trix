@@ -735,5 +735,9 @@ def test(urls=None):
         mf = combined_info_mediafile(urls)
         Logger.log(mf.dumps(indent=2) + '\n')
     else:
-        mf = combined_info_mediafile('/mnt/server1_id/crude/in_work/39f8a04c1b6ee9d3c60650c8ed80eb.768x320.600k.AV.mp4')
+        mf = MediaFile()
+        tr = MediaFile.SubTrack()
+        tr.index = 0
+        mf.subTracks.append(tr)
+        combined_info(mf, '/mnt/server1_id/store/_transit/31070394-2e47-4d3b-b3d7-b38d057bf4f8/31070394-2e47-4d3b-b3d7-b38d057bf4f8.s00.extract.mkv')
         Logger.info(mf.dumps(indent=2) + '\n')

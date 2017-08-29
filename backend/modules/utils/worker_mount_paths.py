@@ -17,8 +17,14 @@ def mount_paths():
     res = proc.communicate()
     mount = dict(parse.findall(res[0].decode()))
 
-    def _wrap_call_(_params_, _error_=None):
-        _res_ = call(_params_)
+    def _wrap_call_(_params_, _su_=True, _error_=None):
+        if _su_:
+            _params_ = ['sudo', '-S'] + _params_
+            _proc_ = Popen(_params_, stdin=PIPE)
+            _proc_.communicate(input=b'1604001\n')
+            _res_ = _proc_.returncode
+        else:
+            _res_ = call(_params_)
         if _res_ != 0:
             Logger.error(_error_ if _error_ else 'Error {}: {}\n'.format(_res_, ' '.join(_params_)))
             exit(_res_)
@@ -42,11 +48,11 @@ def mount_paths():
                     Logger.info('{} is mounted to {}\n'.format(np, mount[np]))
                     continue
                 Logger.warning('{} is mounted to {} (must be {})\n'.format(np, mount[np], desired_mp))
-                _wrap_call_(['sudo', 'umount', mount[np]], 'Failed to unmount {}\n'.format(mount[np]))
-                _wrap_call_(['sudo', 'rmdir', mount[np]], 'Failed to remove {}\n'.format(mount[np]))
-            _wrap_call_(['sudo', 'mkdir', '-p', desired_mp])
-            _wrap_call_(['sudo', 'chmod', '777', desired_mp])
-            _wrap_call_(['sudo', 'mount', np, desired_mp] + server.mount_opts())
+                _wrap_call_(['umount', mount[np]], 'Failed to unmount {}\n'.format(mount[np]))
+                _wrap_call_(['rmdir', mount[np]], 'Failed to remove {}\n'.format(mount[np]))
+            _wrap_call_(['mkdir', '-p', desired_mp])
+            _wrap_call_(['chmod', '777', desired_mp])
+            _wrap_call_(['mount', np, desired_mp] + server.mount_opts())
     for server in TRIX_CONFIG.storage.servers:
         for path in server.paths:
             mp = server.mount_point(path['net_path'])

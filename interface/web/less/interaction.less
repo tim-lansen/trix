@@ -312,7 +312,10 @@ td.src.col2.left {
     background-color: rgb(80,80,80);
 }
 td.src.col2.right {
-    background-color: rgb(80,20,0);
+     background-color: rgb(80,20,0);
+}
+td.src.col2.activesubs {
+    background-color: rgb(24, 96, 72);
 }
 td.src.colX {
     text-align: center;
@@ -521,6 +524,14 @@ button {
     height: 24px;
     line-height: 16px;
 
+    &.playerButton {
+        font-size: 22px;
+        padding-bottom: 2px;
+        background: @pbBarBG;
+        &:hover {
+            background-color: darken(@pbBarBG, 15%);
+        }
+    }
     &.playerButton_ {
         &block {
             visibility: hidden;
@@ -539,6 +550,16 @@ button {
             background: @programBarBG;
             &:hover {
                 background-color: lighten(@programBarBG, 15%);
+            }
+        }
+        &navigate {
+            font-size: 16px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            background: @navigateBarBG;
+            color: white;
+            &:hover {
+                background-color: lighten(@navigateBarBG, 15%);
             }
         }
     }

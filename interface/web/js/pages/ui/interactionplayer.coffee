@@ -14,6 +14,7 @@ class InteractionPlayer
         @duration = program_out - program_in
         $(@video).one 'loadedmetadata', ((elm) ->
             console.log('InteractionPlayer.video loaded')
+            console.log(elm.target)
             @duration = elm.currentTarget.duration
             if @timeEnd > @duration
                 @timeEnd = @duration
@@ -22,8 +23,7 @@ class InteractionPlayer
             @updateBar()
 
             for sub in @subtitles
-                elm.appendChild(sub)
-
+                elm.target.appendChild(sub.node)
             return
         ).bind(@)
         @video.load()
@@ -143,6 +143,15 @@ class InteractionPlayer
         @_jumpToTime @timeStart
         return
 
+    cueOffset: (offset) ->
+        new_time = @audio_inter[@LI].audio.currentTime + offset
+        if new_time < 0
+            new_time = 0.0
+        else if new_time > @duration
+            new_time = duration
+        @_jumpToTime new_time
+        return
+
     # Seek to end of program
 
     cueProgramOut: ->
@@ -195,14 +204,16 @@ class InteractionPlayer
 
     selectSubtitles: (si) ->
         if @SI != undefined
-            @subtitles[@SI].mode = 'hidden'
+            @subtitles[@SI].node.mode = 'hidden'
             @video.textTracks[@SI].mode = 'hidden'
+            $('#' + @subtitles[@SI]['html-id']).removeClass 'activesubs'
         if @SI == si
             @SI = undefined
         else
             @SI = si
-            @subtitles[@SI].mode = 'showing'
+            @subtitles[@SI].node.mode = 'showing'
             @video.textTracks[@SI].mode = 'showing'
+            $('#' + @subtitles[@SI]['html-id']).addClass 'activesubs'
         return
 
     seek: (e) ->

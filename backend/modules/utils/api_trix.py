@@ -144,11 +144,17 @@ class ApiTrix(ApiClassBase):
                         for t in mf['videoTracks']:
                             previews = []
                             for preview_guid in t['previews']:
+                                Logger.log('Get preview media file: {}\n'.format(preview_guid))
                                 preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
                                 previews.append(preview_mf.source.url)
                             t['previews'] = previews
-                        # if isinstance(mf['audioTracks'], list):
                         for t in mf['audioTracks']:
+                            previews = []
+                            for preview_guid in t['previews']:
+                                preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
+                                previews.append(preview_mf.source.url)
+                            t['previews'] = previews
+                        for t in mf['subTracks']:
                             previews = []
                             for preview_guid in t['previews']:
                                 preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
@@ -190,6 +196,7 @@ class ApiTrix(ApiClassBase):
             client.ws_handler.send_message(json.dumps(response, cls=NonJSONSerializibleEncoder))
         except Exception as e:
             Logger.warning('ApiTrix.execute exception: {}\n'.format(e))
+            traceback_debug()
 
     @staticmethod
     def dispatch(message, client: ApiClient):

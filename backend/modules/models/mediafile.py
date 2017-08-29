@@ -364,6 +364,11 @@ class MediaFile(Record):
             # self.disposition = self.Disposition()
             self.tags = self.Tags()
 
+            # ID(s) of reference subtitles track(s)
+            self.previews: List[str] = []
+            # ID of mediafile that consists of extracted audio track
+            self.extract = None
+
     # Support classes
 
     class Master(Guid):
@@ -387,6 +392,40 @@ class MediaFile(Record):
         self.videoTracks: List[self.VideoTrack] = []
         self.audioTracks: List[self.AudioTrack] = []
         self.subTracks: List[self.SubTrack] = []
+
+    def update_json(self, mf):
+        # Specialized 'update_json' procedure for correct tracks merging
+
+        self.guid.set(mf['guid'])
+        self.name = mf['name']
+        self.ctime = str(mf['ctime'])
+        self.mtime = str(mf['mtime'])
+
+        if 'isPreview' in mf:
+            self.isPreview = mf['isPreview']
+        if 'master' in mf:
+            self.master = mf['master']
+        if 'assets' in mf and type(mf['assets']) is list:
+            self.assets = [_ for _ in mf['assets']]
+        if 'source' in mf:
+            self.source.update_json(mf['source'])
+        if 'format' in mf:
+            self.format.update_json(mf['format'])
+        if 'videoTracks' in mf and mf['videoTracks'] is not None:
+            for i, t in enumerate(mf['videoTracks']):
+                if len(self.videoTracks) == i:
+                    self.videoTracks.append(MediaFile.VideoTrack())
+                self.videoTracks[i].update_json(t)
+        if 'audioTracks' in mf and mf['audioTracks'] is not None:
+            for i, t in enumerate(mf['audioTracks']):
+                if len(self.audioTracks) == i:
+                    self.audioTracks.append(MediaFile.AudioTrack())
+                self.audioTracks[i].update_json(t)
+        if 'subTracks' in mf and mf['subTracks'] is not None:
+            for i, t in enumerate(mf['subTracks']):
+                if len(self.subTracks) == i:
+                    self.subTracks.append(MediaFile.SubTrack())
+                self.subTracks[i].update_json(t)
 
     TABLE_SETUP = {
         "relname": "trix_files",

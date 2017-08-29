@@ -6,7 +6,7 @@ from modules.utils.job_utils import JobUtils
 
 
 def test_job_utils_ingest_prepare():
-    JobUtils.CreateJob.ingest_prepare('/mnt/server1_id/crude/watch/test.src.av')
+    JobUtils.CreateJob.ingest_prepare('/mnt/server1_id/crude/watch/test.src.avs')
 
 
 if __name__ == '__main__':

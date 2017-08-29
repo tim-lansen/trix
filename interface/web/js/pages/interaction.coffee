@@ -474,11 +474,12 @@ class InteractionPage
                 'method': 'asset.get_expanded'
                 'params': 'guid': inter.assetIn
             }, @assetInRequestHandler.bind(@))
-            if @interactions[inter_id].assetOut != null
-                @app.ws_api_trix.request({
-                    'method': 'asset.get'
-                    'params': 'guid': inter.assetOut
-                }, @assetOutRequestHandler.bind(@))
+            # Request pre-set output asset if there is one
+#            if typeof(inter.assetOut) == 'string'
+#                @app.ws_api_trix.request({
+#                    'method': 'asset.get'
+#                    'params': 'guid': inter.assetOut
+#                }, @assetOutRequestHandler.bind(@))
         else
             @interactionLoad()
 #            @interactionCreatePlayer()
@@ -494,7 +495,8 @@ class InteractionPage
 #        @inter = @interactions[@interaction_selected]
 #        html = '<text>ID: ' + @interaction_selected + '</text>'
         inter.assetIn = msg.result
-        if inter.assetOut == null or inter.assetOut == undefined
+        if typeof(inter.assetOut) != 'string'
+            # Clone assetIn to assetOut
             inter.assetOut = JSON.parse(JSON.stringify(inter.assetIn))
             inter.assetOut.mediaFiles = []
             for mf in inter.assetIn.mediaFiles
@@ -503,14 +505,14 @@ class InteractionPage
         @interactionLoad()
         return
 
-    assetOutRequestHandler: (msg) ->
-        console.log 'assetOutRequestHandler'
-        console.log msg
-        inter = @interactions[@interaction_selected]
-        inter.assetOut = msg.result
-        document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
-        @interactionLoad()
-        return
+#    assetOutRequestHandler: (msg) ->
+#        console.log 'assetOutRequestHandler'
+#        console.log msg
+#        inter = @interactions[@interaction_selected]
+#        inter.assetOut = msg.result
+#        document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
+#        @interactionLoad()
+#        return
 
     interactionLoad: () ->
         inter = @interactions[@interaction_selected]
@@ -557,6 +559,12 @@ class InteractionPage
             $('#interaction_player_setBlockOut').unbind 'click'
             $('#interaction_player_setProgramIn').unbind 'click'
             $('#interaction_player_setProgramOut').unbind 'click'
+
+            $('#interaction_player_jumpLeft30').unbind 'click'
+            $('#interaction_player_jumpLeft05').unbind 'click'
+            $('#interaction_player_jumpRight05').unbind 'click'
+            $('#interaction_player_jumpRight30').unbind 'click'
+
             $('#interaction_player_cueBlockIn').unbind 'click'
             $('#interaction_player_cueBlockOut').unbind 'click'
             $('#interaction_player_cueProgramIn').unbind 'click'
@@ -602,6 +610,14 @@ class InteractionPage
                     transit_files[tid] = 1
                     # Copy previews
                     track.previews = mf_map[tid].audioTracks[0].previews
+            for track in mf.subTracks
+                tid = track.extract
+                if mf_map.hasOwnProperty(tid)
+                    transit_files[tid] = 1
+                    # Copy previews
+                    console.log(track.previews)
+                    console.log(mf_map[tid].subTracks[0].previews)
+                    track.previews = mf_map[tid].subTracks[0].previews
 
         # Enumerate media files excluding transit
         for mf, mi in inter.assetIn.mediaFiles
@@ -690,22 +706,17 @@ class InteractionPage
                 id = 'sub-abs-' + padz(count_sc, 2)
                 codec = track.codec
 
-                sub = document.createElement("track");
-                sub.kind = "captions";
-                sub.label = "English";
-                sub.srclang = "en";
-                sub.src = "captions/sintel-en.vtt";
-#                track.addEventListener("load", function() {
-#                    this.mode = "showing";
-#                video.textTracks[0].mode = "showing"; // thanks Firefox
-#                });
-#                this.appendChild(track);
+                sub = document.createElement("track")
+                sub.kind = "captions"
+                sub.label = "English"
+                sub.srclang = "en"
+                sub.src = track.previews[0]
 
-                sub_elements.push sub
+                sub_elements.push({node: sub, 'html-id': id})
                 # Add row
                 html += '<tr class="src">'
                 html += html_f
-                html += '<td id="' + id + '" rowspan="' + 1 + '" class="src row' + ti % 2 + ' col1">subtitles</td>'
+                html += '<td rowspan="' + 1 + '" class="src row' + ti % 2 + ' col1">subtitles</td>'
                 html += '<td id="' + id + '" class="src row' + cc % 2 + ' col2">' + codec + '</td>'
                 html += '</tr>'
                 html_f = ''
@@ -715,8 +726,6 @@ class InteractionPage
         document.getElementById('src-map').innerHTML = html
         @audioMan.updateAudioChannelSelect()
 
-        for ae in audio_elements
-            console.log(ae.toString())
         # Bind clicks
         g_InteractionPlayer = new InteractionPlayer(document.getElementById('interaction-video'),
                                                     video_elements,
@@ -728,8 +737,7 @@ class InteractionPage
         for ae, ci in audio_elements
             $('#' + ae['html-id']).bind 'click', g_InteractionPlayer.selectChannel.bind(g_InteractionPlayer, ci)
         for se, ci in sub_elements
-            id = 'sub-abs-' + padz(ci, 2)
-            $('#' + id).bind 'click', g_InteractionPlayer.selectSubtitles.bind(g_InteractionPlayer, ci)
+            $('#' + se['html-id']).bind 'click', g_InteractionPlayer.selectSubtitles.bind(g_InteractionPlayer, ci)
 
         # Video crop setup
         vCrop = inter.assetOut.videoStreams[0].cropdetect
@@ -749,6 +757,12 @@ class InteractionPage
         $('#interaction_player_setBlockOut').bind 'click', g_InteractionPlayer.setBlockOut.bind(g_InteractionPlayer)
         $('#interaction_player_setProgramIn').bind 'click', g_InteractionPlayer.setProgramIn.bind(g_InteractionPlayer)
         $('#interaction_player_setProgramOut').bind 'click', g_InteractionPlayer.setProgramOut.bind(g_InteractionPlayer)
+
+        $('#interaction_player_jumpLeft30').bind('click', ( -> g_InteractionPlayer.cueOffset(-30.0)).bind(g_InteractionPlayer))
+        $('#interaction_player_jumpLeft05').bind('click', ( -> g_InteractionPlayer.cueOffset(-5.0)).bind(g_InteractionPlayer))
+        $('#interaction_player_jumpRight05').bind('click', ( -> g_InteractionPlayer.cueOffset(5.0)).bind(g_InteractionPlayer))
+        $('#interaction_player_jumpRight30').bind('click', ( -> g_InteractionPlayer.cueOffset(30.0)).bind(g_InteractionPlayer))
+
         $('#interaction_player_cueBlockIn').bind 'click', g_InteractionPlayer.cueBlockIn.bind(g_InteractionPlayer)
         $('#interaction_player_cueBlockOut').bind 'click', g_InteractionPlayer.cueBlockOut.bind(g_InteractionPlayer)
         $('#interaction_player_cueProgramIn').bind 'click', g_InteractionPlayer.cueProgramIn.bind(g_InteractionPlayer)

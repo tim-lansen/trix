@@ -20,12 +20,19 @@
     button#interaction_player_setBlockRemove.playerButton_block &otimes;
     button#interaction_player_setBlockOut.playerButton_block }
     button#interaction_player_cueBlockOut.playerButton_block &rarrb;
-    button#interaction_player_play(style="font-size: 22px;padding-bottom: 2px;") &rtrif;
-    button#interaction_player_pause(style="font-size: 22px;padding-bottom: 2px;") &mid;&#8202;&mid;
-    button#interaction_player_cueProgramIn.playerButton_program &larrb;
+
     button#interaction_player_setProgramIn.playerButton_program [
-    button#interaction_player_setProgramOut.playerButton_program ]
+    button#interaction_player_cueProgramIn.playerButton_program &larrb;
+    button#interaction_player_jumpLeft30.playerButton_navigate << -30s
+    button#interaction_player_jumpLeft05.playerButton_navigate < -5s
+
+    button#interaction_player_play.playerButton &rtrif;
+    button#interaction_player_pause.playerButton &mid;&#8202;&mid;
+
+    button#interaction_player_jumpRight05.playerButton_navigate > +5s
+    button#interaction_player_jumpRight30.playerButton_navigate >> +30s
     button#interaction_player_cueProgramOut.playerButton_program &rarrb;
+    button#interaction_player_setProgramOut.playerButton_program ]
 
     br
     button#interaction_player_decreaseDelay &LeftTeeArrow; -50ms

@@ -63,7 +63,7 @@ def request_db_return_dl(cur, tdata, fields, condition):
     else:
         fstr = ','.join(fields)
     request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
-    # Logger.info('Request:\n{}\n'.format(request))
+    Logger.info('Request:\n{}\n'.format(request))
     result = []
     try:
         cur.execute(request)

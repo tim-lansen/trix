@@ -58,7 +58,7 @@ def ffmpeg_cropdetect(url,  video_track: MediaFile.VideoTrack, cd_black=0.08, cd
         cdxb = 50000
         cdyb = 50000
         start0 = int(start - 3)
-        command = 'ffmpeg -y -ss {start:.2f} -i {src} -ss 3 -vsync 0 -copyts -vframes {vframes} -filter_complex "[0:v:0]showinfo,cropdetect={cd0}:{cd1}:{cd2}[v]" -map [v] -f null {nul}' \
+        command = 'ffmpeg -y -ss {start:.2f} -i {src} -ss 3 -vsync 0 -copyts -vframes {vframes} -filter_complex [0:v:0]showinfo,cropdetect={cd0}:{cd1}:{cd2}[v] -map [v] -f null {nul}' \
                   ''.format(start=start0, src=url, vframes=frames, cd0=cd_black, cd1=2, cd2=cd_reset, nul=DEVNULL)
         Logger.debug('{}\n'.format(command))
         proc = Popen(command.split(' '), stderr=PIPE)
@@ -124,7 +124,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
 
     for sti, v in enumerate(mediafile.videoTracks):
         preview = v.ref_add()
-        preview.name = 'preview'
+        preview.name = 'preview-video'
         vout_refs.append(preview)
         preview.source.path = os.path.join(dir_preview.net_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
         preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
@@ -137,16 +137,33 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         else:
             filters.append('[0:v:{sti}]format=yuv420p,scale={pw}:{ph}[pv{sti}]'.format(sti=sti, pw=vp.width, ph=vp.height))
 
+    # Enumerate subtitles tracks, collect outputs for previews and extracted tracks
     for sti, s in enumerate(mediafile.subTracks):
-        preview = MediaFile()
-        preview.name = 'preview'
-        st = copy.deepcopy(s)
-        s.index = 0
-        preview.subTracks.append(st)
-        preview.source.path = os.path.join(dir_preview.net_path, '{}.s{}.preview.vtt'.format(mediafile.guid, sti))
-        preview.source.url = '{}/{}.s{}.preview.vtt'.format(dir_preview.web_path, mediafile.guid, sti)
-        vout_refs.append(preview)
-        outputs.append('-map s:{sti} -c:s webvtt {path}'.format(sti=sti, path=preview.source.path))
+        # Special case for 1-track subtitles only
+        if len(mediafile.videoTracks) == 0 and len(mediafile.audioTracks) == 0 and len(mediafile.subTracks) == 1:
+            subtitles = mediafile
+            st = s
+        else:
+            st = copy.deepcopy(s)
+            st.index = 0
+            subtitles = MediaFile(name='transit subtitles')
+            s.extract = subtitles.guid
+            subtitles.master.set(mediafile.guid.guid)
+            subtitles.subTracks.append(st)
+            subtitles.source.path = os.path.join(dir_transit.net_path,
+                                             '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
+            outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=sti, path=subtitles.source.path))
+            vout_trans.append(subtitles)
+        # ci = 0
+        subtitles_preview = MediaFile(name='preview-sub')
+        vout_refs.append(subtitles_preview)
+        subtitles_preview.master.set(subtitles.guid.guid)
+        subtitles_preview.isPreview = True
+        subtitles_preview.source.path = os.path.join(dir_preview.net_path,
+                                                 '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
+        subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
+        outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=sti, path=subtitles_preview.source.path))
+        st.previews.append(str(subtitles_preview.guid))
 
     # Enumerate audio tracks, collect pan filters and outputs for previews and extracted tracks
     for sti, a in enumerate(mediafile.audioTracks):
@@ -166,7 +183,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         # Add silencedetect filter for 1st audio track only
         audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
         for ci in range(a.channels):
-            audio_preview = MediaFile(name='preview audio')
+            audio_preview = MediaFile(name='preview-audio')
             vout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
             audio_preview.isPreview = True
@@ -323,7 +340,9 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     # Update info for every mediafile
     for mf in vout_arch + vout_refs + vout_trans:
         if mf.format.stream_count is None:
+            Logger.info('Updating info for file {} / '.format(mf.guid))
             combined_info(mf)
+            Logger.info('{}\n'.format(mf.guid))
 
     # Return complex object
     return {
@@ -556,7 +575,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
 
 def test_ffmpeg_cropdetect():
     from .combined_info import combined_info_mediafile
-    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AV)
+    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AVS)
     Logger.warning('Combined info:\n{}\n'.format(mf.videoTracks[0].dumps(indent=2)))
     cd = VideoStream.Cropdetect()
     cd.update_json(ffmpeg_cropdetect(mf.source.path, mf.videoTracks[0]))
