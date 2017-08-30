@@ -15,14 +15,16 @@
             #timeline-pb.interaction.player_timeline-pb
 
 
-    button#interaction_player_cueBlockIn.playerButton_block &larrb;
-    button#interaction_player_setBlockIn.playerButton_block {
-    button#interaction_player_setBlockRemove.playerButton_block &otimes;
-    button#interaction_player_setBlockOut.playerButton_block }
-    button#interaction_player_cueBlockOut.playerButton_block &rarrb;
+
+    //button#interaction_player_cueBlockIn.playerButton_block &larrb;
+    //button#interaction_player_setBlockIn.playerButton_block {
+    //button#interaction_player_setBlockRemove.playerButton_block &otimes;
+    //button#interaction_player_setBlockOut.playerButton_block }
+    //button#interaction_player_cueBlockOut.playerButton_block &rarrb;
 
     button#interaction_player_setProgramIn.playerButton_program [
     button#interaction_player_cueProgramIn.playerButton_program &larrb;
+    button#interaction_player_jumpLeft.playerButton_navigate |<
     button#interaction_player_jumpLeft30.playerButton_navigate << -30s
     button#interaction_player_jumpLeft05.playerButton_navigate < -5s
 
@@ -31,17 +33,19 @@
 
     button#interaction_player_jumpRight05.playerButton_navigate > +5s
     button#interaction_player_jumpRight30.playerButton_navigate >> +30s
+    button#interaction_player_jumpRight.playerButton_navigate >|
     button#interaction_player_cueProgramOut.playerButton_program &rarrb;
     button#interaction_player_setProgramOut.playerButton_program ]
+    #current-time.timecode 00:00:00.000
 
     br
     button#interaction_player_decreaseDelay &LeftTeeArrow; -50ms
     button#interaction_player_addSyncPoint &#9885;
     button#interaction_player_increaseDelay +50ms &map;
-    #current-time(style="float: left;width: 120px;text-align: center;padding-top: 8px;") 0.0
-    #audio-delay(style="float: left;width: 80px;text-align: center;padding-top: 8px;") 0ms
-    #audio-sync1(style="float: left;width: 120px;text-align: center;padding-top: 8px;") No sync point
-    #audio-sync2(style="float: left;width: 120px;text-align: center;padding-top: 8px;") No sync point
+
+    #audio-sync2.sync_point No sync point #2
+    #audio-sync1.sync_point No sync point #1
+    #audio-delay(style="float: right;width: 80px;text-align: center;padding-top: 8px;font-family: monospace;") 0ms
 
     br
     .interactions
@@ -171,6 +175,35 @@
                                                 option(value="1") 02-t00-c00
                         tr.propose.row1
                             td#pro-audio-layout-pull.propose.col1.clickable(colspan="2") ==&gt; pull channels ==^
+                        tr.propose.row0
+                            td#pro-sub-add.propose.col0(rowspan=2) Subtitles
+                            td.propose.col1
+                                select#pro-sub-lang
+                                    option(value="rus") Russian
+                                    option(value="eng") English
+                                    option(value="blank") Music &amp; Effects
+                                    option(value="fra") French
+                                    option(value="spa") Spanish
+                                    option(value="swe") Swedish
+                                    option(value="por") Portuguese
+                                    option(value="zho") Chinese
+                                    option(value="deu") German
+                                    option(value="nor") Norwegian
+                                    option(value="ita") Italian
+                                    option(value="ind") Indonesian
+                                    option(value="hin") Hindi
+                                    option(value="jpn") Japanese
+                                    option(value="fin") Finnish
+                                    option(value="ukr") Ukrainian
+                                    option(value="pol") Polish
+                                    option(value="ell") Modern Greek
+                        tr
+                            td.propose.col1
+                                select#pro-sub-type
+                                    option(value="1") Regular
+                                    option(value="2") Forced
+                                    option(value="3") Captions
+
 
                 td.setup.d3
                     table.dst

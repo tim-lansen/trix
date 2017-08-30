@@ -53,7 +53,7 @@ class InteractionPlayer
         @updateInterval = setInterval((->
             @updateTime()
             return
-        ).bind(this), 50)
+        ).bind(this), 40)
         @timeline_back.addEventListener 'click', @seek.bind(this), false
         return
 
@@ -158,6 +158,50 @@ class InteractionPlayer
         @_jumpToTime @timeEnd
         return
 
+    cueLeft: ->
+        debugger
+        time = @audio_inter[@LI].audio.currentTime
+        # Collect all cues to array
+        arr = [@timeStart, @timeEnd, @duration]
+        aint = @audio_inter[@LI]
+        if aint.sync1 != null
+            arr.push(aint.sync1[0])
+            if aint.sync2 != null
+                arr.push(aint.sync2[0])
+        arr = arr.sort((a, b) ->
+            return a - b
+        )
+        pt = 0.0
+        for t in arr
+            if t + 0.1 - time > 0
+                time = pt
+                break
+            pt = t
+        @_jumpToTime time
+        return
+
+    cueRight: ->
+        debugger
+        time = @audio_inter[@LI].audio.currentTime
+        # Collect all cues to array
+        arr = [@timeEnd, @timeStart, 0.0]
+        aint = @audio_inter[@LI]
+        if aint.sync1 != null
+            arr.push(aint.sync1[0])
+            if aint.sync2 != null
+                arr.push(aint.sync2[0])
+        arr = arr.sort((a, b) ->
+            return b - a
+        )
+        pt = @duration
+        for t in arr
+            if time + 0.1 - t > 0
+                time = pt
+                break
+            pt = t
+        @_jumpToTime time
+        return
+
     # Seek to start of current block
 
     cueBlockIn: ->
@@ -202,18 +246,49 @@ class InteractionPlayer
         $('#' + @audio_inter[@RI]['html-id']).addClass 'right'
         return
 
+    _deactivateProSubAdd: ->
+        $('#pro-sub-add').removeClass('clickable')
+        $('#pro-sub-add').unbind 'click'
+        return
+
+    _activateProSubAdd: ->
+        $('#pro-sub-add').bind('click', (->
+            # Add audio layout to output
+            console.log('====================\npro-sub-add')
+            lang = document.getElementById('pro-audio-lang').value
+            layout = document.getElementById('pro-audio-layout-select').value
+            cl = []
+            i = 0
+            for pos, idx in AudioMan.audioLayouts[layout].layout
+                id = 'map' + idx + '-' + pos + '-select'
+                console.log(id)
+                sel = document.getElementById(id).value
+                console.log(sel)
+                cl.push sel
+                i++
+            console.log(cl)
+            console.log('====================')
+            @interaction_internal.addAudioOutput(lang, AudioMan.audioLayouts[layout].code, cl)
+            return
+        ).bind(@))
+        $('#pro-sub-add').addClass('clickable')
+        return
+
     selectSubtitles: (si) ->
+        # TODO: auto-select source language code
         if @SI != undefined
             @subtitles[@SI].node.mode = 'hidden'
             @video.textTracks[@SI].mode = 'hidden'
             $('#' + @subtitles[@SI]['html-id']).removeClass 'activesubs'
         if @SI == si
             @SI = undefined
+            @_deactivateProSubAdd()
         else
             @SI = si
             @subtitles[@SI].node.mode = 'showing'
             @video.textTracks[@SI].mode = 'showing'
             $('#' + @subtitles[@SI]['html-id']).addClass 'activesubs'
+            @_activateProSubAdd()
         return
 
     seek: (e) ->
@@ -237,7 +312,7 @@ class InteractionPlayer
             return 'No sync point'
         elm.style.left = (100.0 * sync[0]/@duration) + '%'
         elm.style.display = 'block'
-        return 't:'+sync[0].toFixed(1)+' d:'+sync[1].toFixed(2)
+        return Timecode.timecode(sync[0])+' ('+sync[1].toFixed(2)+')'
 
     updateDelay: ->
         @doc_audioDelay.innerHTML = @audio_inter[@LI].delay_ms + 'ms'
@@ -284,7 +359,7 @@ class InteractionPlayer
         else
             videoCalcTime = @timeOffset + @timeBend*audioCurrentTime
         delta = videoCurrentTime - videoCalcTime
-        @sync_counter = 2
+        @sync_counter = 4
         if @video.readyState > 0 and Math.abs(delta) > 0.05
             @video.currentTime = videoCalcTime
             @sync_counter = 20
@@ -295,9 +370,10 @@ class InteractionPlayer
         if @update_counter < 1
             vct = @video.currentTime
             delay_ms = parseInt(1000.0 * (vct - @audio_inter[@LI].audio.currentTime))
-            @doc_currentTime.innerHTML = vct.toFixed(2) + ' (' + delay_ms + 'ms)'
+            @doc_currentTime.innerHTML = Timecode.timecode(vct)
+            #+ ' (' + delay_ms + 'ms)'
             @timeline_pb.style.width = 100 * @video.currentTime / @video.duration + '%'
-            @update_counter = 10
+            @update_counter = 3
         @sync_counter -= 1
         if @sync_counter < 1
             @synchronize()

@@ -1,5 +1,4 @@
 
-#$ = require('jquery')
 ApiConfig = require('./api_config')
 
 
@@ -29,10 +28,10 @@ class Utils
 
 class Templates
     @templates:
-        interactionPage: require('../build/jade_tmpl/interactionPage')
-        moviesPage:      require('../build/jade_tmpl/moviesPage')
-        playerPage:      require('../build/jade_tmpl/playerPage')
-        seriesPage:      require('../build/jade_tmpl/seriesPage')
+        interactionsPage: require('../build/jade_tmpl/interactionsPage')
+        moviesPage:       require('../build/jade_tmpl/moviesPage')
+        playerPage:       require('../build/jade_tmpl/playerPage')
+        seriesPage:       require('../build/jade_tmpl/seriesPage')
     @get: (name) ->
         return @templates[name + 'Page']
 
@@ -73,7 +72,7 @@ class App extends AppInterface
     @sections: [
         #{capt: 'Movies',      hash: 'movies',      constructor: require('./pages/movies')}
         #{capt: 'Series',      hash: 'series',      constructor: require('./pages/series')}
-        {capt: 'Interaction', hash: 'interaction', constructor: InteractionPage}
+        {capt: 'Interactions', hash: 'interactions', constructor: InteractionsPage}
         {capt: 'Tasks',       hash: 'monitor',     constructor: null}
         {capt: 'Profiles',    hash: 'profiles',    constructor: null}
     ]

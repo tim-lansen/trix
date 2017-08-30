@@ -41,10 +41,10 @@
                         return 'dummy'
 
                 files:
-                    "build/jade_tmpl/interactionPage.js": ["jade/pages/interactionPage.jade"]
-                    "build/jade_tmpl/moviesPage.js":      ["jade/pages/moviesPage.jade"]
-                    "build/jade_tmpl/playerPage.js":      ["jade/pages/playerPage.jade"]
-                    "build/jade_tmpl/seriesPage.js":      ["jade/pages/seriesPage.jade"]
+                    "build/jade_tmpl/interactionsPage.js": ["jade/pages/interactionsPage.jade"]
+                    "build/jade_tmpl/moviesPage.js":       ["jade/pages/moviesPage.jade"]
+                    "build/jade_tmpl/playerPage.js":       ["jade/pages/playerPage.jade"]
+                    "build/jade_tmpl/seriesPage.js":       ["jade/pages/seriesPage.jade"]
 
         less:
             build:
@@ -104,7 +104,7 @@
             jade: {
                 options: {
                     src: [
-                        'build/jade_tmpl/interactionPage.js'
+                        'build/jade_tmpl/interactionsPage.js'
                         'build/jade_tmpl/moviesPage.js'
                         'build/jade_tmpl/playerPage.js'
                         'build/jade_tmpl/seriesPage.js'
@@ -142,7 +142,7 @@
                         'js/models_py/*.coffee'
                         'js/models/InteractionInternal.coffee'
                         'js/pages/ui/*.coffee'
-                        'js/pages/interaction.coffee'
+                        'js/pages/interactions.coffee'
                         'js/main.coffee'
                     ]
                 options:

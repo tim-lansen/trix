@@ -30,43 +30,6 @@ padz = (number, size) ->
         pad -= 1
     z + number
 
-zeroez = '0000000000000000'
-
-zpad = (strnum, size) ->
-    # Up to 16 leading zeroes
-    x = strnum.toString()
-    if x.length < size
-        x = zeroez.substring(0, size - (x.length)) + x
-    x
-
-odev = (number) ->
-    if number % 2 then 'odd' else 'even'
-
-createStyleSequence = (baseName, h, s, l, a, hH, sH, lH, aH, rotOddEvenH, gainOddEvenL, steps) ->
-    css = ''
-    ho = 0
-    lig = 0
-    # var sat = 0;
-    # var oel = 0;
-    i = 0
-    while i < steps
-        oe = i % 2
-        ho = (h + (i - oe) * 360 / steps + rotOddEvenH * oe) % 360
-        lig = l + gainOddEvenL * oe
-        css += '.' + baseName + padz(i, 2) + '{background-color:hsla(' + ho + ',' + s + '%,' + lig + '%,' + a + ');} '
-        ho = (hH + (i - oe) * 360 / steps + rotOddEvenH * oe) % 360
-        lig = lH + gainOddEvenL * oe
-        css += '.' + baseName + padz(i, 2) + ':hover{background-color:hsla(' + ho + ',' + sH + '%,' + lig + '%,' + aH + ');} '
-        i++
-    style = document.createElement('style')
-    if style.styleSheet
-        style.styleSheet.cssText = css
-    else
-        style.appendChild document.createTextNode(css)
-    document.getElementsByTagName('head')[0].appendChild style
-    return
-
-
 g_InteractionPlayer = null
 
 class AudioMan
@@ -175,8 +138,8 @@ class AudioMan
         return
 
 
-class InteractionPage
-    @hash: 'interaction'
+class InteractionsPage
+    @hash: 'interactions'
 
     constructor: (app) ->
         @app = app
@@ -560,10 +523,12 @@ class InteractionPage
             $('#interaction_player_setProgramIn').unbind 'click'
             $('#interaction_player_setProgramOut').unbind 'click'
 
+            $('#interaction_player_jumpLeft').unbind 'click'
             $('#interaction_player_jumpLeft30').unbind 'click'
             $('#interaction_player_jumpLeft05').unbind 'click'
             $('#interaction_player_jumpRight05').unbind 'click'
             $('#interaction_player_jumpRight30').unbind 'click'
+            $('#interaction_player_jumpRight').unbind 'click'
 
             $('#interaction_player_cueBlockIn').unbind 'click'
             $('#interaction_player_cueBlockOut').unbind 'click'
@@ -763,6 +728,9 @@ class InteractionPage
         $('#interaction_player_jumpRight05').bind('click', ( -> g_InteractionPlayer.cueOffset(5.0)).bind(g_InteractionPlayer))
         $('#interaction_player_jumpRight30').bind('click', ( -> g_InteractionPlayer.cueOffset(30.0)).bind(g_InteractionPlayer))
 
+        $('#interaction_player_jumpLeft').bind 'click', g_InteractionPlayer.cueLeft.bind(g_InteractionPlayer)
+        $('#interaction_player_jumpRight').bind 'click', g_InteractionPlayer.cueRight.bind(g_InteractionPlayer)
+
         $('#interaction_player_cueBlockIn').bind 'click', g_InteractionPlayer.cueBlockIn.bind(g_InteractionPlayer)
         $('#interaction_player_cueBlockOut').bind 'click', g_InteractionPlayer.cueBlockOut.bind(g_InteractionPlayer)
         $('#interaction_player_cueProgramIn').bind 'click', g_InteractionPlayer.cueProgramIn.bind(g_InteractionPlayer)
@@ -783,8 +751,8 @@ class InteractionPage
         return
 
     proposeSelectMovie: (index) ->
-        @interaction_internal.assetOut.name = @content_cards[index].title
-        @interaction_internal.assetOut.programId = @content_cards[index].id
+        @interaction_internal.asset.name = @content_cards[index].title
+        @interaction_internal.asset.programId = @content_cards[index].id
         @interaction_internal.showMovie()
         return
 
