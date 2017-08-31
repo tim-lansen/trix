@@ -157,3 +157,26 @@ Tools
     sudo apt-get install ffmpeg
     sudo apt-get install mediainfo
     sudo apt-get install sox
+
+# Custom FFMPEG build
+sudo apt-get update
+# Dependencies for server (no ffplay)
+sudo apt-get -y install autoconf automake build-essential libass-dev libfreetype6-dev libtheora-dev libtool libvorbis-dev pkg-config texinfo wget zlib1g-dev
+
+mkdir ~/ffmpeg_sources
+# Yasm
+sudo apt-get install yasm
+# Nasm
+cd ~/ffmpeg_sources
+wget http://www.nasm.us/pub/nasm/releasebuilds/2.13.01/nasm-2.13.01.tar.bz2
+tar xjvf nasm-2.13.01.tar.bz2
+cd nasm-2.13.01
+./autogen.sh
+PATH="$HOME/bin:$PATH" ./configure --prefix="$HOME/ffmpeg_build" --bindir="$HOME/bin"
+PATH="$HOME/bin:$PATH" make
+make install
+
+
+
+https://ffmpeg.zeranoe.com/builds/source/ffmpeg/ffmpeg-3.3.3.tar.xz
+

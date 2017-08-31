@@ -15,4 +15,6 @@
 *.SDI
 *.LST
 node_modules/*
-
+tools/include/*
+bin/
+obj/
