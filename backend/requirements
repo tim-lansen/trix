@@ -158,10 +158,21 @@ Tools
     sudo apt-get install mediainfo
     sudo apt-get install sox
 
+
+
 # Custom FFMPEG build
 sudo apt-get update
 # Dependencies for server (no ffplay)
 sudo apt-get -y install autoconf automake build-essential libass-dev libfreetype6-dev libtheora-dev libtool libvorbis-dev pkg-config texinfo wget zlib1g-dev
+
+# x265
+sudo apt-get install mercurial cmake cmake-curses-gui build-essential
+cd ~/
+hg clone https://bitbucket.org/multicoreware/x265
+cd x265/build/linux
+./make-Makefiles.bash
+make
+
 
 mkdir ~/ffmpeg_sources
 # Yasm

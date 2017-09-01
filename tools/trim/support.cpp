@@ -1,7 +1,7 @@
 #include "support.h"
 
 
-bool ReadFile(int file, char *buffer, DWORD number_of_bytes, DWORD *number_of_bytes_read, void *dummy)
+bool ReadFile(int file, void * buffer, DWORD number_of_bytes, DWORD *number_of_bytes_read, void *dummy)
 {
     ssize_t nbr = read(file, buffer, number_of_bytes);
     if(number_of_bytes_read)
@@ -9,7 +9,7 @@ bool ReadFile(int file, char *buffer, DWORD number_of_bytes, DWORD *number_of_by
     return (nbr > 0);
 }
 
-bool WriteFile(int file, const char *buffer, DWORD number_of_bytes, DWORD *number_of_bytes_written, void *dummy)
+bool WriteFile(int file, const void * buffer, DWORD number_of_bytes, DWORD *number_of_bytes_written, void *dummy)
 {
     ssize_t nb = write(file, buffer, number_of_bytes);
     if(number_of_bytes_written)

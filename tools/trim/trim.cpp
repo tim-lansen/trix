@@ -33,7 +33,7 @@ typedef enum {
 }OPERATION;
 
 OPERATION g_Operation;
-
+/*
 __inline u_int _read_from_pipe_(char* buffer, int &frame_number, u_int buffer_capacity)
 {
     u_int frame_size = cPattern::get_frame_size();
@@ -83,6 +83,48 @@ __inline u_int _write_to_pipe_(char* buffer, int &frame_number, u_int buffer_cap
     }
     frame_number++;
     return 1;
+}*/
+
+
+__inline u_int read_from_pipe(FrameBuffer &fb, int &frame_number)
+{
+    u_int frame_size = fb.get_frame_size();
+    u_int left = frame_size;
+    unsigned char * buffer = fb.get_frame_pointer(frame_number);
+    DWORD nBytesRead = 0;
+    for(; left > 0;) {
+        if(ReadFile(stdIn, buffer, g_PipeBufferSize, &nBytesRead, NULL)) {
+            left -= nBytesRead;
+            if(nBytesRead != g_PipeBufferSize && left) {
+                fprintf(stderr, "frame size error (%08x)\n", frame_size - left);
+                fb.set_frame_size(frame_size - left);
+                break;
+            }
+            buffer += nBytesRead;
+        } else {
+            fprintf(stderr, "=== Read error ===\n");
+            return 0;
+        }
+    }
+    frame_number++;
+    return 1;
+}
+__inline u_int write_to_pipe(FrameBuffer &fb, int &frame_number)
+{
+    u_int frame_size = fb.get_frame_size();
+    unsigned char * buffer = fb.get_frame_pointer(frame_number);
+    DWORD nBytesWrite = 0;
+    for(; frame_size > 0;) {
+        if(WriteFile(stdOut, buffer, frame_size, &nBytesWrite, NULL)) {
+            frame_size -= nBytesWrite;
+            buffer += nBytesWrite;
+        } else {
+            fprintf(stderr, "=== Write error ===\n");
+            return 0;
+        }
+    }
+    frame_number++;
+    return 1;
 }
 
 
@@ -90,19 +132,18 @@ int scan(int frame_skip, int pattern_length, char* output, int global_offset)
 {
     // Read stdin
     // scan for sequence of 'pattern_length' unique frames
-    u_int memory_capacity = pattern_length + 2;
+    u_int memory_capacity = pattern_length + 3;
     cPattern scanner;
-    cPattern::init_scan(&scanner, frame_skip, pattern_length, memory_capacity);
+    scanner.init_scan(frame_skip, pattern_length, memory_capacity);
 
     int frame_number = 0;
-
-    for (;;)
+    bool locked = false;
+    for (; !locked;)
     {
         fprintf(stderr, "frame #%d \r", frame_number);
-        if (!_read_from_pipe_(frame_data, frame_number, memory_capacity))
+        if (!read_from_pipe(scanner.m_frame_buffer, frame_number))
             goto FALLOUT;
-        if (scanner.data_lock())
-            break;
+        locked = scanner.data_lock();
     }
 FALLOUT:
     fprintf(stderr, "\nScanned %d frames\n", frame_number);
@@ -119,13 +160,12 @@ int test(char* manifest)
     int feeding_frame_number;
     cPattern scanner, pattern;
     fprintf(stderr, "=== TEST ===\n");
-    u_int ff = cPattern::init_trim(&pattern, manifest);
-    u_int memory_capacity = ff;
-    //char* frame_data = (char*)malloc((memory_capacity + (memory_capacity >> 1)) * cPattern::get_frame_size());
+    u_int ff = pattern.init_trim(manifest);
+    u_int memory_capacity = ff + 5;
     int frame_read = 0;
     fprintf(stderr, "Memory capacity: %d frames\n", memory_capacity);
 
-    cPattern::init_scan_trim(&scanner, pattern.get_pattern_length(), memory_capacity);
+    scanner.init_scan_trim(pattern.get_pattern_length(), memory_capacity);
 
     pattern.dump();
     scanner.dump();
@@ -133,22 +173,23 @@ int test(char* manifest)
     fprintf(stderr, "=== Preload ===\n");
     for (; frame_read < pattern.get_pattern_length();)
     {
-        fprintf(stderr, "Preload frame #%d\r", frame_read);
-        if (!_read_from_pipe_(frame_data, frame_read, memory_capacity))
+        fprintf(stderr, "Preload frame #%d \r", frame_read);
+        if (!read_from_pipe(scanner.m_frame_buffer, frame_read))
             return -1;
+        scanner.crc_frame();
     }
     fprintf(stderr, "\n=== Search pattern ===\n");
     for (;;)
     {
-        fprintf(stderr, "Scan: read frame #%d\r", frame_read);
-        if (!_read_from_pipe_(frame_data, frame_read, memory_capacity))
-            return -1;
-        scanner.set_frame(frame_read);
-        if (scanner == pattern)
+        if(scanner == pattern)
             break;
+        fprintf(stderr, "Scan: read frame #%d \r", frame_read);
+        if (!read_from_pipe(scanner.m_frame_buffer, frame_read))
+            return -1;
+        scanner.crc_frame();
     }
     fprintf(stderr, "\n=== Pattern found at %d ===\n", frame_read - pattern.get_pattern_length());
-    return frame_read - pattern.get_pattern_length();
+    return 0;
 }
 
 
@@ -158,16 +199,16 @@ int trim(char* manifest_in, char* manifest_out)
     int feeding_frame_number;
     cPattern scanner, pattern_in, pattern_out;
     fprintf(stderr, "=== TRIM ===\n");
-    u_int ff1 = cPattern::init_trim(&pattern_in, manifest_in);
-    u_int ff2 = cPattern::init_trim(&pattern_out, manifest_out);
+    u_int ff1 = pattern_in.init_trim(manifest_in);
+    u_int ff2 = pattern_out.init_trim(manifest_out);
     u_int memory_capacity = max(ff1, ff2);
 
-    char* frames = (char*)malloc((memory_capacity + (memory_capacity >> 1)) * cPattern::get_frame_size());
+    //char* frames = (char*)malloc((memory_capacity + (memory_capacity >> 1)) * cPattern::get_frame_size());
     int frame_read = 0, passed_frames = 0;
 
     fprintf(stderr, "Memory capacity: %d frames\n", memory_capacity);
 
-    cPattern::init_scan_trim(&scanner, pattern_in.get_pattern_length(), memory_capacity, frames);
+    scanner.init_scan_trim(pattern_in.get_pattern_length(), memory_capacity);
     //cPattern::init_scan_trim(&scanner_out, pattern_out.get_pattern_length(), memory_capacity, frame_data);
 
     pattern_in.dump();
@@ -178,24 +219,24 @@ int trim(char* manifest_in, char* manifest_out)
     for (; frame_read < pattern_in.get_pattern_length();)
     {
         fprintf(stderr, "Preload frame #%d\r", frame_read);
-        if(!_read_from_pipe_(frames, frame_read, memory_capacity))
+        if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
             goto FALLOUT2;
-        scanner.process(frame_read - 1);
+        scanner.crc_frame();
     }
     fprintf(stderr, "\n=== Search In pattern ===\n");
     for (;;)
     {
-        fprintf(stderr, "Scan: read frame #%d\r", frame_read);
-        if (!_read_from_pipe_(frames, frame_read, memory_capacity))
-            goto FALLOUT2;
-        scanner.set_frame(frame_read);
-        if (scanner == pattern_in)
+        if(scanner == pattern_in)
             break;
+        fprintf(stderr, "Scan: read frame #%d\r", frame_read);
+        if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
+            goto FALLOUT2;
+        scanner.crc_frame();
     }
     fprintf(stderr, "\n=== In pattern found at %d ===\n", frame_read - pattern_in.get_pattern_length());
 
     // Re-init scanner
-    cPattern::init_scan_trim(&scanner, pattern_out.get_pattern_length(), memory_capacity);
+    scanner.init_scan_trim(pattern_out.get_pattern_length(), memory_capacity);
 
     // Start feeding frames
     // We have to get frame_number-feeding_frame_number == g_PatternOut.get_length() + g_PatternOut.get_offset()
@@ -207,15 +248,16 @@ int trim(char* manifest_in, char* manifest_out)
     {
         // Read (-stab) more frames to buffer
         fprintf(stderr, "Stab: read frame #%d\r", frame_read);
-        if (!_read_from_pipe_(frames, frame_read, memory_capacity))
+        if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
             goto FALLOUT2;
+        scanner.crc_frame();
         stab--;
     }
     while (stab < 0)
     {
         // Feed (stab) frames to stdout
         fprintf(stderr, "Stab: feed frame #%d\r", feeding_frame_number);
-        if (!_write_to_pipe_(frame_data, feeding_frame_number, memory_capacity))
+        if (!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
             goto FALLOUT2;
         stab++;
     }
@@ -227,14 +269,14 @@ int trim(char* manifest_in, char* manifest_out)
     fprintf(stderr, "\n=== Read-N-Feed %d ===\n", feeding_frame_number);
     for (;;)
     {
-        if (!_write_to_pipe_(frame_data, feeding_frame_number, memory_capacity))
-            goto FALLOUT2;
-        if (!_read_from_pipe_(frame_data, frame_read, memory_capacity))
-            goto FALLOUT2;
-        passed_frames++;
-        scanner.set_frame(frame_read);
-        if (scanner == pattern_out)
+        if(scanner == pattern_out)
             break;
+        if (!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
+            goto FALLOUT2;
+        if (!read_from_pipe(scanner.m_frame_buffer, frame_read))
+            goto FALLOUT2;
+        scanner.crc_frame();
+        passed_frames++;
     }
     fprintf(stderr, "=== Out-pattern found at #%d ===\n", frame_read - pattern_out.get_pattern_length());
 #if PASS_TAIL
@@ -279,6 +321,7 @@ FALLOUT2:
 
 int Parse_Params(int argc, char **argv)
 {
+    int result = 0;
     if (argc < 4)
     {
         fprintf(stderr, Usage_String);
@@ -427,7 +470,7 @@ int Parse_Params(int argc, char **argv)
 #endif
     int frame_size = av_image_get_buffer_size(g_PixelFormat, width, height, round);
     fprintf(stderr, "Frame size (align=%d): %d (0x%X)\n", round, frame_size, frame_size);
-    cPattern::set_frame_size(frame_size);
+    FrameBuffer::init_frame_size(frame_size);
     if (g_Operation == op_scan)
     {
         if (!g_Output)
@@ -443,9 +486,9 @@ int Parse_Params(int argc, char **argv)
     }
     else if (g_Operation == op_test)
     {
-        return test(g_Pin);
+        result = test(g_Pin);
     }
-    return 0;
+    return result;
 }
 
 
@@ -457,6 +500,8 @@ void Usage()
 
 int main(int argc, char **argv)
 {
-    return Parse_Params(argc, argv);
+    int result = Parse_Params(argc, argv);
+    fprintf(stderr, "Done\n");
+    return result;
 }
 

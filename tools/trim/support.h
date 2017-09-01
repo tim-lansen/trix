@@ -57,9 +57,9 @@
         //#define sprintf_s snprintf
         #define __inline inline
 
-        bool ReadFile(int file, char *buffer, DWORD number_of_bytes, DWORD *number_of_bytes_read, void *dummy);
+        bool ReadFile(int file, void * buffer, DWORD number_of_bytes, DWORD *number_of_bytes_read, void *dummy);
         
-        bool WriteFile(int file, const char *buffer, DWORD number_of_bytes, DWORD *number_of_bytes_written, void *dummy);
+        bool WriteFile(int file, const void * buffer, DWORD number_of_bytes, DWORD *number_of_bytes_written, void *dummy);
 
     #else
         #error 'Operating system is not supported'
