@@ -1,5 +1,6 @@
 // sudo apt-get install libavutil-dev
 
+#include <stdarg.h>
 
 extern "C" {
 #include <libavutil/imgutils.h>
@@ -16,13 +17,11 @@ int stdIn = 0, stdOut = 1;
 
 
 int g_PipeBufferSize = 0;
-char* g_Output = NULL;
-char* g_Pin = NULL;
-char* g_Pout = NULL;
-u_int g_TrimStart = 0;
-u_int g_TrimLength = 0;
-u_int g_TrimEnd = 0;
-int g_PatternOffset = 0;
+//char* g_Output = NULL;
+//char* g_Pin = NULL;
+//char* g_Pout = NULL;
+//u_int g_TrimStart = 0;
+//int g_PatternOffset = 0;
 //PIX_FMT_DESC* g_PixelFormat = NULL;
 AVPixelFormat g_PixelFormat = AV_PIX_FMT_NONE;
 
@@ -32,7 +31,7 @@ typedef enum {
     op_trim
 }OPERATION;
 
-OPERATION g_Operation;
+
 /*
 __inline u_int _read_from_pipe_(char* buffer, int &frame_number, u_int buffer_capacity)
 {
@@ -47,7 +46,7 @@ __inline u_int _read_from_pipe_(char* buffer, int &frame_number, u_int buffer_ca
             left -= nBytesRead;
             if (nBytesRead != g_PipeBufferSize && left)
             {
-                fprintf(stderr, "frame size error (%08x)\n", frame_size - left);
+                clog(stderr, "frame size error (%08x)\n", frame_size - left);
                 cPattern::set_frame_size(frame_size - left);
                 break;
             }
@@ -55,7 +54,7 @@ __inline u_int _read_from_pipe_(char* buffer, int &frame_number, u_int buffer_ca
         }
         else
         {
-            fprintf(stderr, "=== Read error ===\n");
+            clog(stderr, "=== Read error ===\n");
             return 0;
         }
     }
@@ -77,13 +76,26 @@ __inline u_int _write_to_pipe_(char* buffer, int &frame_number, u_int buffer_cap
         }
         else
         {
-            fprintf(stderr, "=== Write error ===\n");
+            clog(stderr, "=== Write error ===\n");
             return 0;
         }
     }
     frame_number++;
     return 1;
 }*/
+
+
+bool g_Log2console = true;
+
+void clog(_IO_FILE *std, const char *format, ...)
+{
+    if(g_Log2console) {
+        va_list arglist;
+        va_start(arglist, format);
+        vfprintf(std, format, arglist);
+        va_end(arglist);
+    }
+}
 
 
 __inline u_int read_from_pipe(FrameBuffer &fb, int &frame_number)
@@ -96,13 +108,13 @@ __inline u_int read_from_pipe(FrameBuffer &fb, int &frame_number)
         if(ReadFile(stdIn, buffer, g_PipeBufferSize, &nBytesRead, NULL)) {
             left -= nBytesRead;
             if(nBytesRead != g_PipeBufferSize && left) {
-                fprintf(stderr, "frame size error (%08x)\n", frame_size - left);
+                clog(stderr, "frame size error (%08x)\n", frame_size - left);
                 fb.set_frame_size(frame_size - left);
                 break;
             }
             buffer += nBytesRead;
         } else {
-            fprintf(stderr, "=== Read error ===\n");
+            clog(stderr, "=== Read error ===\n");
             return 0;
         }
     }
@@ -119,7 +131,7 @@ __inline u_int write_to_pipe(FrameBuffer &fb, int &frame_number)
             frame_size -= nBytesWrite;
             buffer += nBytesWrite;
         } else {
-            fprintf(stderr, "=== Write error ===\n");
+            clog(stderr, "=== Write error ===\n");
             return 0;
         }
     }
@@ -128,7 +140,7 @@ __inline u_int write_to_pipe(FrameBuffer &fb, int &frame_number)
 }
 
 
-int scan(int frame_skip, int pattern_length, char* output, int global_offset)
+int scan(int frame_skip, int pattern_length, char* output)
 {
     // Read stdin
     // scan for sequence of 'pattern_length' unique frames
@@ -140,17 +152,17 @@ int scan(int frame_skip, int pattern_length, char* output, int global_offset)
     bool locked = false;
     for (; !locked;)
     {
-        fprintf(stderr, "frame #%d \r", frame_number);
+        clog(stderr, "frame #%d \r", frame_number);
         if (!read_from_pipe(scanner.m_frame_buffer, frame_number))
             goto FALLOUT;
         locked = scanner.data_lock();
     }
 FALLOUT:
-    fprintf(stderr, "\nScanned %d frames\n", frame_number);
+    clog(stderr, "\nScanned %d frames\n", frame_number);
 #ifdef WINDOWS
     CloseHandle(stdIn);
 #endif
-    return scanner.data_write_out(output, global_offset);
+    return scanner.data_write_out(output);
 }
 
 
@@ -159,36 +171,36 @@ int test(char* manifest)
     int stab;
     int feeding_frame_number;
     cPattern scanner, pattern;
-    fprintf(stderr, "=== TEST ===\n");
+    clog(stderr, "=== TEST ===\n");
     u_int ff = pattern.init_trim(manifest);
     u_int memory_capacity = ff + 5;
     int frame_read = 0;
-    fprintf(stderr, "Memory capacity: %d frames\n", memory_capacity);
+    clog(stderr, "Memory capacity: %d frames\n", memory_capacity);
 
     scanner.init_scan_trim(pattern.get_pattern_length(), memory_capacity);
 
     pattern.dump();
     scanner.dump();
 
-    fprintf(stderr, "=== Preload ===\n");
+    clog(stderr, "=== Preload ===\n");
     for (; frame_read < pattern.get_pattern_length();)
     {
-        fprintf(stderr, "Preload frame #%d \r", frame_read);
+        clog(stderr, "Preload frame #%d \r", frame_read);
         if (!read_from_pipe(scanner.m_frame_buffer, frame_read))
             return -1;
         scanner.crc_frame();
     }
-    fprintf(stderr, "\n=== Search pattern ===\n");
+    clog(stderr, "\n=== Search pattern ===\n");
     for (;;)
     {
         if(scanner == pattern)
             break;
-        fprintf(stderr, "Scan: read frame #%d \r", frame_read);
+        clog(stderr, "Scan: read frame #%d \r", frame_read);
         if (!read_from_pipe(scanner.m_frame_buffer, frame_read))
             return -1;
         scanner.crc_frame();
     }
-    fprintf(stderr, "\n=== Pattern found at %d ===\n", frame_read - pattern.get_pattern_length());
+    clog(stderr, "\n=== Pattern found at %d ===\n", frame_read - pattern.get_pattern_length());
     return 0;
 }
 
@@ -198,7 +210,7 @@ int trim(char* manifest_in, char* manifest_out)
     int stab;
     int feeding_frame_number;
     cPattern scanner, pattern_in, pattern_out;
-    fprintf(stderr, "=== TRIM ===\n");
+    clog(stderr, "=== TRIM ===\n");
     u_int ff1 = pattern_in.init_trim(manifest_in);
     u_int ff2 = pattern_out.init_trim(manifest_out);
     u_int memory_capacity = max(ff1, ff2);
@@ -206,7 +218,7 @@ int trim(char* manifest_in, char* manifest_out)
     //char* frames = (char*)malloc((memory_capacity + (memory_capacity >> 1)) * cPattern::get_frame_size());
     int frame_read = 0, passed_frames = 0;
 
-    fprintf(stderr, "Memory capacity: %d frames\n", memory_capacity);
+    clog(stderr, "Memory capacity: %d frames\n", memory_capacity);
 
     scanner.init_scan_trim(pattern_in.get_pattern_length(), memory_capacity);
     //cPattern::init_scan_trim(&scanner_out, pattern_out.get_pattern_length(), memory_capacity, frame_data);
@@ -215,25 +227,25 @@ int trim(char* manifest_in, char* manifest_out)
     pattern_out.dump();
     scanner.dump();
 
-    fprintf(stderr, "=== Preload ===\n");
+    clog(stderr, "=== Preload ===\n");
     for (; frame_read < pattern_in.get_pattern_length();)
     {
-        fprintf(stderr, "Preload frame #%d\r", frame_read);
+        clog(stderr, "Preload frame #%d\r", frame_read);
         if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
             goto FALLOUT2;
         scanner.crc_frame();
     }
-    fprintf(stderr, "\n=== Search In pattern ===\n");
+    clog(stderr, "\n=== Search In pattern ===\n");
     for (;;)
     {
         if(scanner == pattern_in)
             break;
-        fprintf(stderr, "Scan: read frame #%d\r", frame_read);
+        clog(stderr, "Scan: read frame #%d\r", frame_read);
         if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
             goto FALLOUT2;
         scanner.crc_frame();
     }
-    fprintf(stderr, "\n=== In pattern found at %d ===\n", frame_read - pattern_in.get_pattern_length());
+    clog(stderr, "\n=== In pattern found at %d ===\n", frame_read - pattern_in.get_pattern_length());
 
     // Re-init scanner
     scanner.init_scan_trim(pattern_out.get_pattern_length(), memory_capacity);
@@ -243,11 +255,11 @@ int trim(char* manifest_in, char* manifest_out)
 
     feeding_frame_number = frame_read - pattern_in.get_pattern_length();
     stab = pattern_out.get_pattern_length() - pattern_in.get_pattern_length();
-    fprintf(stderr, "Stab: %d\n", stab);
+    clog(stderr, "Stab: %d\n", stab);
     while (stab > 0)
     {
         // Read (-stab) more frames to buffer
-        fprintf(stderr, "Stab: read frame #%d\r", frame_read);
+        clog(stderr, "Stab: read frame #%d\r", frame_read);
         if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
             goto FALLOUT2;
         scanner.crc_frame();
@@ -256,17 +268,17 @@ int trim(char* manifest_in, char* manifest_out)
     while (stab < 0)
     {
         // Feed (stab) frames to stdout
-        fprintf(stderr, "Stab: feed frame #%d\r", feeding_frame_number);
+        clog(stderr, "Stab: feed frame #%d\r", feeding_frame_number);
         if (!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
             goto FALLOUT2;
         stab++;
     }
-    fprintf_s(stderr, "\n");
+    clog(stderr, "\n");
     if (feeding_frame_number != frame_read - pattern_out.get_pattern_length())
-        fprintf_s(stderr, "**************************  feeding frame %d\n", feeding_frame_number);
+        clog(stderr, "**************************  feeding frame %d\n", feeding_frame_number);
 
     // Starting Read-N-Feed
-    fprintf(stderr, "\n=== Read-N-Feed %d ===\n", feeding_frame_number);
+    clog(stderr, "\n=== Read-N-Feed %d ===\n", feeding_frame_number);
     for (;;)
     {
         if(scanner == pattern_out)
@@ -278,9 +290,9 @@ int trim(char* manifest_in, char* manifest_out)
         scanner.crc_frame();
         passed_frames++;
     }
-    fprintf(stderr, "=== Out-pattern found at #%d ===\n", frame_read - pattern_out.get_pattern_length());
+    clog(stderr, "=== Out-pattern found at #%d ===\n", frame_read - pattern_out.get_pattern_length());
 #if PASS_TAIL
-    fprintf(stderr, "=== Out-pattern found, Reading tail ===\n");
+    clog(stderr, "=== Out-pattern found, Reading tail ===\n");
     // Read tail
     for (;;)
     {
@@ -298,19 +310,19 @@ int trim(char* manifest_in, char* manifest_out)
             }
             else
             {
-                fprintf(stderr, "=== FIN ===\n");
+                clog(stderr, "=== FIN ===\n");
                 goto FALLOUT2;
             }
         }
-        fprintf(stderr, "Tail: frame #%d\n", frame_number);
+        clog(stderr, "Tail: frame #%d\n", frame_number);
         frame_number++;
     }
 #endif
-    fprintf(stderr, "=== FIN ===\n");
+    clog(stderr, "=== FIN ===\n");
 FALLOUT2:
-    //fprintf(stderr, "================= Have read (%lld) =================\n", readbytecounter / g_FrameSize);
-    fprintf(stderr, "=== Have read %d frames ===\n", frame_read);
-    fprintf(stderr, "=== Passed %d frames ===\n", passed_frames);
+    //clog(stderr, "================= Have read (%lld) =================\n", readbytecounter / g_FrameSize);
+    clog(stderr, "=== Have read %d frames ===\n", frame_read);
+    clog(stderr, "=== Passed %d frames ===\n", passed_frames);
 #ifdef WINDOWS
     CloseHandle(stdIn);
     CloseHandle(stdOut);
@@ -321,70 +333,75 @@ FALLOUT2:
 
 int Parse_Params(int argc, char **argv)
 {
+    OPERATION op;
     int result = 0;
     if (argc < 4)
     {
-        fprintf(stderr, Usage_String);
+        clog(stderr, Usage_String);
         return -1;
     }
     if (!strcmp(argv[1], "scan"))
     {
-        g_Operation = op_scan;
+        op = op_scan;
     }
     else if (!strcmp(argv[1], "test"))
     {
-        g_Operation = op_test;
+        op = op_test;
     }
     else if (!strcmp(argv[1], "trim"))
     {
-        g_Operation = op_trim;
+        op = op_trim;
     }
     else
     {
-        fprintf(stderr, "ERROR: Unknown operation (%s)\n\n%s", argv[1], Usage_String);
+        clog(stderr, "ERROR: Unknown operation (%s)\n\n%s", argv[1], Usage_String);
         return -1;
     }
 
     u_int width = 0;
     u_int height = 0;
     u_int frame_start = 0;
-    u_int frame_count = 0;
-    u_int round = 16;
-    int global_offset = -1;
+    u_int pattern_length = 8;
+    u_int round = 1;
+
+    char *pin = 0;
+    char *pout = 0;
+    char *output = NULL;
+
     for (int i = 2; i < argc; i++)
     {
         if (!(strcmp("-o", argv[i]) && strcmp("--output", argv[i])))
         {
-            if (g_Output)
+            if (output)
             {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
                 return -1;
             }
-            g_Output = argv[++i];
+            output = argv[++i];
         }
         else if (!strcmp("--pin", argv[i]))
         {
-            if (g_Pin)
+            if (pin)
             {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
                 return -1;
             }
-            g_Pin = argv[++i];
+            pin = argv[++i];
         }
         else if (!strcmp("--pout", argv[i]))
         {
-            if (g_Pout)
+            if (pout)
             {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
                 return -1;
             }
-            g_Pout = argv[++i];
+            pout = argv[++i];
         }
         else if (!(strcmp("-s", argv[i]) && strcmp("--size", argv[i])))
         {
             if (width || height)
             {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
                 return -1;
             }
             width = atoi(argv[++i]);
@@ -394,13 +411,13 @@ int Parse_Params(int argc, char **argv)
         {
             if (g_PixelFormat != AV_PIX_FMT_NONE)
             {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
                 return -1;
             }
             g_PixelFormat = av_get_pix_fmt(argv[++i]);
             if (g_PixelFormat == AV_PIX_FMT_NONE)
             {
-                fprintf(stderr, Error_Unknown_Pixel_Format, argv[i]);
+                clog(stderr, Error_Unknown_Pixel_Format, argv[i]);
                 return -1;
             }
         }
@@ -408,50 +425,36 @@ int Parse_Params(int argc, char **argv)
         {
             if (frame_start)
             {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
                 return -1;
             }
             frame_start = atoi(argv[++i]);
         }
-        else if (!(strcmp("-c", argv[i]) && strcmp("--frame_count", argv[i])))
+        else if (!(strcmp("-l", argv[i]) && strcmp("--pattern_length", argv[i])))
         {
-            if (frame_count)
+            /*if (pattern_length)
             {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
                 return -1;
-            }
-            frame_count = atoi(argv[++i]);
+            }*/
+            pattern_length = atoi(argv[++i]);
         }
         else if (!(strcmp("-r", argv[i]) && strcmp("--round", argv[i])))
         {
             round = atoi(argv[++i]);
         }
-        else if (!(strcmp("-g", argv[i]) && strcmp("--global_offset", argv[i])))
-        {
-            if (global_offset != -1)
-            {
-                fprintf(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
-                return -1;
-            }
-            global_offset = atoi(argv[++i]);
-            if (global_offset < 0)
-            {
-                fprintf(stderr, "ERROR: Bad value (%s)\n\n%s", argv[i], Usage_String);
-                return -1;
-            }
-        }
         else
         {
-            fprintf(stderr, "ERROR: Unknown option (%s)\n\n%s", argv[i], Usage_String);
+            clog(stderr, "ERROR: Unknown option (%s)\n\n%s", argv[i], Usage_String);
             return -1;
         }
     }
-    g_TrimStart = frame_start;
-    g_TrimLength = frame_count;
-    if (frame_count)
+    //g_TrimStart = frame_start;
+    //g_TrimLength = frame_count;
+    /*if (frame_count)
     {
         g_TrimEnd = g_TrimStart + frame_count;
-    }
+    }*/
 
     // Check params
     if (!(width && height))
@@ -459,34 +462,32 @@ int Parse_Params(int argc, char **argv)
         fprintf(stderr, "ERROR: Zero frame size\n");
         exit(-1);
     }
+    if(!output)
+        g_Log2console = false;
     // Get pipe buffer size and calculate frame size
 #ifdef WINDOWS
     g_PipeBufferSize = 0x8000;
 #else
     g_PipeBufferSize = fcntl(stdIn, F_GETPIPE_SZ);
-    fprintf(stderr, "Pipe buffer size: 0x%08X\n", g_PipeBufferSize);
+    //clog(stderr, "Pipe buffer size: 0x%08X\n", g_PipeBufferSize);
     if(g_PipeBufferSize > 0x8000)
         g_PipeBufferSize = 0x8000;
 #endif
     int frame_size = av_image_get_buffer_size(g_PixelFormat, width, height, round);
-    fprintf(stderr, "Frame size (align=%d): %d (0x%X)\n", round, frame_size, frame_size);
+    clog(stderr, "Frame size (align=%d): %d (0x%X)\n", round, frame_size, frame_size);
     FrameBuffer::init_frame_size(frame_size);
-    if (g_Operation == op_scan)
+    
+    if (op == op_scan)
     {
-        if (!g_Output)
-        {
-            fprintf(stderr, "ERROR: No output set for scan operation\n");
-            return -1;
-        }
-        return scan(frame_start, frame_count, g_Output, global_offset);
+        return scan(frame_start, pattern_length, output);
     }
-    else if (g_Operation == op_trim)
+    else if (op == op_trim)
     {
-        return trim(g_Pin, g_Pout);
+        return trim(pin, pout);
     }
-    else if (g_Operation == op_test)
+    else if (op == op_test)
     {
-        result = test(g_Pin);
+        result = test(pin);
     }
     return result;
 }
@@ -501,7 +502,7 @@ void Usage()
 int main(int argc, char **argv)
 {
     int result = Parse_Params(argc, argv);
-    fprintf(stderr, "Done\n");
+    clog(stderr, "Done\n");
     return result;
 }
 

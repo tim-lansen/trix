@@ -21,7 +21,7 @@
         #include <sys/io.h>
         #include <unistd.h>
         #ifndef fprintf_s
-            #define fprintf_s fprintf
+            #define fprintf_s clog
         #endif
         #ifndef sprintf_s
             #define sprintf_s sprintf

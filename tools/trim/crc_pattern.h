@@ -54,7 +54,7 @@ public:
     
     bool data_lock();
     
-    int data_write_out(char* manifest_file, int global_offset);
+    int data_write_out(char* manifest_file);
     
     void set_frame(int f) { frame = f; }
     
@@ -105,7 +105,7 @@ public:
     bool operator == (CRCPattern &b);
 
     bool data_lock();
-    int data_write_out(char* manifest_file, int global_offset);
+    int data_write_out(char* manifest_file);
     void crc_frame();
     unsigned int get_frame_crc(u_int i)
     {

@@ -10,18 +10,22 @@ static char* Usage_String =
     "  Operations:\n"
     "    scan  : calculate and store xxhash sequence for specified frames\n"
     "    trim  : trim input sequence\n"
-    "  Operation-specific options:\n"
-    "    -o, --output <file path>  : (str)output file to store xxhash sequence(scan)\n"
-    "    --pin <file path>         : (str) xxhash in-point sequence file (trim)\n"
-    "    --pout <file path>        : (str)xxhash out - point sequence file(trim)\n"
+    "  SCAN operation specific options:\n"
+    "    -l, --pattern_length <frame count> : (int) pattern size, frames\n"
+    "                                         default: 0\n"
+    "    -a, --start_frame <start frame>    : (int) number of frames to pass before pattern capture\n"
+    "                                         default: 0\n"
+    "    -o, --output <file path>           : (str)output file to store crc sequence\n"
+    "                                         if not set, the sequence info will be written to STDERR\n"
+    "  TRIM operation specific options:\n"
+    "    --pin <file path>                  : (trim, str) xxhash in-point manifest\n"
+    "    --pout <file path>                 : (trim, str) xxhash out-point sequence file\n"
     "  Common options:\n"
-    "    -s, --size <width> <height>      : (int)(int)width and height of frame\n"
-    "    -p, --pix_fmt <pixel format>     : (str) pixel format\n"
+    "    -s, --size <width> <height>        : (int, int)width and height of frame\n"
+    "    -p, --pix_fmt <pixel format>       : (str) pixel format\n"
     "              yuv420p, yuv422p, yuv420p10le, yuv422p10le, yuv420p10be, yuv422p10be\n"
-    "    -a, --start_frame <start frame>  : (int) number of frames to trim from beginning (0..MAX_INT)\n"
-    "    -c, --frame_count <frame count>  : (int) number of frames to scan/pass, 0 for all (0..MAX_INT)\n"
-    "    -r, --round <round value>        : (int) internal parameter used to calculate frame size\n"
-    "                                       default: 1\n";
+    "    -r, --round <round value>          : (int) internal parameter used to calculate frame size\n"
+    "                                         default: 1\n";
 static char* Error_Wrong_Number = "ERROR: Wrong number of args (%s)\n";
 static char* Error_Unknown_Pixel_Format = "ERROR: Unknown pix_fmt '%s'\n";
 //static char* Error_Param_Not_Numeric = "ERROR: Parameter #%d must be numeric!\n";

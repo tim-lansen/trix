@@ -4,6 +4,9 @@
 #include <vector>
 
 
+void clog(_IO_FILE *std, const char *format, ...);
+
+
 char* cut_line_z(char * b)
 {
     char c = *b;
@@ -81,9 +84,9 @@ void FrameBuffer::init(unsigned int capacity)
     m_capacity = capacity;
     if(!frameSize) {
         /*if(frameSize != frame_size) {
-            fprintf_s(stderr, "Error: initializing FrameBuffer with different frame size\nPrevious: %d (0x%X)\nNew:      %d (0x%X)\n", frameSize, frameSize, frame_size, frame_size);
+            clog(stderr, "Error: initializing FrameBuffer with different frame size\nPrevious: %d (0x%X)\nNew:      %d (0x%X)\n", frameSize, frameSize, frame_size, frame_size);
         }*/
-        fprintf(stderr, "FrameBuffer::frameSize is not initialized\n");
+        clog(stderr, "FrameBuffer::frameSize is not initialized\n");
         throw(-1);
     }
     //frameSize = frame_size;
@@ -95,10 +98,10 @@ void FrameBuffer::set_frame_size(unsigned int size)
 {
     if(frameSize) {
         if(frameSizeChanged) {
-            fprintf_s(stderr, "Error: DataPattern::FrameSize is already changed to %d (0x%x)\n", frameSize, frameSize);
+            clog(stderr, "Error: DataPattern::FrameSize is already changed to %d (0x%x)\n", frameSize, frameSize);
             return;
         }
-        fprintf_s(stderr, "Warning: DataPattern::FrameSize is already set to %d (0x%x), changing to %d (0x%x)\n", frameSize, frameSize, size, size);
+        clog(stderr, "Warning: DataPattern::FrameSize is already set to %d (0x%x), changing to %d (0x%x)\n", frameSize, frameSize, size, size);
         frameSizeChanged = true;
     }
     frameSize = size;
@@ -111,7 +114,7 @@ void FrameBuffer::set_frame_size(unsigned int size)
 void FrameBuffer::init_frame_size(unsigned int size)
 {
     if(frameSize) {
-        fprintf_s(stderr, "Error: FrameBuffer::frameSize is already set to %d (0x%x)\n", frameSize, frameSize);
+        clog(stderr, "Error: FrameBuffer::frameSize is already set to %d (0x%x)\n", frameSize, frameSize);
         return;
     }
     frameSize = size;
@@ -123,7 +126,7 @@ void FrameBuffer::init_frame_size(unsigned int size)
         } while(scanStep < s);
         scanStep--;
     }
-    fprintf_s(stderr, "FrameBuffer::frameSize init to %d (0x%x), scanStep is %d\n", frameSize, frameSize, scanStep);
+    clog(stderr, "FrameBuffer::frameSize init to %d (0x%x), scanStep is %d\n", frameSize, frameSize, scanStep);
 }
 unsigned int FrameBuffer::get_frame_size()
 {
@@ -155,7 +158,7 @@ bool CRCPattern::operator == (CRCPattern &b)
     if(m_type == pattern_undefined || b.m_type == pattern_undefined)
         return true;
     if(m_pattern_length != b.m_pattern_length) {
-        fprintf(stderr, "Sequence lengths are not equal.\n");
+        clog(stderr, "Sequence lengths are not equal.\n");
         return false;
     }
     if(m_frame < m_pattern_length || b.m_frame < m_pattern_length) {
@@ -216,35 +219,36 @@ bool CRCPattern::data_lock()
     return m_scan_end;
 }
 
-int CRCPattern::data_write_out(char* manifest_file, int global_offset)
+int CRCPattern::data_write_out(char* manifest_file)
 {
     if(!m_scan_end) {
-        fprintf_s(stderr, "Data is not locked!\n");
+        clog(stderr, "Data is not locked!\n");
         return ERROR_PATTERN_IS_NOT_LOCKED;
     }
     char b[1024];
     // Write manifest
-    char *bb = b + sprintf(b, "global_offset=%d\npattern_offset=%d\nlength=%d\ncrc=",
-        global_offset,
-        m_frame - m_pattern_length,
-        m_pattern_length
-    );
+    char *bb = b + sprintf(b, "{\"pattern_offset\": %d, \"length\": %d, \"crc\": [", m_frame - m_pattern_length, m_pattern_length);
     unsigned int idx = (m_frame - m_pattern_length) % m_frame_buffer.m_capacity;
     for(int i = 0; i < m_pattern_length; ++i) {
-        bb += sprintf(bb, "%u ", crc[idx++]);
+        bb += sprintf(bb, "%u, ", crc[idx++]);
         if(idx >= m_frame_buffer.m_capacity)
             idx -= m_frame_buffer.m_capacity;
     }
-    bb--;
-    *bb = '\n';
-    int f = _open(manifest_file, _O_CREAT | _O_TRUNC | _O_BINARY | _O_WRONLY, _S_IREAD | _S_IWRITE);
-    if(f == -1) {
-        DWORD error = GetLastError();
-        fprintf_s(stderr, "Error opening %s (%08X)\n", b, GetLastError());
-        return error;
+    bb -= 2;
+    strcpy(bb, "]}\n");
+    //sprintf(bb, "]}\n");
+    if(manifest_file) {
+        int f = _open(manifest_file, _O_CREAT | _O_TRUNC | _O_BINARY | _O_WRONLY, _S_IREAD | _S_IWRITE);
+        if(f == -1) {
+            DWORD error = GetLastError();
+            clog(stderr, "Error opening %s (%08X)\n", b, GetLastError());
+            return error;
+        }
+        _write(f, b, strlen(b));
+        _close(f);
+    } else {
+        fprintf(stderr, b);
     }
-    _write(f, b, strlen(b));
-    _close(f);
     return 0;
 }
 
@@ -274,13 +278,13 @@ u_int CRCPattern::init_trim(char* filename)
     // return 0 if error, else - required frame feed length (including negative offset)
     if(!filename) {
         // Special case
-        fprintf_s(stderr, "Special case: absent pattern.\n");
+        clog(stderr, "Special case: absent pattern.\n");
         m_pattern_length = 0;
         return 0;
     }
     int f = _open(filename, _O_RDONLY | _O_BINARY, _S_IREAD);
     if(f == -1) {
-        fprintf_s(stderr, "Error: failed to open '%s'.\n", filename);
+        clog(stderr, "Error: failed to open '%s'.\n", filename);
         return 0;
     }
     m_type = pattern_trim;
@@ -310,16 +314,16 @@ u_int CRCPattern::init_trim(char* filename)
                         crc[i++] = atoi(current);
                     } while(val);
                     if(i != m_pattern_length) {
-                        fprintf(stderr, "CRC count differs from pattern length: %d vs %d\n", i, m_pattern_length);
+                        clog(stderr, "CRC count differs from pattern length: %d vs %d\n", i, m_pattern_length);
                     }
                 }
             }
         }
         current = next;
     }
-    //fprintf_s(stderr, "parsed: length=%d, data=%s\n", p->pattern_length, data);
+    //clog(stderr, "parsed: length=%d, data=%s\n", p->pattern_length, data);
     if(m_pattern_length == 0x7FFFFFFF) {
-        fprintf(stderr, "ERROR: Pattern length is not set\n");
+        clog(stderr, "ERROR: Pattern length is not set\n");
         return 0;
     }
     //m_frame_buffer.init(m_pattern_length);
@@ -335,7 +339,7 @@ void CRCPattern::dump()
     for(int i = 0; i < m_pattern_length; ++i) {
         bb += sprintf(bb, "%08X ", crc[i]);
     }
-    fprintf_s(stderr,
+    clog(stderr,
         "Object 0x%08X\n"
         "  type           : %s\n"
         "  pattern_length : %d\n"
