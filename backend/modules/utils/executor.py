@@ -164,7 +164,7 @@ class JobExecutor:
             return None
         if self.exec.job.type & Job.Type.TRIGGER:
             Logger.info("Dummy job results\n")
-            JobUtils.RESULTS.process(self.exec.job.info.results)
+            JobUtils.Results.process(self.exec.job.info.results)
             return len(self.exec.job.info.results)
 
         rc = 0
@@ -176,7 +176,7 @@ class JobExecutor:
                 Logger.critical('Failed to retrieve job result #{}\n'.format(rc))
             rc += 1
         if rc:
-            JobUtils.RESULTS.process(self.exec.job.info.results)
+            JobUtils.Results.process(self.exec.job.info.results)
         return rc
 
     def working(self):
@@ -274,7 +274,7 @@ def test():
                 }
             ],
             "results": [
-                {"type": Job.Result.Type.MEDIAFILE, "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}}
+                {"handler": JobUtils.Results.mediafile, "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}}
             ]
         }
     })
@@ -328,8 +328,8 @@ def test_combined_info():
                 }
             ],
             "results": [
-                {"type": Job.Info.Result.Type.MEDIAFILE, "predefined": {"guid": "${mf0}", "source": {"url": "${src0}"}}},
-                {"type": Job.Info.Result.Type.MEDIAFILE, "predefined": {"guid": "${mf1}", "source": {"url": "${src1}"}}}
+                {"handler": JobUtils.Results.mediafile, "predefined": {"guid": "${mf0}", "source": {"url": "${src0}"}}},
+                {"handler": JobUtils.Results.mediafile, "predefined": {"guid": "${mf1}", "source": {"url": "${src1}"}}}
             ]
         }
     })
@@ -346,7 +346,7 @@ def test_combined_info():
         if job_executor.exec.finish.is_set():
             Logger.info('job {} finished\n'.format(job.guid))
             if job_executor.results():
-                JobUtils.RESULTS.process(job_executor.exec.job.info.results)
+                JobUtils.Results.process(job_executor.exec.job.info.results)
                 # for r in job_executor.exec.job.info.results:
                 #     Logger.warning('{}\n'.format(r.dumps()))
             break

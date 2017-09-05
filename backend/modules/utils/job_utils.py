@@ -32,7 +32,7 @@ def merge_assets(assets):
                 _ass.append(_cs)
         return _ass
 
-    asset = Asset()
+    asset: Asset = Asset()
     vii = 0
     aii = 0
     sii = 0
@@ -89,11 +89,11 @@ class JobUtils:
             # Store common path to aliases as base
             base = os.path.commonpath((os.path.dirname(_) for _ in paths))
             # Create job
-            job = Job()
+            job: Job = Job()
             job.type = Job.Type.PROBE
             job.info.names = names
             job.info.aliases['base'] = base
-            step = Job.Info.Step()
+            step: Job.Info.Step = Job.Info.Step()
             step.name = 'Get combined info'
             job.info.steps.append(step)
             for i, p in enumerate(paths):
@@ -115,7 +115,7 @@ class JobUtils:
                 step.chains.append(chain)
                 # Compose result
                 result = Job.Info.Result()
-                result.type = Job.Info.Result.Type.MEDIAFILE
+                result.handler = JobUtils.Results.mediafile.__name__
                 result.predefined = {"guid": '${{{}}}'.format(uidn), "source": {"url": '${{{}}}'.format(srcn)}}
                 job.info.results.append(result)
             # Register job
@@ -136,8 +136,8 @@ class JobUtils:
             chain.result = 0
             step.chains.append(chain)
             # Compose result
-            result = Job.Info.Result()
-            result.type = Job.Info.Result.Type.CPEAS
+            result: Job.Info.Result = Job.Info.Result()
+            result.handler = JobUtils.Results.cpeas.__name__
             job.info.results.append(result)
             return job
 
@@ -156,7 +156,7 @@ class JobUtils:
             step.chains.append(chain)
             # Compose result
             result = Job.Info.Result()
-            result.type = Job.Info.Result.Type.CPEAS
+            result.handler = JobUtils.Results.cpeas.__name__
             job.info.results.append(result)
             return job
 
@@ -215,7 +215,7 @@ class JobUtils:
             # step.chains.append(chain)
             # agg.info.steps.append(step)
             res = Job.Info.Result()
-            res.type = Job.Info.Result.Type.ASSETS_TO_INGEST
+            res.handler = JobUtils.Results.assets_to_ingest.__name__
             res.actual = assets
             agg.info.results.append(res)
             # Register aggregator job
@@ -231,7 +231,7 @@ class JobUtils:
             :param path: path to source directory
             :return:
             """
-            # Create final dummy job (trigger)
+            # Create final job
             agg: Job = Job()
             agg.guid.new()
             agg.name = 'Ingest: aggregate assets'
@@ -242,12 +242,14 @@ class JobUtils:
             # Filter inputs: get list of all files in directory
             inputs = []
             for root, firs, files in os.walk(path):
-                inputs += [os.path.join(root, f) for f in files if len(f.split('.', 1)) == 2 and f.rsplit('.', 1)[
-                    1] in JobUtils.ACCEPTABLE_MEDIA_FILE_EXTENSIONS]
+                for f in files:
+                    ne = f.rsplit('.', 1)
+                    if len(ne) == 2 and ne[1] in JobUtils.ACCEPTABLE_MEDIA_FILE_EXTENSIONS:
+                        inputs.append(os.path.join(root, f))
             if len(inputs) == 0:
                 return
 
-            # Create atomic jobs
+            # For every input create job 'internal_cpeas_slice'
             assets = []
             for inp in inputs:
                 ass = str(uuid.uuid4())
@@ -268,7 +270,7 @@ class JobUtils:
             # step.chains.append(chain)
             # agg.info.steps.append(step)
             res = Job.Info.Result()
-            res.type = Job.Info.Result.Type.ASSETS_TO_INGEST
+            res.handler = JobUtils.Results.assets_to_ingest.__name__
             res.actual = assets
             agg.info.results.append(res)
             # Register aggregator job
@@ -278,70 +280,86 @@ class JobUtils:
             DBInterface.Job.set_fields_by_groups([str(group_id)], {'status': Job.Status.NEW})
 
     class Results:
+        class _undefined:
+            @staticmethod
+            def handler(r):
+                pass
+
+        class mediafile:
+            @staticmethod
+            def handler(r):
+                mf = pickle.loads(base64.b64decode(r.actual))
+                DBInterface.MediaFile.set(mf.dumps())
+
+        class asset:
+            @staticmethod
+            def handler(r):
+                pass
+
+        class interaction:
+            @staticmethod
+            def handler(r):
+                pass
+
+        class cpeas:
+            @staticmethod
+            def handler(r):
+                # Parse results derived from 'internal_create_preview_extract_audio_subtitles'
+                res = pickle.loads(base64.b64decode(r.actual))
+                DBInterface.Asset.set(res['asset'])
+                for mf in res['trans'] + res['previews'] + res['archives']:
+                    DBInterface.MediaFile.set(mf)
+                DBInterface.MediaFile.set(res['src'])
+
+        class assets_to_ingest:
+            @staticmethod
+            def handler(r):
+                # Get assets from DB, merge and create Interaction
+                asset_guid = None
+                if len(r.actual) == 1:
+                    asset_guid = r.actual[0]
+                elif len(r.actual) > 1:
+                    assts = DBInterface.Asset.records(r.actual)
+                    assm = {}
+                    for i, asst in enumerate(assts):
+                        assm[str(asst['guid'])] = i
+                    assets = [assts[assm[aid]] for aid in r.actual]
+                    asset = merge_assets(assets)
+                    asset.name = 'merged'
+                    DBInterface.Asset.set(asset)
+                    asset_guid = str(asset.guid)
+                # Create Interaction
+                inter = Interaction()
+                inter.guid.new()
+                inter.name = 'inter'
+                inter.assetIn.set(asset_guid)
+                inter.assetOut = None
+                DBInterface.Interaction.set(inter)
+
+        # Vectors = {
+        #     Job.Info.Result.Type.MEDIAFILE:     _mediafile,
+        #     Job.Info.Result.Type.ASSET:         _asset,
+        #     Job.Info.Result.Type.INTERACTION:   _interaction,
+        #     Job.Info.Result.Type.CPEAS:         _cpeas,
+        #     Job.Info.Result.Type.ASSETS_TO_INGEST: _assets_to_ingest,
+        #     Job.Info.Result.Type.FILE:          _undefined,
+        #     Job.Info.Result.Type.TASK:          _undefined,
+        #     Job.Info.Result.Type.JOB:           _undefined,
+        #     # Reactive result type:
+        #     Job.Info.Result.Type.HOOK_ARCHIVE:  _undefined,
+        # }
+
         @staticmethod
-        def _undefined(r):
-            pass
-
-        def _mediafile(r):
-            mf = pickle.loads(base64.b64decode(r.actual))
-            DBInterface.MediaFile.set(mf.dumps())
-
-        def _asset(r):
-            pass
-
-        def _interaction(r):
-            pass
-
-        def _cpeas(r):
-            # Parse results derived from 'internal_create_preview_extract_audio_subtitles'
-            res = pickle.loads(base64.b64decode(r.actual))
-            DBInterface.Asset.set(res['asset'])
-            for mf in res['trans'] + res['previews'] + res['archives']:
-                DBInterface.MediaFile.set(mf)
-            DBInterface.MediaFile.set(res['src'])
-
-        def _assets_to_ingest(r):
-            # Get assets from DB, merge and create Interaction
-            if len(r.actual) == 1:
-                asset_guid = r.actual[0]
-            elif len(r.actual) > 1:
-                assts = DBInterface.Asset.records(r.actual)
-                assm = {}
-                for i, asst in enumerate(assts):
-                    assm[str(asst['guid'])] = i
-                assets = [assts[assm[aid]] for aid in r.actual]
-                asset = merge_assets(assets)
-                asset.name = 'merged'
-                DBInterface.Asset.set(asset)
-                asset_guid = str(asset.guid)
-            # Create Interaction
-            inter = Interaction()
-            inter.guid.new()
-            inter.name = 'inter'
-            inter.assetIn.set(asset_guid)
-            inter.assetOut = None
-            DBInterface.Interaction.set(inter)
-
-        Vectors = {
-            Job.Info.Result.Type.MEDIAFILE:     _mediafile,
-            Job.Info.Result.Type.ASSET:         _asset,
-            Job.Info.Result.Type.INTERACTION:   _interaction,
-            Job.Info.Result.Type.CPEAS:         _cpeas,
-            Job.Info.Result.Type.ASSETS_TO_INGEST: _assets_to_ingest,
-            Job.Info.Result.Type.FILE:          _undefined,
-            Job.Info.Result.Type.TASK:          _undefined,
-            Job.Info.Result.Type.JOB:           _undefined,
-            # Reactive result type:
-            Job.Info.Result.Type.HOOK_ARCHIVE:  _undefined,
-        }
-
-        def process(self, results: List[Job.Info.Result]):
+        def process(results: List[Job.Info.Result]):
             for r in results:
-                t = r.type & (0x7FFFFFFF ^ Job.Type.TRIGGER)
-                if t in self.Vectors:
-                    self.Vectors[t](r)
+                t = r.handler
+                if t:
+                    if t in JobUtils.Results.__dict__:
+                        JobUtils.Results.__dict__[t].handler(r)
+                    else:
+                        JobUtils.Results._undefined.handler(r)
                 else:
-                    self._undefined(r)
+                    JobUtils.Results._undefined.handler(r)
 
     @staticmethod
     def get_assets_by_uids(uids):
@@ -386,5 +404,5 @@ class JobUtils:
             job.info.reset_lists()
             job.info.update_json(params['json'])
 
-    if 'JobUtils' not in globals() or 'RESULTS' not in globals()['JobUtils'].__dict__:
-        RESULTS = Results()
+    # if 'JobUtils' not in globals() or 'RESULTS' not in globals()['JobUtils'].__dict__:
+    #     RESULTS = Results()

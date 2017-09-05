@@ -147,7 +147,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         else:
             st = copy.deepcopy(s)
             st.index = 0
-            subtitles = MediaFile(name='transit subtitles')
+            subtitles: MediaFile = MediaFile(name='transit subtitles')
             s.extract = subtitles.guid
             subtitles.master.set(mediafile.guid.guid)
             subtitles.subTracks.append(st)
@@ -156,7 +156,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=sti, path=subtitles.source.path))
             vout_trans.append(subtitles)
         # ci = 0
-        subtitles_preview = MediaFile(name='preview-sub')
+        subtitles_preview: MediaFile = MediaFile(name='preview-sub')
         vout_refs.append(subtitles_preview)
         subtitles_preview.master.set(subtitles.guid.guid)
         subtitles_preview.isPreview = True
@@ -174,7 +174,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             at = a
         else:
             at = copy.deepcopy(a)
-            audio = MediaFile(name='transit audio')
+            audio: MediaFile = MediaFile(name='transit audio')
             a.extract = audio.guid
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
@@ -184,7 +184,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         # Add silencedetect filter for 1st audio track only
         audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
         for ci in range(a.channels):
-            audio_preview = MediaFile(name='preview-audio')
+            audio_preview: MediaFile = MediaFile(name='preview-audio')
             vout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
             audio_preview.isPreview = True
@@ -271,7 +271,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     program_out = pts_time
 
     # Create asset
-    asset = Asset()
+    asset: Asset = Asset()
     # Add main source
     asset.mediaFiles.append(mediafile.guid)
     # Add trans source(s)

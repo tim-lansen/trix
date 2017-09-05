@@ -696,7 +696,7 @@ def combined_info(mf: MediaFile, path=None):
 
 
 def combined_info_mediafile(url) -> MediaFile:
-    mf = MediaFile()
+    mf: MediaFile = MediaFile()
     combined_info(mf, url)
     return mf
 

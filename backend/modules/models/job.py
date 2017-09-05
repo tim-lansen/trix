@@ -32,12 +32,8 @@ class Task(JSONer):
             else:
                 self.update_str(task_info)
 
-    # def update(self):
-    #     update_record(self.redis, self.guid, self.data)
-
     def add_job(self, job):
         self.jobs.append(job)
-        #self.data['jobs'].append(job.guid)
 
     # def execute(self):
     #     # Queue up task's jobs
@@ -130,23 +126,24 @@ class Job(Record):
                 self.chains: List[Job.Info.Step.Chain] = []
 
         class Result(JSONer):
-            class Type:
-                UNDEFINED = 0
-                MEDIAFILE = 1
-                ASSET = 2
-                CPEAS = 3
-                INTERACTION = 4
-                # After CPEASes for ingest there is a trigger job that aggregates assets created by CPEASes
-                ASSETS_TO_INGEST = 5
-                FILE = 6
-                TASK = 7
-                JOB = 8
-                # Reactive result type:
-                HOOK_ARCHIVE = 9
+            # class Type:
+            #     UNDEFINED = 0
+            #     MEDIAFILE = 1
+            #     ASSET = 2
+            #     CPEAS = 3
+            #     INTERACTION = 4
+            #     # After CPEASes for ingest there is a trigger job that aggregates assets created by CPEASes
+            #     ASSETS_TO_INGEST = 5
+            #     FILE = 6
+            #     TASK = 7
+            #     JOB = 8
+            #     # Reactive result type:
+            #     HOOK_ARCHIVE = 9
 
             def __init__(self):
                 super().__init__()
-                self.type = 0
+                # Results handler procedure (member function of )
+                self.handler = None
                 # Bulk object (by type):
                 # MEDIAFILE: MediaFile object with URL set to newly created media file
                 # ASSET: ...
@@ -341,4 +338,3 @@ def test() -> Job:
     job.update_json(job_obj)
     # print(job.dumps(indent=2))
     return job
-

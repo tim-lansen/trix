@@ -40,7 +40,7 @@ def internal_combined_info(params, out_progress: CPLQueue, out_final: CPLQueue):
     :param chain_error_event: error event
     :return:
     """
-    mf = MediaFile()
+    mf: MediaFile = MediaFile()
     mf.update_str(params[0])
     combined_info(mf, params[1])
     data = base64.b64encode(pickle.dumps(mf))
@@ -60,17 +60,17 @@ def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue
 def internal_cpeas_slice(params, out_progress: CPLQueue, out_final: CPLQueue):
     """
     Prepare media for ingest
-    :param params:            ['<url>']
+    :param params:            ['<path>', '<path>', ...]
     :param out_progress:      progress output queue
     :param out_final:         final output queue
     :param chain_error_event: error event
     :return: mediaFile + set of data to create jobs for sliced transcode and A/S extraction
     """
-    mf = combined_info_mediafile(params[0])
-    if len(mf.videoTracks) == 0:
-        _icpeas(mf, params[1], out_progress, out_final)
-    else:
-        res = {
+    res = []
+    for path in params:
+        mf: MediaFile = MediaFile(guid=None)
+        combined_info(mf, path)
+        r = {
             'mediafile': mf,
             'concat_eas_group': str(uuid.uuid4()),
             'slice_groups': [],  # Slice encoding job groups ids
@@ -78,10 +78,11 @@ def internal_cpeas_slice(params, out_progress: CPLQueue, out_final: CPLQueue):
         }
         for vti, vt in enumerate(mf.videoTracks):
             slices = create_slices(mf, vti)
-            res['slice_groups'].append(str(uuid.uuid4()))
-            res['slices'].append(slices)
-        data = base64.b64encode(pickle.dumps(res))
-        out_final.put(data)
+            r['slice_groups'].append(str(uuid.uuid4()))
+            r['slices'].append(slices)
+        res.append(r)
+    data = base64.b64encode(pickle.dumps(res))
+    out_final.put(data)
 
 
 def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQueue, out_final: CPLQueue):
