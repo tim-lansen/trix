@@ -142,37 +142,6 @@ class JobUtils:
             return job
 
         @staticmethod
-        def _cpeas_sliced(path, asset_guid):
-            job_concat: Job = Job()
-            job_concat.guid.new()
-            job_concat.name = 'Concat: {}'.format(os.path.basename(path))
-            job_concat.type = Job.Type.SLICES_CONCAT
-            step: Job.Info.Step = Job.Info.Step()
-            step.name = 'Create proxy, extract audio and subtitles'
-            job.info.steps.append(step)
-            chain = Job.Info.Step.Chain()
-            chain.procs = [['internal_create_preview_extract_audio_subtitles', path, asset_guid]]
-            chain.result = 0
-            step.chains.append(chain)
-            # Compose result
-            result = Job.Info.Result()
-            result.handler = JobUtils.Results.cpeas.__name__
-            job.info.results.append(result)
-            return job
-
-        # @staticmethod
-        # def create_preview_extract_audio_subtitles(path):
-        #     """
-        #     Create a job that performs 'internal_create_preview_extract_audio_subtitles' on the <path>
-        #     :param path: path to AV file
-        #     :return: job
-        #     """
-        #     job = JobUtils.CreateJob._cpeas(path)
-        #     # Register job
-        #     DBInterface.Job.register(job)
-        #     return job
-
-        @staticmethod
         def ingest_prepare(path):
             """
             Create a bunch of jobs (preview_extract_audio_subtitles), and results aggregator job
@@ -227,18 +196,10 @@ class JobUtils:
         @staticmethod
         def ingest_prepare_sliced(path):
             """
-            Create a job that creates slices
+            Ingest prepare step 1: filter input files, get info, capture slices
             :param path: path to source directory
             :return:
             """
-            # Create final job
-            agg: Job = Job()
-            agg.guid.new()
-            agg.name = 'Ingest: aggregate assets'
-            agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
-            agg.dependsOnGroupId.new()
-            group_id = agg.dependsOnGroupId
-
             # Filter inputs: get list of all files in directory
             inputs = []
             for root, firs, files in os.walk(path):
@@ -249,35 +210,24 @@ class JobUtils:
             if len(inputs) == 0:
                 return
 
-            # For every input create job 'internal_cpeas_slice'
-            assets = []
-            for inp in inputs:
-                ass = str(uuid.uuid4())
-                assets.append(ass)
-                job = JobUtils.CreateJob._cpeas(inp, ass)
-                # TODO: add non-auto-commit connection to DBInterface, and register all jobs in single transaction
-                job.status = Job.Status.INACTIVE
-                # Add job to group
-                job.groupIds.append(group_id)
-                # Register job
-                DBInterface.Job.register(job)
-
-            # Single job's step
-            # step = Job.Info.Step()
-            # step.name = 'Ingest: aggregate assets'
-            # chain = Job.Info.Step.Chain()
-            # chain.procs = [['internal_ingest_assets', base64.b64encode(pickle.dumps(assets))]]
-            # step.chains.append(chain)
-            # agg.info.steps.append(step)
-            res = Job.Info.Result()
-            res.handler = JobUtils.Results.assets_to_ingest.__name__
-            res.actual = assets
-            agg.info.results.append(res)
-            # Register aggregator job
-            DBInterface.Job.register(agg)
-
-            # Change jobs statuses
-            DBInterface.Job.set_fields_by_groups([str(group_id)], {'status': Job.Status.NEW})
+            job: Job = Job()
+            job.guid.new()
+            job.name = 'IPS: {}'.format(os.path.basename(path))
+            job.type = Job.Type.SLICES_CREATE
+            step: Job.Info.Step = Job.Info.Step()
+            step.name = 'Get info, create slices'
+            job.info.steps.append(step)
+            chain = Job.Info.Step.Chain()
+            chain.procs = [['ExecuteInternal.cpeas_slice'] + inputs]
+            chain.result = 0
+            step.chains.append(chain)
+            # Compose result
+            result = Job.Info.Result()
+            result.handler = JobUtils.Results.ingest_prepare_sliced.__name__
+            job.info.results.append(result)
+            job.status = Job.Status.NEW
+            # Register job
+            DBInterface.Job.register(job)
 
     class Results:
         class _undefined:
@@ -300,6 +250,38 @@ class JobUtils:
             @staticmethod
             def handler(r):
                 pass
+
+        class ingest_prepare_sliced:
+            @staticmethod
+            def handler(r):
+                # res is a list
+                #     'mediafile': mf,
+                #     'slices': []  # Slice data
+                job_final: Job = Job()
+                job_final.dependsOnGroupId.new()
+
+                jobs = []
+                results = pickle.loads(base64.b64decode(r.actual))
+                for res in results:
+                    if 'slices' in res and len(res['slices']) > 0:
+                        #1 Create 2 concat jobs: for preview and for archive
+                        job_preview_concat: Job = Job()
+                        job_preview_concat.groupIds.append(job_final.dependsOnGroupId)
+                        job_preview_concat.dependsOnGroupId.new()
+                        job_archive_concat: Job = Job()
+                        job_archive_concat.groupIds.append(job_final.dependsOnGroupId)
+                        job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
+                        #2 Create Nx2 encode jobs
+                        pslic = None
+                        for slic in res['slices'] + [None]:
+                            job_preview_archive_slice: Job = Job()
+                            job_preview_archive_slice.groupIds.append()
+                            result: Job.Info.Result = Job.Info.Result()
+                            result.handler = JobUtils.Results.pa_slice.__name__
+
+        class pa_slice:
+            @staticmethod
+            def handler(r):
 
         class cpeas:
             @staticmethod

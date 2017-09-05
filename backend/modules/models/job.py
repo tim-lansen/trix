@@ -97,6 +97,14 @@ class Job(Record):
                         # float: Top progress value
                         self.top = 1.0
 
+                class Capture(JSONer):
+                    def __init__(self):
+                        super().__init__()
+                        # int: Index of process in chain to capture stderr output
+                        self.capture = 0
+                        # str: Name (id) of parser
+                        self.parser = None
+
                 def __init__(self):
                     super().__init__()
                     # list(list(str)): List of processes with arguments that should be run on this chain, example:
@@ -109,6 +117,8 @@ class Job(Record):
                     self.return_codes = None
                     # Progress class: Progress object
                     self.progress = self.Progress()
+                    # Index of chain proc to capture filters output (like blackdetect)
+                    self.capture = self.Capture()
                     # Chain result, may be used to store result of internal procs
                     self.result = None
 

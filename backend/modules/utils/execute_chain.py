@@ -31,22 +31,6 @@ from .slices import create_slices
 from .storage import Storage
 
 
-def internal_combined_info(params, out_progress: CPLQueue, out_final: CPLQueue):
-    """
-    Compose ffprobe and mediainfo
-    :param params:            ['<predefined>', '<url>']
-    :param out_progress:      progress output queue
-    :param out_final:         final output queue
-    :param chain_error_event: error event
-    :return:
-    """
-    mf: MediaFile = MediaFile()
-    mf.update_str(params[0])
-    combined_info(mf, params[1])
-    data = base64.b64encode(pickle.dumps(mf))
-    out_final.put(data)
-
-
 def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
     tdir = Storage.storage_path('transit', str(mf.guid))
     pdir = Storage.storage_path('preview', str(mf.guid))
@@ -57,45 +41,66 @@ def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue
     out_final.put(data)
 
 
-def internal_cpeas_slice(params, out_progress: CPLQueue, out_final: CPLQueue):
-    """
-    Prepare media for ingest
-    :param params:            ['<path>', '<path>', ...]
-    :param out_progress:      progress output queue
-    :param out_final:         final output queue
-    :param chain_error_event: error event
-    :return: mediaFile + set of data to create jobs for sliced transcode and A/S extraction
-    """
-    res = []
-    for path in params:
-        mf: MediaFile = MediaFile(guid=None)
-        combined_info(mf, path)
-        r = {
-            'mediafile': mf,
-            'concat_eas_group': str(uuid.uuid4()),
-            'slice_groups': [],  # Slice encoding job groups ids
-            'slices': []  # Slice data
-        }
-        for vti, vt in enumerate(mf.videoTracks):
-            slices = create_slices(mf, vti)
-            r['slice_groups'].append(str(uuid.uuid4()))
-            r['slices'].append(slices)
-        res.append(r)
-    data = base64.b64encode(pickle.dumps(res))
-    out_final.put(data)
+class ExecuteInternal:
+    class combined_info:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            """
+            Compose ffprobe and mediainfo
+            :param params:            ['<predefined>', '<url>']
+            :param out_progress:      progress output queue
+            :param out_final:         final output queue
+            :param chain_error_event: error event
+            :return:
+            """
+            mf: MediaFile = MediaFile()
+            mf.update_str(params[0])
+            combined_info(mf, params[1])
+            data = base64.b64encode(pickle.dumps(mf))
+            out_final.put(data)
 
+    class cpeas_slice:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            """
+            Prepare media for ingest
+            :param params:            ['<path>', '<path>', ...]
+            :param out_progress:      progress output queue
+            :param out_final:         final output queue
+            :param chain_error_event: error event
+            :return: mediaFile + set of data to create jobs for sliced transcode and A/S extraction
+            """
+            res = []
+            for path in params:
+                mf: MediaFile = MediaFile(guid=None)
+                combined_info(mf, path)
+                r = {
+                    'mediafile': mf,
+                    'concat_eas_group': str(uuid.uuid4()),
+                    'slice_groups': [],  # Slice encoding job groups ids
+                    'slices': []  # Slice data
+                }
+                for vti, vt in enumerate(mf.videoTracks):
+                    slices = create_slices(mf, vti)
+                    r['slice_groups'].append(str(uuid.uuid4()))
+                    r['slices'].append(slices)
+                res.append(r)
+            data = base64.b64encode(pickle.dumps(res))
+            out_final.put(data)
 
-def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQueue, out_final: CPLQueue):
-    """
-    Prepare media for ingest
-    :param params:            ['<url>', '<asset guid>']
-    :param out_progress:      progress output queue
-    :param out_final:         final output queue
-    :param chain_error_event: error event
-    :return:
-    """
-    mf = combined_info_mediafile(params[0])
-    _icpeas(mf, params[1], out_progress, out_final)
+    class create_preview_extract_audio_subtitles:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            """
+            Prepare media for ingest
+            :param params:            ['<url>', '<asset guid>']
+            :param out_progress:      progress output queue
+            :param out_final:         final output queue
+            :param chain_error_event: error event
+            :return:
+            """
+            mf = combined_info_mediafile(params[0])
+            _icpeas(mf, params[1], out_progress, out_final)
 
 
 # def internal_ingest_assets(params, out_progress: CPLQueue, out_final: CPLQueue):
@@ -126,7 +131,8 @@ def execute_internal(params: List[str],
     :return:
     """
     try:
-        proc = globals()[params[0]]
+        pname = params[0].split('.', 1)[1]
+        proc = ExecuteInternal.__dict__[pname].handler
         proc(params[1:], out_progress, out_final)
     except Exception as e:
         Logger.error('execute_internal failed: {}\n'.format(e))
@@ -150,7 +156,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
         Logger.error('Error event is already set\n')
         return
     # Handle special complex cases
-    if len(chain.procs) == 1 and chain.procs[0][0].startswith('internal_'):
+    if len(chain.procs) == 1 and chain.procs[0][0].startswith('ExecuteInternal.'):
         execute_internal(chain.procs[0], out_progress[0], out_result, chain_error_event)
         return
     proc = []
