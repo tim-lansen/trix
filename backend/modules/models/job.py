@@ -73,6 +73,9 @@ class Job(Record):
         CPEAS = 0x8000
         # Aggregate results from CPEAS
         INGEST_AGGREGATE = 0x8001
+        # Create slices
+        SLICES_CREATE = 0x8002
+        SLICES_CONCAT = 0x8003
 
         # Presets:
         SIMPLE_TYPE = PROBE | ENCODE_VIDEO | ENCODE_AUDIO | MUX | DOWNMIX | UPMIX | ENCRYPT

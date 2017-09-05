@@ -396,10 +396,14 @@ class MediaFile(Record):
     def update_json(self, mf):
         # Specialized 'update_json' procedure for correct tracks merging
 
-        self.guid.set(mf['guid'])
-        self.name = mf['name']
-        self.ctime = str(mf['ctime'])
-        self.mtime = str(mf['mtime'])
+        if 'guid' in mf:
+            self.guid.set(mf['guid'])
+        if 'name' in mf:
+            self.name = mf['name']
+        if 'ctime' in mf:
+            self.ctime = str(mf['ctime'])
+        if 'mtime' in mf:
+            self.mtime = str(mf['mtime'])
 
         if 'isPreview' in mf:
             self.isPreview = mf['isPreview']

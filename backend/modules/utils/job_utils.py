@@ -124,11 +124,11 @@ class JobUtils:
 
         @staticmethod
         def _cpeas(path, asset_guid):
-            job = Job()
+            job: Job = Job()
             job.guid.new()
             job.name = 'CPEAS: {}'.format(os.path.basename(path))
             job.type = Job.Type.CPEAS
-            step = Job.Info.Step()
+            step: Job.Info.Step = Job.Info.Step()
             step.name = 'Create proxy, extract audio and subtitles'
             job.info.steps.append(step)
             chain = Job.Info.Step.Chain()
@@ -142,16 +142,35 @@ class JobUtils:
             return job
 
         @staticmethod
-        def create_preview_extract_audio_subtitles(path):
-            """
-            Create a job that performs 'internal_create_preview_extract_audio_subtitles' on the <path>
-            :param path: path to AV file
-            :return: job
-            """
-            job = JobUtils.CreateJob._cpeas(path)
-            # Register job
-            DBInterface.Job.register(job)
+        def _cpeas_sliced(path, asset_guid):
+            job_concat: Job = Job()
+            job_concat.guid.new()
+            job_concat.name = 'Concat: {}'.format(os.path.basename(path))
+            job_concat.type = Job.Type.SLICES_CONCAT
+            step: Job.Info.Step = Job.Info.Step()
+            step.name = 'Create proxy, extract audio and subtitles'
+            job.info.steps.append(step)
+            chain = Job.Info.Step.Chain()
+            chain.procs = [['internal_create_preview_extract_audio_subtitles', path, asset_guid]]
+            chain.result = 0
+            step.chains.append(chain)
+            # Compose result
+            result = Job.Info.Result()
+            result.type = Job.Info.Result.Type.CPEAS
+            job.info.results.append(result)
             return job
+
+        # @staticmethod
+        # def create_preview_extract_audio_subtitles(path):
+        #     """
+        #     Create a job that performs 'internal_create_preview_extract_audio_subtitles' on the <path>
+        #     :param path: path to AV file
+        #     :return: job
+        #     """
+        #     job = JobUtils.CreateJob._cpeas(path)
+        #     # Register job
+        #     DBInterface.Job.register(job)
+        #     return job
 
         @staticmethod
         def ingest_prepare(path):
@@ -161,7 +180,7 @@ class JobUtils:
             :return:
             """
             # Create final dummy job (trigger)
-            agg = Job()
+            agg: Job = Job()
             agg.guid.new()
             agg.name = 'Ingest: aggregate assets'
             agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
@@ -172,6 +191,59 @@ class JobUtils:
             inputs = []
             for root, firs, files in os.walk(path):
                 inputs += [os.path.join(root, f) for f in files if len(f.split('.', 1)) == 2 and f.rsplit('.', 1)[1] in JobUtils.ACCEPTABLE_MEDIA_FILE_EXTENSIONS]
+            if len(inputs) == 0:
+                return
+
+            # Create atomic jobs
+            assets = []
+            for inp in inputs:
+                ass = str(uuid.uuid4())
+                assets.append(ass)
+                job = JobUtils.CreateJob._cpeas(inp, ass)
+                # TODO: add non-auto-commit connection to DBInterface, and register all jobs in single transaction
+                job.status = Job.Status.INACTIVE
+                # Add job to group
+                job.groupIds.append(group_id)
+                # Register job
+                DBInterface.Job.register(job)
+
+            # Single job's step
+            # step = Job.Info.Step()
+            # step.name = 'Ingest: aggregate assets'
+            # chain = Job.Info.Step.Chain()
+            # chain.procs = [['internal_ingest_assets', base64.b64encode(pickle.dumps(assets))]]
+            # step.chains.append(chain)
+            # agg.info.steps.append(step)
+            res = Job.Info.Result()
+            res.type = Job.Info.Result.Type.ASSETS_TO_INGEST
+            res.actual = assets
+            agg.info.results.append(res)
+            # Register aggregator job
+            DBInterface.Job.register(agg)
+
+            # Change jobs statuses
+            DBInterface.Job.set_fields_by_groups([str(group_id)], {'status': Job.Status.NEW})
+
+        @staticmethod
+        def ingest_prepare_sliced(path):
+            """
+            Create a job that creates slices
+            :param path: path to source directory
+            :return:
+            """
+            # Create final dummy job (trigger)
+            agg: Job = Job()
+            agg.guid.new()
+            agg.name = 'Ingest: aggregate assets'
+            agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
+            agg.dependsOnGroupId.new()
+            group_id = agg.dependsOnGroupId
+
+            # Filter inputs: get list of all files in directory
+            inputs = []
+            for root, firs, files in os.walk(path):
+                inputs += [os.path.join(root, f) for f in files if len(f.split('.', 1)) == 2 and f.rsplit('.', 1)[
+                    1] in JobUtils.ACCEPTABLE_MEDIA_FILE_EXTENSIONS]
             if len(inputs) == 0:
                 return
 

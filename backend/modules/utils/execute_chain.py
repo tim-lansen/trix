@@ -6,6 +6,7 @@
 import os
 import sys
 import time
+import uuid
 import json
 import traceback
 from typing import List
@@ -26,6 +27,7 @@ from .commands import *
 from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
 from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles
+from .slices import create_slices
 from .storage import Storage
 
 
@@ -45,6 +47,43 @@ def internal_combined_info(params, out_progress: CPLQueue, out_final: CPLQueue):
     out_final.put(data)
 
 
+def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
+    tdir = Storage.storage_path('transit', str(mf.guid))
+    pdir = Storage.storage_path('preview', str(mf.guid))
+    res = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
+    res['asset'].name = 'auto'
+    res['asset'].guid.set(ass)
+    data = base64.b64encode(pickle.dumps(res))
+    out_final.put(data)
+
+
+def internal_cpeas_slice(params, out_progress: CPLQueue, out_final: CPLQueue):
+    """
+    Prepare media for ingest
+    :param params:            ['<url>']
+    :param out_progress:      progress output queue
+    :param out_final:         final output queue
+    :param chain_error_event: error event
+    :return: mediaFile + set of data to create jobs for sliced transcode and A/S extraction
+    """
+    mf = combined_info_mediafile(params[0])
+    if len(mf.videoTracks) == 0:
+        _icpeas(mf, params[1], out_progress, out_final)
+    else:
+        res = {
+            'mediafile': mf,
+            'concat_eas_group': str(uuid.uuid4()),
+            'slice_groups': [],  # Slice encoding job groups ids
+            'slices': []  # Slice data
+        }
+        for vti, vt in enumerate(mf.videoTracks):
+            slices = create_slices(mf, vti)
+            res['slice_groups'].append(str(uuid.uuid4()))
+            res['slices'].append(slices)
+        data = base64.b64encode(pickle.dumps(res))
+        out_final.put(data)
+
+
 def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQueue, out_final: CPLQueue):
     """
     Prepare media for ingest
@@ -55,20 +94,7 @@ def internal_create_preview_extract_audio_subtitles(params, out_progress: CPLQue
     :return:
     """
     mf = combined_info_mediafile(params[0])
-    tdir = Storage.storage_path('transit', str(mf.guid))
-    pdir = Storage.storage_path('preview', str(mf.guid))
-    res = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
-    res['asset'].name = 'auto'
-    res['asset'].guid.set(params[1])
-    data = base64.b64encode(pickle.dumps(res))
-    out_final.put(data)
-    # result = {
-    #     'asset': res['asset'].dumps(),
-    #     'trans': [_.dumps() for _ in res['trans']],
-    #     'previews': [_.dumps() for _ in res['previews']],
-    #     'archives': [_.dumps() for _ in res['archives']],
-    # }
-    # out_final.put(json.dumps(result))
+    _icpeas(mf, params[1], out_progress, out_final)
 
 
 # def internal_ingest_assets(params, out_progress: CPLQueue, out_final: CPLQueue):
