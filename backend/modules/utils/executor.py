@@ -99,7 +99,7 @@ class JobExecutor:
                     monitors.append(chain.progress)
                     # Multi-capture chain
                     queues = [CPLQueue(5) for _ in chain.procs]
-                    qfinal = None if chain.result is None else ex.finals[ci]
+                    qfinal = None if chain.result.parser is None else ex.finals[ci]
                     step_queues.append(queues)
                     t = Process(target=execute_chain, args=(chain, queues, qfinal, chain_enter, chain_error))
                     t.start()

@@ -76,13 +76,13 @@ class ExecuteInternal:
                 combined_info(mf, path)
                 r = {
                     'mediafile': mf,
-                    'concat_eas_group': str(uuid.uuid4()),
-                    'slice_groups': [],  # Slice encoding job groups ids
+                    # 'concat_eas_group': str(uuid.uuid4()),
+                    # 'slice_groups': [],  # Slice encoding job groups ids
                     'slices': []  # Slice data
                 }
                 for vti, vt in enumerate(mf.videoTracks):
                     slices = create_slices(mf, vti)
-                    r['slice_groups'].append(str(uuid.uuid4()))
+                    # r['slice_groups'].append(str(uuid.uuid4()))
                     r['slices'].append(slices)
                 res.append(r)
             data = base64.b64encode(pickle.dumps(res))
@@ -222,6 +222,8 @@ def execute_chain(chain: Job.Info.Step.Chain,
                 proc[i] = None
         time.sleep(0.4)
     Logger.log('Chain finished\n')
+    if chain.result_capture >= 0:
+        out_result.put(text[chain.result_capture])
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))
     # print('Execute chain finished')

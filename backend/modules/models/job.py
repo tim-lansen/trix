@@ -97,14 +97,6 @@ class Job(Record):
                         # float: Top progress value
                         self.top = 1.0
 
-                class Capture(JSONer):
-                    def __init__(self):
-                        super().__init__()
-                        # int: Index of process in chain to capture stderr output
-                        self.capture = 0
-                        # str: Name (id) of parser
-                        self.parser = None
-
                 def __init__(self):
                     super().__init__()
                     # list(list(str)): List of processes with arguments that should be run on this chain, example:
@@ -117,10 +109,8 @@ class Job(Record):
                     self.return_codes = None
                     # Progress class: Progress object
                     self.progress = self.Progress()
-                    # Index of chain proc to capture filters output (like blackdetect)
-                    self.capture = self.Capture()
-                    # Chain result, may be used to store result of internal procs
-                    self.result = None
+                    # Chain results may be captured from one process
+                    self.result_capture = -1
 
             def __init__(self):
                 super().__init__()
@@ -134,40 +124,6 @@ class Job(Record):
                 self.weight = 1.0
                 # (list(Chain)) List of process chains being started in parallel by this step
                 self.chains: List[Job.Info.Step.Chain] = []
-
-        class Result(JSONer):
-            # class Type:
-            #     UNDEFINED = 0
-            #     MEDIAFILE = 1
-            #     ASSET = 2
-            #     CPEAS = 3
-            #     INTERACTION = 4
-            #     # After CPEASes for ingest there is a trigger job that aggregates assets created by CPEASes
-            #     ASSETS_TO_INGEST = 5
-            #     FILE = 6
-            #     TASK = 7
-            #     JOB = 8
-            #     # Reactive result type:
-            #     HOOK_ARCHIVE = 9
-
-            def __init__(self):
-                super().__init__()
-                # Results handler procedure (member function of )
-                self.handler = None
-                # Bulk object (by type):
-                # MEDIAFILE: MediaFile object with URL set to newly created media file
-                # ASSET: ...
-                # INTERACTION: Interaction object
-                self.predefined = None
-                # Expected base object, any params may be set
-                # for example, it may be MediaFile() with one VideoTrack, and
-                #  mf.videoTracks[0].par = Rational(1, 1)
-                #  mf.videoTracks[0].pix_fmt = 'yuv420p'
-                # self.expected = None
-                # Actual result object
-                # for example, it may be MediaFile() derived from combined_info(mf, url)
-                self.actual = None
-                self.index = None
 
         def __init__(self):
             super().__init__()
@@ -221,7 +177,7 @@ class Job(Record):
             #       ]
             #   }}
             # ]
-            self.results: List[Job.Info.Result] = []
+            # self.results: List[Job.Info.Result] = []
 
         def max_parallel_chains(self):
             """
@@ -243,6 +199,40 @@ class Job(Record):
         FINISHED = 5
         FAILED = 6
         CANCELED = 7
+
+    class Result(JSONer):
+        # class Type:
+        #     UNDEFINED = 0
+        #     MEDIAFILE = 1
+        #     ASSET = 2
+        #     CPEAS = 3
+        #     INTERACTION = 4
+        #     # After CPEASes for ingest there is a trigger job that aggregates assets created by CPEASes
+        #     ASSETS_TO_INGEST = 5
+        #     FILE = 6
+        #     TASK = 7
+        #     JOB = 8
+        #     # Reactive result type:
+        #     HOOK_ARCHIVE = 9
+
+        def __init__(self):
+            super().__init__()
+            # Results handler procedure (member function of )
+            self.handler = None
+            # Bulk object (by type):
+            # MEDIAFILE: MediaFile object with URL set to newly created media file
+            # ASSET: ...
+            # INTERACTION: Interaction object
+            self.predefined = None
+            # Expected base object, any params may be set
+            # for example, it may be MediaFile() with one VideoTrack, and
+            #  mf.videoTracks[0].par = Rational(1, 1)
+            #  mf.videoTracks[0].pix_fmt = 'yuv420p'
+            # self.expected = None
+            # Actual result object
+            # for example, it may be MediaFile() derived from combined_info(mf, url)
+            self.actual = None
+            self.index = None
 
     # Guid type support class
     class GroupId(Guid):
@@ -266,6 +256,8 @@ class Job(Record):
         # Condition is a pythonic expression that can be evaluated in job's context???
         self.condition = None
 
+        self.results: List[Job.Result] = []
+
     # Table description
     TABLE_SETUP = {
         "relname": "trix_jobs",
@@ -284,7 +276,7 @@ class Job(Record):
             ["groupIds", "uuid[]"],
             ["dependsOnGroupId", "uuid"],
             ["condition", "json"],
-            # ["results", "json"]
+            ["results", "json"]
         ],
         "fields_extra": [],
         "creation": [

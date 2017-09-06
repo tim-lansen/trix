@@ -67,6 +67,20 @@
         ],
         "username": "tim",
         "password": "1604001"
+      },
+      {
+        "name": "server2",
+        "id": "server2_id",
+        "address": "1.1.1.1",
+        "shares": ["cache"],
+        "paths": [
+          {
+            "role": "cache",
+            "net_path": "cache"
+          }
+        ],
+        "username": "tim",
+        "password": "1604001"
       }
     ],
     "watchfolders": [

@@ -238,7 +238,7 @@ class MediaFile(Record):
             self.previews: List[str] = []
 
         @staticmethod
-        def fit_video(src, dst, dw, dh, size_round=2):
+        def fit_video(src, dst, dw: int, dh: int, size_round=2):
             # Fit video into given display size, rounding dimensions by 2^size_round
             # dw, dh: display boundaries
             sr2p = pow(2, size_round)
@@ -258,7 +258,7 @@ class MediaFile(Record):
 
         def ref_add(self, w=640, h=360):
             # Create preview mediafile for this stream
-            mf = MediaFile()
+            mf: MediaFile = MediaFile()
             mf.isPreview = True
             self.previews.append(mf.guid)
             vt = MediaFile.VideoTrack()

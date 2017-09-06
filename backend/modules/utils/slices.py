@@ -2,11 +2,22 @@
 # tim.lansen@gmail.com
 
 import time
+import json
 from subprocess import Popen, PIPE
 from modules.models.job import Job
 from modules.models.mediafile import MediaFile
 from .log_console import Logger, tracer
 from .combined_info import combined_info, combined_info_mediafile
+from .jsoner import JSONer
+
+
+class Slice(JSONer):
+    def __init__(self):
+        super().__init__()
+        self.length = 0
+        self.pattern_offset = 0
+        self.time = 0
+        self.crc = []
 
 
 def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=30, overlap_time=15, start_frame=5, pattern_length=8):
@@ -31,16 +42,16 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
             time.sleep(1)
         trout = proc2.stderr.read().decode()
         slic = {'time': draft_time}
-        for line in trout.split('\n'):
+        for line in trout.split(';'):
             kv = line.split('=', 1)
             if len(kv) == 2:
-                vv = kv[1].split(' ')
+                vv = kv[1].split(',')
                 if len(vv) == 1:
                     slic[kv[0]] = kv[1]
                 else:
                     slic[kv[0]] = vv
         if 'crc' not in slic:
-            Logger.warning('Unable to create slice at {:.2f}\n'.format(draft_time))
+            Logger.warning('Unable to create slice at {}\n'.format(draft_time))
         else:
             Logger.info('{}\n'.format(slic))
             slices.append(slic)

@@ -104,9 +104,10 @@ class TrixConfig(JSONer):
                 class Role:
                     UNDEFINED = 0
                     CRUDE = 1
-                    ARCHIVE = 2
-                    PRODUCTION = 3
-                    PREVIEW = 4
+                    CACHE = 2
+                    ARCHIVE = 3
+                    PRODUCTION = 4
+                    PREVIEW = 5
 
                 def __init__(self, role=Role.UNDEFINED, net_path=None, web_path=None):
                     super().__init__()

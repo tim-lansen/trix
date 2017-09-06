@@ -18,6 +18,20 @@ def timecode_to_float(tc):
     return t
 
 
+def split_iter(string, sep):
+    ssz = len(sep)
+    start = 0
+    while True:
+        idx = string.find(sep, start)
+        if idx == -1:
+            if start == 0:
+                yield string
+            return
+        if idx > start:
+            yield string[start:idx]
+        start = idx + ssz
+
+
 class Parsers:
     # Every parser outputs a dictionary object that may have any captured parameter
     # The mandatory value is 'pos': <float>, that represents captured time position
@@ -86,6 +100,17 @@ class Parsers:
         return None, None
 
     @staticmethod
+    def parse_auto_text(text):
+        parsed = {}
+        for line in split_iter(text, '\n'):
+            fn, fc = Parsers.parse_line(line.strip())
+            if fn:
+                if fn not in parsed:
+                    parsed[fn] = []
+                parsed[fn].append(dict(fc))
+        return parsed
+
+    @staticmethod
     def ffmpeg_cropdetect(cap):
         if type(cap) is str:
             fn, cap = Parsers.parse_line(cap)
@@ -130,6 +155,7 @@ class Parsers:
             pass
         return d
 
+
 PARSERS_VECTORS = {
     'cropdetect': Parsers.ffmpeg_cropdetect,
     'showinfo': Parsers.ffmpeg_showinfo
@@ -137,8 +163,9 @@ PARSERS_VECTORS = {
 
 
 PARSERS = {
+    'parse_auto_text': Parsers.parse_auto_text,
     'ffmpeg_progress': Parsers.ffmpeg_progress,
-    'ffmpeg_cropdetect': Parsers.ffmpeg_cropdetect
+    'ffmpeg_cropdetect': Parsers.ffmpeg_cropdetect,
 }
 
 

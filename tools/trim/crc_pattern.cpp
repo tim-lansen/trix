@@ -7,26 +7,49 @@
 void clog(_IO_FILE *std, const char *format, ...);
 
 
-char* cut_line_z(char * b)
+char* cut_line_z(char * b, char sep=0)
 {
-    char c = *b;
-    for(;; b++) {
-        c = *b;
-        if(!c) {
-            return NULL;
+    if(!sep) {
+        char c = *b;
+        for(;; b++) {
+            c = *b;
+            if(!c) {
+                return NULL;
+            }
+            if(c == '\r' || c == '\n') {
+                break;
+            }
         }
-        if(c == '\r' || c == '\n') {
-            break;
+        for(;;) {
+            *b++ = 0;
+            c = *b;
+            if(!c) {
+                return NULL;
+            }
+            if(!(c == '\r' || c == '\n')) {
+                return b;
+            }
         }
-    }
-    for(;;) {
-        *b++ = 0;
-        c = *b;
-        if(!c) {
-            return NULL;
+    } else {
+        char c = *b;
+        for(;; b++) {
+            c = *b;
+            if(!c) {
+                return NULL;
+            }
+            if(c == sep) {
+                break;
+            }
         }
-        if(!(c == '\r' || c == '\n')) {
-            return b;
+        for(;;) {
+            *b++ = 0;
+            c = *b;
+            if(!c) {
+                return NULL;
+            }
+            if(c != sep) {
+                return b;
+            }
         }
     }
 }
@@ -227,16 +250,18 @@ int CRCPattern::data_write_out(char* manifest_file)
     }
     char b[1024];
     // Write manifest
-    char *bb = b + sprintf(b, "{\"pattern_offset\": %d, \"length\": %d, \"crc\": [", m_frame - m_pattern_length, m_pattern_length);
+    //char *bb = b + sprintf(b, "{\"pattern_offset\": %d, \"length\": %d, \"crc\": [", m_frame - m_pattern_length, m_pattern_length);
+    char *bb = b + sprintf(b, "pattern_offset=%d;length=%d;crc=", m_frame - m_pattern_length, m_pattern_length);
     unsigned int idx = (m_frame - m_pattern_length) % m_frame_buffer.m_capacity;
     for(int i = 0; i < m_pattern_length; ++i) {
-        bb += sprintf(bb, "%u, ", crc[idx++]);
+        bb += sprintf(bb, "%u,", crc[idx++]);
         if(idx >= m_frame_buffer.m_capacity)
             idx -= m_frame_buffer.m_capacity;
     }
-    bb -= 2;
-    strcpy(bb, "]}\n");
-    //sprintf(bb, "]}\n");
+    //bb -= 2;
+    //strcpy(bb, "]}\n");
+    bb -= 1;
+    *bb = '\n';
     if(manifest_file) {
         int f = _open(manifest_file, _O_CREAT | _O_TRUNC | _O_BINARY | _O_WRONLY, _S_IREAD | _S_IWRITE);
         if(f == -1) {
@@ -272,54 +297,39 @@ bool CRCPattern::init_scan_trim(u_int pattern_length, u_int capacity)
     return true;
 }
 
-u_int CRCPattern::init_trim(char* filename)
+u_int CRCPattern::init_trim(char* man)
 {
-    // Initialize pattern with file
+    // Initialize pattern with arg
+    // Example:
+    // length=4;pattern_offset=112;crc=1020394,556345,2345678,4443
     // return 0 if error, else - required frame feed length (including negative offset)
-    if(!filename) {
+    if(!man) {
         // Special case
         clog(stderr, "Special case: absent pattern.\n");
         m_pattern_length = 0;
         return 0;
     }
-    int f = _open(filename, _O_RDONLY | _O_BINARY, _S_IREAD);
-    if(f == -1) {
-        clog(stderr, "Error: failed to open '%s'.\n", filename);
-        return 0;
-    }
-    m_type = pattern_trim;
-    long size = _lseek(f, 0, SEEK_END);
-    std::vector <char> cbuf;
-    cbuf.reserve(size + 1);
-    _lseek(f, 0, SEEK_SET);
-    size = _read(f, cbuf.data(), size);
-    _close(f);
-    char *current = cbuf.data(), *next;
-    current[size] = 0;
-
-    for(; current;) {
-        next = cut_line_z(current);
-        if(current[0] != '#') {
-            // Process non-comments
-            char *val = split(current, '=');
-            if(val) {
-                if(!strcmp("length", current)) {
-                    m_pattern_length = atoi(val);
-                } else if(!strcmp("crc", current)) {
-                    // Read CRCs
-                    int i = 0;
-                    do {
-                        current = val;
-                        val = split(current, ' ');
-                        crc[i++] = atoi(current);
-                    } while(val);
-                    if(i != m_pattern_length) {
-                        clog(stderr, "CRC count differs from pattern length: %d vs %d\n", i, m_pattern_length);
-                    }
+    char *next;
+    for(; man;) {
+        next = cut_line_z(man);
+        char *val = split(man, '=');
+        if(val) {
+            if(!strcmp("length", man)) {
+                m_pattern_length = atoi(val);
+            } else if(!strcmp("crc", man)) {
+                // Read CRCs
+                int i = 0;
+                do {
+                    man = val;
+                    val = split(man, ',');
+                    crc[i++] = atoi(man);
+                } while(val);
+                if(i != m_pattern_length) {
+                    clog(stderr, "CRC count differs from pattern length: %d vs %d\n", i, m_pattern_length);
                 }
             }
         }
-        current = next;
+        man = next;
     }
     //clog(stderr, "parsed: length=%d, data=%s\n", p->pattern_length, data);
     if(m_pattern_length == 0x7FFFFFFF) {

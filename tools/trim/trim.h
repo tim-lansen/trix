@@ -5,7 +5,7 @@
 
 
 static char* Error_Allocate = "Cannot allocate %d bytes of memory\n";
-static char* Usage_String = 
+static char* Usage_String =
     "Usage: trim <operation> <options>\n"
     "  Operations:\n"
     "    scan  : calculate and store xxhash sequence for specified frames\n"
@@ -18,8 +18,8 @@ static char* Usage_String =
     "    -o, --output <file path>           : (str)output file to store crc sequence\n"
     "                                         if not set, the sequence info will be written to STDERR\n"
     "  TRIM operation specific options:\n"
-    "    --pin <file path>                  : (trim, str) xxhash in-point manifest\n"
-    "    --pout <file path>                 : (trim, str) xxhash out-point sequence file\n"
+    "    --pin <file path|#content>         : (str) in-point manifest file path OR it's content ;-separated\n"
+    "    --pout <file path|#content>        : (str) out-point sequence file\n"
     "  Common options:\n"
     "    -s, --size <width> <height>        : (int, int)width and height of frame\n"
     "    -p, --pix_fmt <pixel format>       : (str) pixel format\n"
