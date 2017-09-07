@@ -169,4 +169,13 @@ PARSERS = {
 }
 
 
+def parse_text(text, parser):
+    res = []
+    if parser in PARSERS:
+        par = PARSERS[parser]
+        for line in split_iter(text, '\n'):
+            p = par(line)
+            if p:
+                res.append(p)
+    return res
 

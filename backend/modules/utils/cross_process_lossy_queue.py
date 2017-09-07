@@ -20,7 +20,7 @@ class CPLQueue:
     def get(self, block=True, timeout=None):
         return self.q.get(block=block, timeout=timeout)
 
-    def flush(self, prefix):
+    def flush(self, prefix=''):
         c1 = None
         while self.q.qsize() > 0:
             c1 = self.q.get()

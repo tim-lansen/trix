@@ -130,18 +130,14 @@ class JobUtils:
                 # Compose chain
                 chain = Job.Info.Step.Chain()
                 chain.procs = [
-                    [
-                        'internal_combined_info',
-                        '{"guid":"${{{}}}"}'.format(uidn),
-                        '${{{}}}'.format(srcn)
-                    ]
+                    ['internal_combined_info', '{"guid":"${{{}}}"}'.format(uidn), '${{{}}}'.format(srcn)]
                 ]
                 chain.result = 0
                 step.chains.append(chain)
                 # Compose result
                 result = Job.Result()
                 result.handler = JobUtils.Results.mediafile.__name__
-                result.predefined = {"guid": '${{{}}}'.format(uidn), "source": {"url": '${{{}}}'.format(srcn)}}
+                # result.predefined = {"guid": '${{{}}}'.format(uidn), "source": {"url": '${{{}}}'.format(srcn)}}
                 job.results.append(result)
             # Register job
             DBInterface.Job.register(job)
@@ -255,9 +251,11 @@ class JobUtils:
             DBInterface.Job.register(job)
 
     class Results:
-        class _undefined:
+        class default:
             @staticmethod
             def handler(r):
+                # res must be a Collector.CollectedResult instance
+                res = pickle.loads(base64.b64decode(r.actual))
                 pass
 
         class mediafile:
@@ -387,7 +385,6 @@ class JobUtils:
                                 step.chains.append(chain)
                     else:
                         # Create one EAS job
-
 
         class pa_slice:
             @staticmethod

@@ -109,8 +109,6 @@ class Job(Record):
                     self.return_codes = None
                     # Progress class: Progress object
                     self.progress = self.Progress()
-                    # Chain results may be captured from one process
-                    self.result_capture = -1
 
             def __init__(self):
                 super().__init__()
@@ -184,11 +182,7 @@ class Job(Record):
             Expose maximum parallel chains that require to pass final results
             :return: int
             """
-            mpc = 0
-            for s in self.steps:
-                if [_.result is not None for _ in s.chains].count(True):
-                    mpc = max(mpc, len(s.chains))
-            return mpc
+            return max([len(s.chains) for s in self.steps])
 
     class Status:
         INACTIVE = 0
@@ -200,44 +194,50 @@ class Job(Record):
         FAILED = 6
         CANCELED = 7
 
-    class Result(JSONer):
-        # class Type:
-        #     UNDEFINED = 0
-        #     MEDIAFILE = 1
-        #     ASSET = 2
-        #     CPEAS = 3
-        #     INTERACTION = 4
-        #     # After CPEASes for ingest there is a trigger job that aggregates assets created by CPEASes
-        #     ASSETS_TO_INGEST = 5
-        #     FILE = 6
-        #     TASK = 7
-        #     JOB = 8
-        #     # Reactive result type:
-        #     HOOK_ARCHIVE = 9
+    class Emitted(JSONer):
+        class Result(JSONer):
+            class Source(JSONer):
+                def __init__(self):
+                    super().__init__()
+                    # Address of text source to capture
+                    self.step = 0
+                    self.chain = 0
+                    self.proc = 0
+                    self.parser = None
 
-        def __init__(self):
+            def __init__(self):
+                super().__init__()
+                # Data source address
+                self.source = self.Source()
+                # Parsed data
+                self.data = None
+
+        class CollectorId(Guid):
+            def __init__(self):
+                super().__init__()
+
+        def __init__(self, jobId: Guid):
             super().__init__()
-            # Results handler procedure (member function of )
+            self.jobId = jobId
+            # Results handler procedure (member function of JobUtils.Results)
             self.handler = None
-            # Bulk object (by type):
-            # MEDIAFILE: MediaFile object with URL set to newly created media file
-            # ASSET: ...
-            # INTERACTION: Interaction object
-            self.predefined = None
-            # Expected base object, any params may be set
-            # for example, it may be MediaFile() with one VideoTrack, and
-            #  mf.videoTracks[0].par = Rational(1, 1)
-            #  mf.videoTracks[0].pix_fmt = 'yuv420p'
-            # self.expected = None
-            # Actual result object
-            # for example, it may be MediaFile() derived from combined_info(mf, url)
-            self.actual = None
-            self.index = None
+            # Aggregating collector's id
+            self.collectorId = self.CollectorId()
+            # List of job results
+            self.results: List[self.Result] = []
 
     # Guid type support class
     class GroupId(Guid):
         def __init__(self):
             super().__init__()
+
+    def update_json(self, json_obj):
+        super().update_json(json_obj)
+        self.emitted.jobId = self.guid
+
+    def update_str(self, json_str):
+        super().update_str(json_str)
+        self.emitted.jobId = self.guid
 
     def __init__(self):
         super().__init__()
@@ -256,7 +256,8 @@ class Job(Record):
         # Condition is a pythonic expression that can be evaluated in job's context???
         self.condition = None
 
-        self.results: List[Job.Result] = []
+        # Job results
+        self.emitted: Job.Emitted = Job.Emitted(self.guid)
 
     # Table description
     TABLE_SETUP = {
@@ -306,7 +307,7 @@ def test() -> Job:
             "steps": [
                 {
                     "name": "Convert audio stereo -> 5.1",
-                    "weight": 1.0,
+                    "weight": 0.999,
                     "chains": [
                         {
                             "procs": [
@@ -322,17 +323,20 @@ def test() -> Job:
                             }
                         }
                     ]
+                },
+                {
+                    "name": "New MediaFile",
+                    "weight": 0.001,
+                    "chains": [
+                        {
+                            "procs": ['internal_combined_info', '{"guid":"${new_media_id}"}', '${f_dst}']
+                        }
+                    ]
                 }
             ],
-            "results": [
-                {"type": "MediaFile", "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}},
-                # {"type": "Asset", "info": {"guid": "${asset_id}", "streams": [
-                #     {
-                #         "source": {"mediaFileId": "${new_media_id}", "streamKind": "AUDIO", "streamKindIndex": 0},
-                #         "destination": {"streamKind": "AUDIO", "streamKindIndex": 0, "channelIndex": 0}
-                #     }
-                # ]}}
-            ]
+        },
+        "emitted": {
+            "handler": "mediafile",
         }
     }
     job.groupIds.append(Guid())

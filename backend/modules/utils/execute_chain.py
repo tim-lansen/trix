@@ -4,6 +4,7 @@
 # Chain execution
 
 import os
+import re
 import sys
 import time
 import uuid
@@ -147,7 +148,7 @@ def execute_internal(params: List[str],
 # In short: Chain is a list of processes that being started simultaneously and compiled into a chain,
 # where STDOUT of every process is attached to STDIN of next process
 def execute_chain(chain: Job.Info.Step.Chain,
-                  out_progress: List[CPLQueue],
+                  out_progress: CPLQueue,
                   out_result: CPLQueue,
                   chain_enter_event: Event,
                   chain_error_event: Event):
@@ -186,6 +187,8 @@ def execute_chain(chain: Job.Info.Step.Chain,
     for p in proc:
         p.stdout.close()
     all_completed = False
+    progress_parser = PARSERS[chain.progress.parser] if chain.progress.parser in PARSERS else lambda x: None
+    feeds = re.compile(b'[\\r\\n]+')
     retcodes = chain.return_codes
     while not all_completed:
         all_completed = True
@@ -205,11 +208,14 @@ def execute_chain(chain: Job.Info.Step.Chain,
                 all_completed = False
                 s = stderr_nbsr[i]
                 try:
-                    part = os.read(s, 65536).decode().replace('\r', '\n').replace('\n\n', '\n')
+                    part = feeds.sub(b'\n', os.read(s, 65536)).decode()
                     text[i] += part
                     line = part.strip().rsplit('\n', 1)[-1]
-                    if len(line):
-                        out_progress[i].put(line)
+                    if i == chain.progress.capture and len(line):
+                        cap = progress_parser(line)
+                        if cap:
+                            if 'time' in cap:
+                                out_progress.put(base64.b64encode(pickle.dumps(cap)))
                 except OSError as e:
                     pass
             else:
@@ -222,8 +228,9 @@ def execute_chain(chain: Job.Info.Step.Chain,
                 proc[i] = None
         time.sleep(0.4)
     Logger.log('Chain finished\n')
-    if chain.result_capture >= 0:
-        out_result.put(text[chain.result_capture])
+    # Collect ALL outputs
+    # TODO: filter out progress lines
+    out_result.put(base64.b64encode(pickle.dumps(text)))
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))
     # print('Execute chain finished')

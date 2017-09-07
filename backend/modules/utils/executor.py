@@ -13,15 +13,17 @@ import sys
 import time
 import json
 import uuid
+import pickle
+import base64
 import shutil
 from copy import deepcopy
 from typing import List
-from multiprocessing import Process, Event
-import queue
+from multiprocessing import Process, Event, Queue
+# import queue
 from modules.models.job import Job
 from modules.models.interaction import Interaction
 from modules.utils.log_console import Logger, tracer
-from .parsers import PARSERS, timecode_to_float
+from .parsers import PARSERS, parse_text, timecode_to_float
 from .execute_chain import execute_chain
 from .cross_process_lossy_queue import CPLQueue
 from .job_utils import JobUtils
@@ -40,10 +42,29 @@ class JobExecutor:
             # Note that this king of job may have only 1 step with 1 single-proc chain
             # self.final = CPLQueue(2)
             self.finals: List[CPLQueue] = []
+            self.fmap = {}
+            self.fmap_out = Queue()
             self.error = Event()
             self.finish = Event()
             self.running = Event()
             self.force_exit = Event()
+
+        @staticmethod
+        def _hash(si, ci, pi):
+            return '{:02d}.{:02d}.{:02d}'.format(si, ci, pi)
+
+        def final_register(self, step, chain, proc):
+            hash = self._hash(step, chain, proc)
+            self.fmap[hash] = None
+
+        def final_set(self, step, chain, proc, obj):
+            hash = self._hash(step, chain, proc)
+            if hash in self.fmap:
+                self.fmap[hash] = obj
+
+        def final_get(self, step, chain, proc):
+            hash = self._hash(step, chain, proc)
+            return self.fmap[hash] if hash in self.fmap else None
 
         @tracer
         def reset(self, finals_count=0):
@@ -52,7 +73,7 @@ class JobExecutor:
                 f.flush('reset')
             if len(self.finals) < finals_count:
                 self.finals += [CPLQueue(2) for _ in range(finals_count - len(self.finals))]
-            # self.final.flush()
+            self.fmap.clear()
             self.error.clear()
             self.finish.clear()
             self.running.clear()
@@ -75,6 +96,9 @@ class JobExecutor:
         chain_error = Event()
         try:
             Logger.info("Starting job {}\n".format(ex.job.name))
+            # Register finals
+            for r in ex.job.emitted.results:
+                ex.final_register(r.source.step, r.source.chain, r.source.proc)
             # Prepare paths
             for path in ex.job.info.paths:
                 if os.path.isfile(path):
@@ -87,8 +111,8 @@ class JobExecutor:
                 # Prepare pipes
                 for pipe in step.pipes:
                     os.mkfifo(pipe)
-                step_queues = []
-                monitors: List[Job.Info.Step.Chain.Progress] = []
+                step_queues = [CPLQueue(5) for _ in step.chains]
+                # monitors: List[Job.Info.Step.Chain.Progress] = []
                 threads: List[Process] = []
 
                 # Initialize and start step's chains execution, each chain in own thread
@@ -96,48 +120,39 @@ class JobExecutor:
                     # Workaround Python's bad threading
                     if len(threads):
                         time.sleep(1.0)
-                    monitors.append(chain.progress)
-                    # Multi-capture chain
-                    queues = [CPLQueue(5) for _ in chain.procs]
-                    qfinal = None if chain.result.parser is None else ex.finals[ci]
-                    step_queues.append(queues)
-                    t = Process(target=execute_chain, args=(chain, queues, qfinal, chain_enter, chain_error))
+                    q_fin = ex.finals[ci]
+                    # queues = [CPLQueue(5) for _ in chain.procs]
+                    # EDIT: capture only proc set as progress
+                    q_pro = step_queues[ci]
+                    t = Process(target=execute_chain, args=(chain, q_pro, q_fin, chain_enter, chain_error))
                     t.start()
                     threads.append(t)
                     chain_enter.wait()
                     chain_enter.clear()
 
-                # Wait step to execute
+                # Wait step to finish
                 while True:
                     if [t.is_alive() for t in threads].count(True) == 0:
                         break
                     # Compile info from chains
-                    for i, que in enumerate(step_queues):
-                        # Multi-chain capture
-                        for j, q in enumerate(que):
-                            c = q.flush('step')
-                            if c is None:
-                                continue
-                            if j == monitors[i].capture:
-                                if type(c) is dict:
-                                    if 'progress' in c:
-                                        monitors[i].pos = c['progress']
-                                elif monitors[i].parser in PARSERS:
-                                    cap = PARSERS[monitors[i].parser](c)
-                                    if cap:
-                                        if 'time' in cap:
-                                            monitors[i].pos = timecode_to_float(cap['time'])
+                    for ci, q_pro in enumerate(step_queues):
+                        c = q_pro.flush('step')
+                        if c is None:
+                            continue
+                        cap = pickle.loads(base64.b64decode(c))
+                        if 'time' in cap:
+                            step.chains[ci].progress.pos = timecode_to_float(cap['time'])
                     # calculate step progress
                     step_progress = 0.0
-                    for m in monitors:
-                        step_progress += m.pos/m.top
-                    job_progress = step_progress / (len(monitors) * len(ex.job.info.steps))
+                    for chain in step.chains:
+                        step_progress += chain.progress.pos/chain.progress.top
+                    job_progress = step_progress / (len(step.chains) * len(ex.job.info.steps))
                     ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, job_progress))
                     time.sleep(0.5)
 
                 # Step is finished, cleaning up
-                for m in monitors:
-                    m.pos = 1.0
+                for chain in step.chains:
+                    chain.progress.pos = 1.0
                 for pipe in step.pipes:
                     os.remove(pipe)
                 if chain_error.is_set():
@@ -145,6 +160,15 @@ class JobExecutor:
                     Logger.error("Job failed on step {}\n".format(ai))
                     ex.error.set()
                     break
+                # Collect finals
+                for ci, q_fin in enumerate(ex.finals):
+                    try:
+                        cap = pickle.loads(base64.b64decode(q_fin.get()))
+                        for pi, text in enumerate(cap):
+                            ex.final_set(ai, ci, pi, text)
+                    except Exception as e:
+                        Logger.critical('{}\n'.format(e))
+                        Logger.traceback()
                 Logger.info("Step {} finished\n".format(ai))
                 ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, (ai + 1.0)/len(ex.job.info.steps)))
             Logger.info("Job finished\n")
@@ -154,29 +178,32 @@ class JobExecutor:
             Logger.warning('{}\n'.format(ex.job.dumps()))
             ex.error.set()
         ex.running.clear()
+        ex.fmap_out.put(base64.b64encode(pickle.dumps(ex.fmap)))
         # Set finish event only if no error
         if not ex.error.is_set():
             ex.finish.set()
 
     def results(self):
-        if self.exec.job.results is None:
+        self.exec.fmap.clear()
+        try:
+            self.exec.fmap = pickle.loads(base64.b64decode(self.exec.fmap_out.get()))
+        except Exception as e:
+            Logger.critical('{}\n'.format(e))
+            Logger.traceback()
+        if self.exec.job.emitted is None or len(self.exec.job.emitted.results) == 0:
             Logger.warning('No results to emit\n')
             return None
-        if self.exec.job.type & Job.Type.TRIGGER:
-            Logger.info("Dummy job results\n")
-            JobUtils.Results.process(self.exec.job)
-            return len(self.exec.job.results)
+        # if self.exec.job.type & Job.Type.TRIGGER:
+        #     Logger.info("Dummy job results\n")
+        #     JobUtils.Results.process(self.exec.job)
+        #     return len(self.exec.job.results)
 
         rc = 0
-        for result in self.exec.job.results:
-            try:
-                rs = self.exec.finals[rc].get(timeout=5)
-                result.actual = rs
-            except queue.Empty:
-                Logger.critical('Failed to retrieve job result #{}\n'.format(rc))
+        for result in self.exec.job.emitted.results:
+            text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
+            result.data = parse_text(text, result.source.parser)
             rc += 1
-        if rc:
-            JobUtils.Results.process(self.exec.job)
+        JobUtils.Results.process(self.exec.job)
         return rc
 
     def working(self):
