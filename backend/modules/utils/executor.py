@@ -3,10 +3,11 @@
 
 
 # The job execution engine
-# It takes a Job, executes it, and process results
+# It takes a Job, executes it, and processes the results
 # Scenario 1:
 # - customer creates a bulk MediaFile object, bulk.source.url = src_url;
 # - customer creates a job with type = PROBE, steps = [] and results = [{'type': MEDIAFILE, 'bulk': bulk}, {'type': }]
+
 
 import os
 import sys
@@ -57,6 +58,7 @@ class JobExecutor:
             hash = self._hash(step, chain, proc)
             self.fmap[hash] = None
 
+        @tracer
         def final_set(self, step, chain, proc, obj):
             hash = self._hash(step, chain, proc)
             if hash in self.fmap:
@@ -201,9 +203,12 @@ class JobExecutor:
         rc = 0
         for result in self.exec.job.emitted.results:
             text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
-            result.data = parse_text(text, result.source.parser)
+            if result.source.parser is None:
+                result.data = text
+            else:
+                result.data = parse_text(text, result.source.parser)
             rc += 1
-        JobUtils.Results.process(self.exec.job)
+        JobUtils.ResultHandlers.process(self.exec.job)
         return rc
 
     def working(self):
@@ -282,7 +287,7 @@ def test():
             "steps": [
                 {
                     "name": "Downmix audio stereo -> mono",
-                    "weight": 1.0,
+                    "weight": 0.999,
                     "chains": [
                         {
                             "procs": [
@@ -298,10 +303,26 @@ def test():
                             }
                         }
                     ]
+                },
+                {
+                    "name": "Combined Info",
+                    "weight": 0.001,
+                    "chains": [
+                        {
+                            "procs": ["ExecuteInternal.combined_info", "{}", "${f_dst}"]
+                        }
+                    ]
                 }
-            ],
+            ]
+        },
+        "emitted": {
+            "handler": JobUtils.Results.mediafile.__name__,
             "results": [
-                {"handler": JobUtils.Results.mediafile, "info": {"guid": "${new_media_id}", "source": {"url": "${f_dst}"}}}
+                {
+                    "source": {
+                        "step": 1
+                    }
+                }
             ]
         }
     })
@@ -323,6 +344,7 @@ def test():
         time.sleep(1)
 
     job_executor.stop()
+    job_executor.results()
 
 
 def test_combined_info():
@@ -334,8 +356,8 @@ def test_combined_info():
         "info": {
             "aliases": {
                 "server1": "/mnt/server1_id",
-                "src0": "${server1}/crude/in_work/test_eng1_20.mp4",
-                "src1": "${server1}/crude/in_work/39f8a04c1b6ee9d3c60650c8ed80eb.768x320.600k.AV.mp4",
+                "src0": "${server1}/crude/watch/test.src/test_src.AV.mp4",
+                "src1": "${server1}/crude/watch/test.src/test_src.A1.mkv",
                 "mf0": str(uuid.uuid4()),
                 "mf1": str(uuid.uuid4())
             },
@@ -344,23 +366,33 @@ def test_combined_info():
                     "name": "combined info",
                     "chains": [
                         {
-                            "procs": ['internal_combined_info {"guid":"${mf0}"} ${src0}'.split(' ')],
-                            "result": 0     # Anything but None
+                            "procs": ['ExecuteInternal.combined_info {"guid":"${mf0}"} ${src0}'.split(' ')],
                         },
                         {
-                            "procs": ['internal_combined_info {"guid":"${mf1}"} ${src1}'.split(' ')],
-                            "result": 0  # Anything but None
+                            "procs": ['ExecuteInternal.combined_info {"guid":"${mf1}"} ${src1}'.split(' ')],
                         }
                     ]
                 }
-            ],
+            ]
+        },
+        "emitted": {
             "results": [
-                {"handler": JobUtils.Results.mediafile, "predefined": {"guid": "${mf0}", "source": {"url": "${src0}"}}},
-                {"handler": JobUtils.Results.mediafile, "predefined": {"guid": "${mf1}", "source": {"url": "${src1}"}}}
+                {
+                    "source": {
+                        "chain": 0
+                    },
+                    "handler": JobUtils.ResultHandlers.mediafile.__name__
+                },
+                {
+                    "source": {
+                        "chain": 1
+                    },
+                    "handler": JobUtils.ResultHandlers.mediafile.__name__
+                }
             ]
         }
     })
-    print(job.results[0].dumps())
+    print(job.emitted.dumps())
     job_executor = JobExecutor()
     job_executor.run(job)
     working = True
@@ -372,10 +404,10 @@ def test_combined_info():
             break
         if job_executor.exec.finish.is_set():
             Logger.info('job {} finished\n'.format(job.guid))
-            if job_executor.results():
-                JobUtils.Results.process(job_executor.exec.job)
-                # for r in job_executor.exec.job.results:
-                #     Logger.warning('{}\n'.format(r.dumps()))
+            # if job_executor.results():
+            #     JobUtils.Results.process(job_executor.exec.job)
+            #     # for r in job_executor.exec.job.results:
+            #     #     Logger.warning('{}\n'.format(r.dumps()))
             break
 
         Logger.log('Job progress: {}\n'.format(job_executor.progress()))
@@ -383,3 +415,4 @@ def test_combined_info():
         time.sleep(1)
 
     job_executor.stop()
+    job_executor.results()

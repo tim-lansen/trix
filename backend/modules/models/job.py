@@ -211,6 +211,8 @@ class Job(Record):
                 self.source = self.Source()
                 # Parsed data
                 self.data = None
+                # Result handler (member function of JobUtils.ResultHandlers)
+                self.handler = None
 
         class CollectorId(Guid):
             def __init__(self):
@@ -219,7 +221,7 @@ class Job(Record):
         def __init__(self, jobId: Guid):
             super().__init__()
             self.jobId = jobId
-            # Results handler procedure (member function of JobUtils.Results)
+            # Results handler procedure (member function of JobUtils.ResultHandlers)
             self.handler = None
             # Aggregating collector's id
             self.collectorId = self.CollectorId()
@@ -277,7 +279,7 @@ class Job(Record):
             ["groupIds", "uuid[]"],
             ["dependsOnGroupId", "uuid"],
             ["condition", "json"],
-            ["results", "json"]
+            ["emitted", "json"]
         ],
         "fields_extra": [],
         "creation": [

@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
+# Chain execution area
+# Chain is a list of processes connected with pipes
+# Each process sends it's STDOUT to next process' STDIN
+# The progress source process' STDERR is being parsed and sent to executor
+# Every process' STDERR being read and stored
 
 # Chain execution
 
@@ -44,6 +49,7 @@ def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue
 
 class ExecuteInternal:
     class combined_info:
+
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
@@ -57,7 +63,7 @@ class ExecuteInternal:
             mf: MediaFile = MediaFile()
             mf.update_str(params[0])
             combined_info(mf, params[1])
-            data = base64.b64encode(pickle.dumps(mf))
+            data = base64.b64encode(pickle.dumps([mf]))
             out_final.put(data)
 
     class cpeas_slice:
@@ -86,7 +92,7 @@ class ExecuteInternal:
                     # r['slice_groups'].append(str(uuid.uuid4()))
                     r['slices'].append(slices)
                 res.append(r)
-            data = base64.b64encode(pickle.dumps(res))
+            data = base64.b64encode(pickle.dumps([res]))
             out_final.put(data)
 
     class create_preview_extract_audio_subtitles:
@@ -158,11 +164,11 @@ def execute_chain(chain: Job.Info.Step.Chain,
         return
     # Handle special complex cases
     if len(chain.procs) == 1 and chain.procs[0][0].startswith('ExecuteInternal.'):
-        execute_internal(chain.procs[0], out_progress[0], out_result, chain_error_event)
+        execute_internal(chain.procs[0], out_progress, out_result, chain_error_event)
         return
     proc = []
     text = ['' for _ in chain.procs]
-    stderr_nbsr = []
+    stderr_handles = []
     pstdout = PIPE
     Logger.info('{0}\n'.format(' \\\n|'.join([format_command(_) for _ in chain.procs])))
     for i, c in enumerate(chain.procs):
@@ -182,8 +188,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
         pipe_nowait(p.stderr)
         proc.append(p)
         pstdout = p.stdout
-        stderr_nbsr.append(p.stderr.fileno())
-        # stderr_nbsr.append(p.stderr)
+        stderr_handles.append(p.stderr.fileno())
     for p in proc:
         p.stdout.close()
     all_completed = False
@@ -206,7 +211,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
                 continue
             if p.poll() is None:
                 all_completed = False
-                s = stderr_nbsr[i]
+                s = stderr_handles[i]
                 try:
                     part = feeds.sub(b'\n', os.read(s, 65536)).decode()
                     text[i] += part

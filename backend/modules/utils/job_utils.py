@@ -14,7 +14,7 @@ from modules.models.asset import Asset, VideoStream, AudioStream, SubStream, Str
 from modules.models.mediafile import MediaFile
 from modules.models.interaction import Interaction
 from modules.utils.database import DBInterface
-from .log_console import Logger
+from .log_console import Logger, tracer
 from .storage import Storage
 from .parsers import Parsers
 
@@ -250,19 +250,20 @@ class JobUtils:
             # Register job
             DBInterface.Job.register(job)
 
-    class Results:
+    class ResultHandlers:
         class default:
             @staticmethod
+            @tracer
             def handler(r):
                 # res must be a Collector.CollectedResult instance
-                res = pickle.loads(base64.b64decode(r.actual))
+                res = pickle.loads(base64.b64decode(r))
                 pass
 
         class mediafile:
             @staticmethod
-            def handler(r):
-                mf = pickle.loads(base64.b64decode(r.actual))
-                DBInterface.MediaFile.set(mf.dumps())
+            def handler(mf: MediaFile):
+                Logger.warning('{}\n'.format(mf.dumps(indent=2)))
+                DBInterface.MediaFile.set(mf)
 
         class asset:
             @staticmethod
@@ -383,7 +384,7 @@ class JobUtils:
 
                                 step: Job.Info.Step = Job.Info.Step()
                                 step.chains.append(chain)
-                    else:
+                    # else:
                         # Create one EAS job
 
         class pa_slice:
@@ -437,15 +438,19 @@ class JobUtils:
 
         @staticmethod
         def process(job: Job):
-            for i, r in enumerate(job.results):
-                t = r.handler
-                if t:
-                    if t in JobUtils.Results.__dict__:
-                        JobUtils.Results.__dict__[t].handler(str(job.guid), r)
-                    else:
-                        JobUtils.Results._undefined.handler(str(job.guid), r)
-                else:
-                    JobUtils.Results._undefined.handler(str(job.guid), r)
+            he = JobUtils.ResultHandlers.default
+            try:
+                he = JobUtils.ResultHandlers.__dict__[job.emitted.handler]
+            except:
+                pass
+            for i, r in enumerate(job.emitted.results):
+                hr = he
+                try:
+                    hr = JobUtils.ResultHandlers.__dict__[r.handler]
+                except:
+                    pass
+                print(r.data)
+                hr.handler(r.data)
 
     @staticmethod
     def get_assets_by_uids(uids):
