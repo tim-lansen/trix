@@ -177,7 +177,7 @@ class Job(Record):
             #       ]
             #   }}
             # ]
-            # self.results: List[Job.Info.Result] = []
+            # self.results: List[Job.Result] = []
 
         def max_parallel_chains(self):
             """

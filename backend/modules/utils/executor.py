@@ -159,16 +159,16 @@ class JobExecutor:
             ex.finish.set()
 
     def results(self):
-        if self.exec.job.info.results is None:
+        if self.exec.job.results is None:
             Logger.warning('No results to emit\n')
             return None
         if self.exec.job.type & Job.Type.TRIGGER:
             Logger.info("Dummy job results\n")
-            JobUtils.Results.process(self.exec.job.info.results)
-            return len(self.exec.job.info.results)
+            JobUtils.Results.process(self.exec.job)
+            return len(self.exec.job.results)
 
         rc = 0
-        for result in self.exec.job.info.results:
+        for result in self.exec.job.results:
             try:
                 rs = self.exec.finals[rc].get(timeout=5)
                 result.actual = rs
@@ -176,7 +176,7 @@ class JobExecutor:
                 Logger.critical('Failed to retrieve job result #{}\n'.format(rc))
             rc += 1
         if rc:
-            JobUtils.Results.process(self.exec.job.info.results)
+            JobUtils.Results.process(self.exec.job)
         return rc
 
     def working(self):
@@ -333,7 +333,7 @@ def test_combined_info():
             ]
         }
     })
-    print(job.info.results[0].dumps())
+    print(job.results[0].dumps())
     job_executor = JobExecutor()
     job_executor.run(job)
     working = True
@@ -346,8 +346,8 @@ def test_combined_info():
         if job_executor.exec.finish.is_set():
             Logger.info('job {} finished\n'.format(job.guid))
             if job_executor.results():
-                JobUtils.Results.process(job_executor.exec.job.info.results)
-                # for r in job_executor.exec.job.info.results:
+                JobUtils.Results.process(job_executor.exec.job)
+                # for r in job_executor.exec.job.results:
                 #     Logger.warning('{}\n'.format(r.dumps()))
             break
 

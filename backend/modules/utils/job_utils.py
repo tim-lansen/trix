@@ -139,10 +139,10 @@ class JobUtils:
                 chain.result = 0
                 step.chains.append(chain)
                 # Compose result
-                result = Job.Info.Result()
+                result = Job.Result()
                 result.handler = JobUtils.Results.mediafile.__name__
                 result.predefined = {"guid": '${{{}}}'.format(uidn), "source": {"url": '${{{}}}'.format(srcn)}}
-                job.info.results.append(result)
+                job.results.append(result)
             # Register job
             DBInterface.Job.register(job)
             return job
@@ -161,9 +161,9 @@ class JobUtils:
             chain.result = 0
             step.chains.append(chain)
             # Compose result
-            result: Job.Info.Result = Job.Info.Result()
+            result: Job.Result = Job.Result()
             result.handler = JobUtils.Results.cpeas.__name__
-            job.info.results.append(result)
+            job.results.append(result)
             return job
 
         @staticmethod
@@ -208,10 +208,10 @@ class JobUtils:
             # chain.procs = [['internal_ingest_assets', base64.b64encode(pickle.dumps(assets))]]
             # step.chains.append(chain)
             # agg.info.steps.append(step)
-            res = Job.Info.Result()
+            res = Job.Result()
             res.handler = JobUtils.Results.assets_to_ingest.__name__
             res.actual = assets
-            agg.info.results.append(res)
+            agg.results.append(res)
             # Register aggregator job
             DBInterface.Job.register(agg)
 
@@ -247,9 +247,9 @@ class JobUtils:
             chain.result = 0
             step.chains.append(chain)
             # Compose result
-            result = Job.Info.Result()
+            result = Job.Result()
             result.handler = JobUtils.Results.ingest_prepare_sliced.__name__
-            job.info.results.append(result)
+            job.results.append(result)
             job.status = Job.Status.NEW
             # Register job
             DBInterface.Job.register(job)
@@ -300,6 +300,7 @@ class JobUtils:
                     cdir = Storage.storage_path('cache', str(mf.guid))
                     pdir = Storage.storage_path('preview', str(mf.guid))
                     if 'slices' in res and len(res['slices']) > 0:
+                        # Enumerate sliced videoTracks creating concat job for every vt
                         for vti, slices in enumerate(res['slices']):
                             vt: MediaFile.VideoTrack = mf.videoTracks[vti]
                             # Get transform setup
@@ -345,7 +346,7 @@ class JobUtils:
                                 segment_list_x265 += 'file {}\n'.format(segment_path_x265)
                                 job_preview_archive_slice: Job = Job()
                                 job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
-                                result: Job.Info.Result = Job.Info.Result()
+                                result: Job.Result = Job.Result()
                                 result.handler = JobUtils.Results.pa_slice.__name__
 
                                 if slic is None:
@@ -385,6 +386,7 @@ class JobUtils:
                                 step: Job.Info.Step = Job.Info.Step()
                                 step.chains.append(chain)
                     else:
+                        # Create one EAS job
 
 
         class pa_slice:
@@ -436,22 +438,9 @@ class JobUtils:
                 inter.assetOut = None
                 DBInterface.Interaction.set(inter)
 
-        # Vectors = {
-        #     Job.Info.Result.Type.MEDIAFILE:     _mediafile,
-        #     Job.Info.Result.Type.ASSET:         _asset,
-        #     Job.Info.Result.Type.INTERACTION:   _interaction,
-        #     Job.Info.Result.Type.CPEAS:         _cpeas,
-        #     Job.Info.Result.Type.ASSETS_TO_INGEST: _assets_to_ingest,
-        #     Job.Info.Result.Type.FILE:          _undefined,
-        #     Job.Info.Result.Type.TASK:          _undefined,
-        #     Job.Info.Result.Type.JOB:           _undefined,
-        #     # Reactive result type:
-        #     Job.Info.Result.Type.HOOK_ARCHIVE:  _undefined,
-        # }
-
         @staticmethod
         def process(job: Job):
-            for i, r in enumerate(job.info.results):
+            for i, r in enumerate(job.results):
                 t = r.handler
                 if t:
                     if t in JobUtils.Results.__dict__:
