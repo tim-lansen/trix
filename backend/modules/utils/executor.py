@@ -58,7 +58,6 @@ class JobExecutor:
             hash = self._hash(step, chain, proc)
             self.fmap[hash] = None
 
-        @tracer
         def final_set(self, step, chain, proc, obj):
             hash = self._hash(step, chain, proc)
             if hash in self.fmap:
@@ -68,7 +67,6 @@ class JobExecutor:
             hash = self._hash(step, chain, proc)
             return self.fmap[hash] if hash in self.fmap else None
 
-        @tracer
         def reset(self, finals_count=0):
             self.progress_output.flush('reset')
             for f in self.finals:
@@ -186,6 +184,10 @@ class JobExecutor:
             ex.finish.set()
 
     def results(self):
+        if self.exec.job.type & Job.Type.TRIGGER:
+            Logger.info("Trigger job results\n")
+            JobUtils.process_results(self.exec.job)
+            return len(self.exec.job.emitted.results)
         self.exec.fmap.clear()
         try:
             self.exec.fmap = pickle.loads(base64.b64decode(self.exec.fmap_out.get()))
@@ -195,11 +197,6 @@ class JobExecutor:
         if self.exec.job.emitted is None or len(self.exec.job.emitted.results) == 0:
             Logger.warning('No results to emit\n')
             return None
-        # if self.exec.job.type & Job.Type.TRIGGER:
-        #     Logger.info("Dummy job results\n")
-        #     JobUtils.Results.process(self.exec.job)
-        #     return len(self.exec.job.results)
-
         rc = 0
         for result in self.exec.job.emitted.results:
             text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
@@ -208,7 +205,7 @@ class JobExecutor:
             else:
                 result.data = parse_text(text, result.source.parser)
             rc += 1
-        JobUtils.ResultHandlers.process(self.exec.job)
+        JobUtils.process_results(self.exec.job)
         return rc
 
     def working(self):
@@ -309,19 +306,21 @@ def test():
                     "weight": 0.001,
                     "chains": [
                         {
-                            "procs": ["ExecuteInternal.combined_info", "{}", "${f_dst}"]
+                            "procs": [
+                                ["ExecuteInternal.combined_info", "{}", "${f_dst}"]
+                            ]
                         }
                     ]
                 }
             ]
         },
         "emitted": {
-            "handler": JobUtils.Results.mediafile.__name__,
             "results": [
                 {
                     "source": {
                         "step": 1
-                    }
+                    },
+                    "handler": JobUtils.ResultHandlers.mediafile.__name__
                 }
             ]
         }

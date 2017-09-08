@@ -8,6 +8,6 @@ from modules.utils.executor import test, test_combined_info
 
 if __name__ == '__main__':
     Logger.info('Running  modules.utils.executor.test()\n')
-    # test()
-    test_combined_info()
+    test()
+    # test_combined_info()
     Logger.info('Done\n')

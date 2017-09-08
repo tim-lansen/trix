@@ -189,7 +189,8 @@ class TrixConfig(JSONer):
         self.storage = self.Storage()
 
 
-TRIX_CONFIG = TrixConfig()
+if 'TRIX_CONFIG' not in globals():
+    TRIX_CONFIG = TrixConfig()
 
 
 # Read trix_config.json

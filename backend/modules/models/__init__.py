@@ -5,6 +5,7 @@
 from .asset import Asset
 from .interaction import Interaction
 from .job import Job
+from .collector import Collector
 from .machine import Machine
 from .mediachunk import MediaChunk
 from .mediafile import MediaFile

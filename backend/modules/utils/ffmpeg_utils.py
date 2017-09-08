@@ -16,6 +16,8 @@ from .slices import create_slices
 from typing import List
 from modules.models.mediafile import MediaFile
 from modules.models.asset import Asset, Stream, VideoStream, AudioStream, SubStream
+import pickle
+import base64
 
 
 if os.name == 'nt':
@@ -256,7 +258,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             elif fn == 'progress':
                 progress = timecode_to_float(parse['time']) / dur
                 if que_progress:
-                    que_progress.put({'progress': progress})
+                    que_progress.put({'time': progress})
                 else:
                     Logger.log('progress {}%     \r'.format(int(100.0 * progress)))
             else:
@@ -725,7 +727,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
             elif fn == 'progress':
                 progress = timecode_to_float(parse['time']) / dur
                 if que_progress:
-                    que_progress.put({'progress': progress})
+                    que_progress.put(base64.b64encode(pickle.dumps({'time': progress})))
                 else:
                     Logger.log('progress {}%     \r'.format(int(100.0 * progress)))
             else:

@@ -159,6 +159,7 @@ class DBInterface:
         db_tables = {t[0] for t in rows}
         for t in TRIX_CONFIG.dBase.tables:
             ct = TRIX_CONFIG.dBase.tables[t]
+            Logger.warning('{}\n'.format(ct))
             if ct['relname'] in db_tables:
                 # Check table's columns
                 request = "SELECT * FROM {relname} WHERE false;".format(relname=ct['relname'])

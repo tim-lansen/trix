@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     DBInterface._drop_all_tables()
     DBInterface.initialize()
-    asset = Asset()
+    asset: Asset = Asset()
     asset.guid.new()
     asset.name = ''
     asset.mediaFiles = [Asset.MediaFile(0), Asset.MediaFile(0), Asset.MediaFile(0)]

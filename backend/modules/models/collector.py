@@ -7,6 +7,7 @@ from .record import *
 
 
 class Collector(Record):
+    # Collector record aggregates results from jobs
 
     def __init__(self):
         super().__init__()
@@ -16,7 +17,6 @@ class Collector(Record):
     # Table description
     TABLE_SETUP = {
         "relname": "trix_collector",
-        # Collector record aggregates results from jobs
         "fields": [
             ["results", "json[]"]
         ],
