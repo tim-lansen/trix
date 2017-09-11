@@ -5,8 +5,7 @@ import re
 import os
 import json
 import uuid
-import pickle
-import base64
+import copy
 from pprint import pformat
 from typing import List
 from modules.models.job import Job
@@ -94,60 +93,70 @@ class JobUtils:
 
     class CreateJob:
         @staticmethod
-        def media_info(path, names: List[str]):
+        def _media_info(inputs, group_id, names: List[str], output: dict):
             """
             Create a job that analyzes source(s) and creates MediaFile(s)
-            :param path: path to file or directory
+            :param inputs: list of files, path to file, or directory
+            :param group_id: job group for depending job(s)
             :param names: strings that may help to identify media
-            :return: job GUID or None
+            :param output: dict object {'job': None, 'mediafiles': []}
+            :return: job guid | None
             """
+            output['job'] = None
+            output['mediafiles'] = []
             paths = []
-            if os.path.isfile(path):
-                paths.append(path)
-            elif os.path.isdir(path):
-                for root, dirs, files in os.walk(path):
+            if type(inputs) is list:
+                paths = inputs
+            elif os.path.isfile(inputs):
+                paths = [inputs]
+            elif os.path.isdir(inputs):
+                for root, firs, files in os.walk(inputs):
                     for f in files:
-                        paths.append(os.path.join(root, f))
-                if len(paths) == 0:
-                    Logger.error('Cannot find file(s) in {}\n'.format(path))
-                    return None
+                        ne = f.rsplit('.', 1)
+                        if len(ne) == 2 and ne[1] in JobUtils.ACCEPTABLE_MEDIA_FILE_EXTENSIONS:
+                            paths.append(os.path.join(root, f))
+                            names.append(ne[0])
+            if len(paths) == 0:
+                Logger.error('Cannot find file(s) in {}\n'.format(inputs))
+                return None
             # Store common path to aliases as base
             base = os.path.commonpath((os.path.dirname(_) for _ in paths))
             # Create job
-            job: Job = Job()
+            job: Job = Job(name='Combined Info(s)', guid=0)
             job.type = Job.Type.PROBE
             job.info.names = names
             job.info.aliases['base'] = base
+            if group_id is not None:
+                job.groupIds.append(group_id)
             step: Job.Info.Step = Job.Info.Step()
-            step.name = 'Get combined info'
+            step.name = 'Get combined info(s)'
             job.info.steps.append(step)
             for ci, p in enumerate(paths):
                 uidn = 'uid{:02d}'.format(ci)
                 srcn = 'src{:02d}'.format(ci)
                 # Set ailases
+                mfid = str(uuid.uuid4())
+                output['mediafiles'].append(mfid)
                 job.info.aliases[srcn] = p.replace(base, '${base}', 1)
-                job.info.aliases[uidn] = str(uuid.uuid4())
+                job.info.aliases[uidn] = mfid
                 # Compose chain
                 chain = Job.Info.Step.Chain()
                 chain.procs = [
-                    ['ExecuteInternal.combined_info', '{"guid":"${{{}}}"}'.format(uidn), '${{{}}}'.format(srcn)]
+                    ['ExecuteInternal.combined_info', '{{"guid":"${{{}}}"}}'.format(uidn), '${{{}}}'.format(srcn)]
                 ]
                 chain.result = 0
                 step.chains.append(chain)
-                # Compose result
+                # Compose result that register mew media file
                 result = Job.Emitted.Result()
                 result.handler = JobUtils.ResultHandlers.mediafile.__name__
                 result.source.chain = ci
                 job.emitted.results.append(result)
-            # Register job
-            DBInterface.Job.register(job)
-            return job
+            output['job'] = job
+            return str(job.guid)
 
         @staticmethod
         def _cpeas(path, asset_guid):
-            job: Job = Job()
-            job.guid.new()
-            job.name = 'CPEAS: {}'.format(os.path.basename(path))
+            job: Job = Job(name='CPEAS: {}'.format(os.path.basename(path)), guid=0)
             job.type = Job.Type.CPEAS
             step: Job.Info.Step = Job.Info.Step()
             step.name = 'Create proxy, extract audio and subtitles'
@@ -162,16 +171,14 @@ class JobUtils:
             return job
 
         @staticmethod
-        def _extract_audio_subs_(path, asset_guid):
-            job: Job = Job()
-            job.guid.new()
-            job.name = 'EAS: {}'.format(os.path.basename(path))
+        def _eascs(path, asset_guid):
+            job: Job = Job(name='EAS: {}'.format(os.path.basename(path)), guid=0)
             job.type = Job.Type.EAS
             step: Job.Info.Step = Job.Info.Step()
             step.name = 'Create proxy, extract audio and subtitles'
             job.info.steps.append(step)
             chain = Job.Info.Step.Chain()
-            chain.procs = [['ExecuteInternal.extract_audio_subtitles', path, asset_guid]]
+            chain.procs = [['ExecuteInternal.extract_audio_subtitles_create_slices', path, asset_guid]]
             step.chains.append(chain)
             # Compose result
             result: Job.Emitted.Result = Job.Emitted.Result()
@@ -187,9 +194,7 @@ class JobUtils:
             :return:
             """
             # Create final dummy job (trigger)
-            agg: Job = Job()
-            agg.guid.new()
-            agg.name = 'Ingest: aggregate assets'
+            agg: Job = Job(name='Ingest: aggregate assets', guid=0)
             agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
             agg.dependsOnGroupId.new()
             group_id = agg.dependsOnGroupId
@@ -227,66 +232,197 @@ class JobUtils:
         @staticmethod
         def ingest_prepare_sliced(path):
             """
-            Ingest prepare step 1: filter input files, get info, capture slices
+            Ingest prepare step 0.1: get infos
             :param path: path to source directory
             :return:
             """
-            # Filter inputs: get list of all files in directory
-            inputs = []
-            for root, firs, files in os.walk(path):
-                for f in files:
-                    ne = f.rsplit('.', 1)
-                    if len(ne) == 2 and ne[1] in JobUtils.ACCEPTABLE_MEDIA_FILE_EXTENSIONS:
-                        inputs.append(os.path.join(root, f))
-            if len(inputs) == 0:
-                return
+            mi_output = {}
+            jid = JobUtils.CreateJob._media_info(path, None, [], mi_output)
+            if not jid:
+                Logger.error('Failed to initiate ingest prepare\n')
+                return 0
 
-            job: Job = Job()
-            job.guid.new()
-            job.name = 'IPS: {}'.format(os.path.basename(path))
-            job.type = Job.Type.SLICES_CREATE
-            step: Job.Info.Step = Job.Info.Step()
-            step.name = 'Get info, create slices'
-            job.info.steps.append(step)
-            chain = Job.Info.Step.Chain()
-            chain.procs = [['ExecuteInternal.cpeas_slice'] + inputs]
-            chain.result = 0
-            step.chains.append(chain)
-            # Compose result
-            result = Job.Result()
-            result.handler = JobUtils.Results.ingest_prepare_sliced.__name__
-            job.results.append(result)
-            job.status = Job.Status.NEW
-            # Register job
+            job: Job = mi_output['job']
+            aggregate_results = Job.Emitted.Result()
+            aggregate_results.data = mi_output['mediafiles']
+            aggregate_results.source.step = -1
+            aggregate_results.handler = JobUtils.ResultHandlers.ips_p02_mediafiles.__name__
+            job.emitted.results.append(aggregate_results)
             DBInterface.Job.register(job)
+            Logger.log('{}\n'.format(job.dumps(indent=2)))
+            return 1
+
+
+        @staticmethod
+        def _ips_p02_mediafiles(mfs: List[MediaFile]):
+            """
+            Ingest prepare step 0.1: get infos
+            :param path: path to source directory
+            :return:
+            """
+            # Create final dummy job (trigger)
+            agg: Job = Job(name='Ingest sliced: aggregate assets', guid=0)
+            agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
+            agg.dependsOnGroupId.new()
+            group_id = agg.dependsOnGroupId
+
+            jobs = []
+            assets = []
+            for mf in mfs:
+                # Get directories
+                dir_transit = Storage.storage_path('transit', str(mf.guid))
+                dir_preview = Storage.storage_path('preview', str(mf.guid))
+                dir_archive = Storage.storage_path('archive', str(mf.guid))
+                # Create new asset for file
+                asset: Asset = Asset()
+                assets.append(str(asset.guid))
+                # Create split job for every video track
+                for vti, vt in enumerate(mf.videoTracks):
+                    # First, create promises - preview media file and archive media file
+                    mf_preview: MediaFile = vt.ref_add()
+                    mf_archive: MediaFile = MediaFile()
+                    mf_preview.name = mf.name + '.v{}.preview'.format(vti)
+                    mf_archive.name = mf.name + '.v{}.archive'.format(vti)
+                    mf_prvfile = '{}.v.preview.mp4'.format(mf_archive.guid, sti)
+                    mf_arcfile = '{}.mp4'.format(mf_archive.guid, sti)
+                    mf_preview.source.path = os.path.join(dir_preview.net_path, mf_prvfile)
+                    mf_preview.source.url = '{}/{}'.format(dir_preview.web_path, mf_prvfile)
+                    mf_archive.source.path = os.path.join(dir_archive.net_path, mf_arcfile)
+                    mf_archive.source.url = None
+
+                    # A job to capture slices
+                    job: Job = Job(name='split.v{}'.format(vti), guid=0)
+                    job.groupIds.append(group_id)
+                    chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                    chain.procs = [
+                        ['ExecuteInternal.create_slices', mf.dumps(), vti]
+                    ]
+                    step: Job.Info.Step = Job.Info.Step()
+                    step.chains.append(chain)
+                    job.info.steps.append(step)
+
+                    # Result with captured slices
+                    result: Job.Emitted.Result = Job.Emitted.Result()
+                    job.emitted.results.append(result)
+
+                    # Trigger (pass-through info to create post-job)
+                    result: Job.Emitted.Result = Job.Emitted.Result()
+                    result.source.step = -1
+                    result.data = {
+                        'src_mfid': str(mf.guid),
+                        'vti': vti,
+                        'group_id': group_id,
+                        'archive': mf_archive.dumps(),
+                        'preview': mf_preview.dumps()
+                    }
+                    result.handler = JobUtils.ResultHandlers.ips_p03_slices.__name__
+                    job.emitted.results.append(result)
+
+                    # Add job to pool
+                    jobs.append(job)
+
+                # Create single job for A+S extraction/preview
+                if len(mf.audioTracks) + len(mf.subTracks) > 0:
+                    # Enumerate subtitles tracks, collect outputs for previews and extracted tracks
+                    for sti, s in enumerate(mf.subTracks):
+                        # Special case for 1-track subtitles only
+                        if len(mf.videoTracks) == 0 and len(mf.audioTracks) == 0 and len(mf.subTracks) == 1:
+                            subtitles = mf
+                            st = s
+                        else:
+                            st = copy.deepcopy(s)
+                            st.index = 0
+                            subtitles: MediaFile = MediaFile(name='transit subtitles')
+                            s.extract = subtitles.guid
+                            subtitles.master.set(mf.guid.guid)
+                            subtitles.subTracks.append(st)
+                            subtitles.source.path = os.path.join(dir_transit.net_path,
+                                                                 '{}.s{:02d}.extract.mkv'.format(mf.guid, sti))
+                            outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=sti, path=subtitles.source.path))
+                            sout_trans.append(subtitles)
+                        # ci = 0
+                        subtitles_preview = MediaFile(name='preview-sub')
+                        sout_refs.append(subtitles_preview)
+                        subtitles_preview.master.set(subtitles.guid.guid)
+                        subtitles_preview.isPreview = True
+                        subtitles_preview.source.path = os.path.join(dir_preview.net_path,
+                                                                     '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
+                        subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
+                        outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=sti, path=subtitles_preview.source.path))
+                        st.previews.append(str(subtitles_preview.guid))
+
+                    # Enumerate audio tracks, collect pan filters and outputs for previews and extracted tracks
+                    for sti, a in enumerate(mediafile.audioTracks):
+                        # Special case for 1-track audio only
+                        if len(mediafile.videoTracks) == 0 and len(mediafile.subTracks) == 0 and len(mediafile.audioTracks) == 1:
+                            audio = mediafile
+                            at = a
+                        else:
+                            at = copy.deepcopy(a)
+                            audio = MediaFile(name='transit audio')
+                            a.extract = audio.guid
+                            audio.master.set(mediafile.guid.guid)
+                            audio.audioTracks.append(at)
+                            audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
+                            outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.path))
+                            aout_trans.append(audio)
+                        # Add silencedetect filter for 1st audio track only
+                        audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
+                        for ci in range(a.channels):
+                            audio_preview = MediaFile(name='preview-audio')
+                            aout_refs.append(audio_preview)
+                            audio_preview.master.set(audio.guid.guid)
+                            audio_preview.isPreview = True
+                            audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
+                            audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
+                            if audio_filter is None:
+                                audio_filter = '[0:a:{sti}]pan=mono|c0=c{ci}[ap_{sti:02d}_{ci:02d}]'.format(sti=sti, ci=ci)
+                            filters.append(audio_filter)
+                            audio_filter = None
+                            outputs.append(
+                                '-map [ap_{sti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(sti=sti, ci=ci, path=audio_preview.source.path))
+                            at.previews.append(str(audio_preview.guid))
+
+        @staticmethod
+        def _ips_p03_slices(slices, trig):
+            # Create compile job and encode jobs for single videoTrack
+            # using captured slices and passed info
+            pass
 
     class ResultHandlers:
         class default:
             @staticmethod
-            def handler(r):
+            def handler(emit: Job.Emitted, idx: int):
+                r = emit.results[idx]
                 # res must be a Collector.CollectedResult instance
-                res = pickle.loads(base64.b64decode(r))
                 pass
 
         class mediafile:
             @staticmethod
-            def handler(mf: MediaFile):
-                Logger.warning('{}\n'.format(mf.dumps(indent=2)))
+            def handler(emit: Job.Emitted, idx: int):
+                r = emit.results[idx]
+                mf: MediaFile = r.data
                 DBInterface.MediaFile.set(mf)
 
-        class asset:
+        class ips_p02_mediafiles:
             @staticmethod
-            def handler(r):
-                pass
+            def handler(emit: Job.Emitted, idx: int):
+                # r = emit.results[idx]
+                mfs = [_.data for _ in emit.results[:idx]]
+                JobUtils.CreateJob._ips_p02_mediafiles(mfs)
 
-        class interaction:
+        class ips_p03_slices:
             @staticmethod
-            def handler(r):
-                pass
+            def handler(emit: Job.Emitted, idx: int):
+                slices = emit.results[0].data
+                trig = emit.results[1].data
+                Logger.critical('{}\n'.format(pformat(trig)))
+                JobUtils.CreateJob._ips_p03_slices(slices, trig)
 
-        class ingest_prepare_sliced:
+        class ips_p03_assets:
             @staticmethod
-            def handler(r):
+            def handler(emit: Job.Emitted, idx: int):
+                r = emit.results[idx]
                 # res is a list
                 #     'mediafile': mf,
                 #     'slices': []  # Slice data
@@ -298,7 +434,7 @@ class JobUtils:
                     return 'pattern_offset={};length={};crc={}'.format(_s['pattern_offset'], _s['length'], ','.join([str(_) for _ in _s['crc']]))
 
                 jobs = []
-                results = pickle.loads(base64.b64decode(r.actual))
+                results = r.data
                 overlap = 50
                 # Enumerate files
                 for fi, res in enumerate(results):
@@ -330,10 +466,10 @@ class JobUtils:
                                 preview.source.url = '{}/{}.v{}.preview.mp4'.format(pdir.web_path, mf.guid, vti)
                                 pvt:MediaFile.VideoTrack = preview.videoTracks[0]
                                 #1 Create 2 concat jobs: for preview and for archive
-                                job_preview_concat: Job = Job()
+                                job_preview_concat: Job = Job(guid=0)
                                 job_preview_concat.groupIds.append(job_final.dependsOnGroupId)
                                 job_preview_concat.dependsOnGroupId.new()
-                                job_archive_concat: Job = Job()
+                                job_archive_concat: Job = Job(guid=0)
                                 job_archive_concat.groupIds.append(job_final.dependsOnGroupId)
                                 job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
                                 #2 Create Nx2 encode jobs
@@ -352,7 +488,7 @@ class JobUtils:
                                     segment_path_x265 = os.path.join(cdir.net_path, 'arch_{:03d}.hevc')
                                     segment_list_x264 += 'file {}\n'.format(segment_path_x264)
                                     segment_list_x265 += 'file {}\n'.format(segment_path_x265)
-                                    job_preview_archive_slice: Job = Job()
+                                    job_preview_archive_slice: Job = Job(guid=0)
                                     job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
                                     result: Job.Result = Job.Result()
                                     result.handler = JobUtils.Results.pa_slice.__name__
@@ -398,7 +534,8 @@ class JobUtils:
 
         class pa_slice:
             @staticmethod
-            def handler(guid, r):
+            def handler(emit: Job.Emitted, idx: int):
+                r = emit.results[idx]
                 # We need to obtain blacks from capture, and then update job record with it
                 # r is a text like this:
                 '''
@@ -412,9 +549,10 @@ class JobUtils:
 
         class cpeas:
             @staticmethod
-            def handler(r):
+            def handler(emit: Job.Emitted, idx: int):
+                r = emit.results[idx]
                 # Parse results derived from 'internal_create_preview_extract_audio_subtitles'
-                res = pickle.loads(base64.b64decode(r.actual))
+                res = r.data
                 DBInterface.Asset.set(res['asset'])
                 for mf in res['trans'] + res['previews'] + res['archives']:
                     DBInterface.MediaFile.set(mf)
@@ -422,7 +560,8 @@ class JobUtils:
 
         class assets_to_ingest:
             @staticmethod
-            def handler(r):
+            def handler(emit: Job.Emitted, idx: int):
+                r = emit.results[idx]
                 # Get assets from DB, merge and create Interaction
                 asset_guid = None
                 if len(r.actual) == 1:
@@ -458,7 +597,7 @@ class JobUtils:
                 hr = JobUtils.ResultHandlers.__dict__[r.handler]
             except:
                 pass
-            hr.handler(r.data)
+            hr.handler(job.emitted, i)
 
     @staticmethod
     def get_assets_by_uids(uids):

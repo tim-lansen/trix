@@ -16,8 +16,6 @@ import uuid
 import json
 import traceback
 from typing import List
-import pickle
-import base64
 
 # from queue import Queue, Empty
 # from threading import Thread, Event
@@ -43,13 +41,11 @@ def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue
     res = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
     res['asset'].name = 'auto'
     res['asset'].guid.set(ass)
-    data = base64.b64encode(pickle.dumps(res))
-    out_final.put(data)
+    out_final.put(res)
 
 
 class ExecuteInternal:
     class combined_info:
-
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
@@ -63,37 +59,28 @@ class ExecuteInternal:
             mf: MediaFile = MediaFile()
             mf.update_str(params[0])
             combined_info(mf, params[1])
-            data = base64.b64encode(pickle.dumps([mf]))
-            out_final.put(data)
+            out_final.put([mf])
 
-    class cpeas_slice:
+    class create_slices:
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
             Prepare media for ingest
-            :param params:            ['<path>', '<path>', ...]
+            :param params:            ['<mediaFile.dumps()>', <vti>]
             :param out_progress:      progress output queue
             :param out_final:         final output queue
             :param chain_error_event: error event
             :return: mediaFile + set of data to create jobs for sliced transcode and A/S extraction
             """
-            res = []
-            for path in params:
-                mf: MediaFile = MediaFile(guid=None)
-                combined_info(mf, path)
-                r = {
-                    'mediafile': mf,
-                    # 'concat_eas_group': str(uuid.uuid4()),
-                    # 'slice_groups': [],  # Slice encoding job groups ids
-                    'slices': []  # Slice data
-                }
-                for vti, vt in enumerate(mf.videoTracks):
-                    slices = create_slices(mf, vti)
-                    # r['slice_groups'].append(str(uuid.uuid4()))
-                    r['slices'].append(slices)
-                res.append(r)
-            data = base64.b64encode(pickle.dumps([res]))
-            out_final.put(data)
+            mf: MediaFile = MediaFile(guid=None)
+            mf.update_str(params[0])
+            slices = create_slices(mf, params[1])
+            out_final.put(slices)
+
+    class extract_audio_subtitles_create_slices:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            pass
 
     class create_preview_extract_audio_subtitles:
         @staticmethod
@@ -220,7 +207,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
                         cap = progress_parser(line)
                         if cap:
                             if 'time' in cap:
-                                out_progress.put(base64.b64encode(pickle.dumps(cap)))
+                                out_progress.put(cap)
                 except OSError as e:
                     pass
             else:
@@ -235,7 +222,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
     Logger.log('Chain finished\n')
     # Collect ALL outputs
     # TODO: filter out progress lines
-    out_result.put(base64.b64encode(pickle.dumps(text)))
+    out_result.put(text)
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))
     # print('Execute chain finished')
@@ -281,7 +268,7 @@ def test():
             break
         # Compile info from chains
         for j, q in enumerate(test_output):
-            c = q.flush('test')
+            c = q.flush()
             if c and j == test_chain.progress.capture:
                 p = parser(c)
                 Logger.log('{}\n'.format(p))

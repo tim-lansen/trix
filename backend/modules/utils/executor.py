@@ -14,8 +14,6 @@ import sys
 import time
 import json
 import uuid
-import pickle
-import base64
 import shutil
 from copy import deepcopy
 from typing import List
@@ -68,9 +66,9 @@ class JobExecutor:
             return self.fmap[hash] if hash in self.fmap else None
 
         def reset(self, finals_count=0):
-            self.progress_output.flush('reset')
+            self.progress_output.flush()
             for f in self.finals:
-                f.flush('reset')
+                f.flush()
             if len(self.finals) < finals_count:
                 self.finals += [CPLQueue(2) for _ in range(finals_count - len(self.finals))]
             self.fmap.clear()
@@ -136,10 +134,9 @@ class JobExecutor:
                         break
                     # Compile info from chains
                     for ci, q_pro in enumerate(step_queues):
-                        c = q_pro.flush('step')
-                        if c is None:
+                        cap = q_pro.flush()
+                        if cap is None:
                             continue
-                        cap = pickle.loads(base64.b64decode(c))
                         if 'time' in cap:
                             step.chains[ci].progress.pos = timecode_to_float(cap['time'])
                     # calculate step progress
@@ -163,7 +160,7 @@ class JobExecutor:
                 # Collect finals
                 for ci, q_fin in enumerate(ex.finals):
                     try:
-                        cap = pickle.loads(base64.b64decode(q_fin.get()))
+                        cap = q_fin.get()
                         for pi, text in enumerate(cap):
                             ex.final_set(ai, ci, pi, text)
                     except Exception as e:
@@ -178,32 +175,40 @@ class JobExecutor:
             Logger.warning('{}\n'.format(ex.job.dumps()))
             ex.error.set()
         ex.running.clear()
-        ex.fmap_out.put(base64.b64encode(pickle.dumps(ex.fmap)))
+        ex.fmap_out.put(ex.fmap)
         # Set finish event only if no error
         if not ex.error.is_set():
             ex.finish.set()
 
     def results(self):
+        """
+        Get results from execute_chain
+        :return: None if no results to emit, number of emitted results if success [, 0 of False if failed]*
+        """
+        if self.exec.job.emitted is None or len(self.exec.job.emitted.results) == 0:
+            Logger.warning('No results to emit\n')
+            return None
         if self.exec.job.type & Job.Type.TRIGGER:
             Logger.info("Trigger job results\n")
             JobUtils.process_results(self.exec.job)
             return len(self.exec.job.emitted.results)
         self.exec.fmap.clear()
         try:
-            self.exec.fmap = pickle.loads(base64.b64decode(self.exec.fmap_out.get()))
+            self.exec.fmap = self.exec.fmap_out.get()
         except Exception as e:
             Logger.critical('{}\n'.format(e))
             Logger.traceback()
-        if self.exec.job.emitted is None or len(self.exec.job.emitted.results) == 0:
-            Logger.warning('No results to emit\n')
-            return None
         rc = 0
-        for result in self.exec.job.emitted.results:
-            text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
-            if result.source.parser is None:
-                result.data = text
-            else:
-                result.data = parse_text(text, result.source.parser)
+        for idx, result in enumerate(self.exec.job.emitted.results):
+            # result.source may be None is case of pre-defined data
+            Logger.critical('Result #{}: {} => '.format(idx, result))
+            if result.source.step >= 0:
+                text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
+                if result.source.parser is None:
+                    result.data = text
+                else:
+                    result.data = parse_text(text, result.source.parser)
+            Logger.critical('{}\n'.format(result))
             rc += 1
         JobUtils.process_results(self.exec.job)
         return rc
@@ -212,7 +217,7 @@ class JobExecutor:
         return self.process and self.process.is_alive()
 
     def progress(self):
-        cap = self.exec.progress_output.flush('JobExecutor.progress')
+        cap = self.exec.progress_output.flush()
         if cap is not None:
             jcap = json.loads(cap)
             Logger.log('{}\n'.format(jcap))
@@ -260,7 +265,7 @@ class JobExecutor:
 
 
 def test():
-    job = Job()
+    job: Job = Job()
     job.update_json({
         "guid": str(uuid.uuid4()),
         "name": "Test job: downmix",
@@ -347,7 +352,7 @@ def test():
 
 
 def test_combined_info():
-    job = Job()
+    job: Job = Job()
     job.update_json({
         "guid": str(uuid.uuid4()),
         "name": "Get combined info",

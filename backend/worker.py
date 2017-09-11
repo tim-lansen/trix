@@ -174,10 +174,15 @@ class Worker:
                     self.node.status = Node.Status.IDLE
                 self.job_executor.exec.reset()
             if self.job_executor.exec.finish.is_set():
-                # TODO: set results
-                if self.job_executor.results():
-                    DBInterface.Job.set_fields(self.node.guid, {'info': "'{}'".format(self.job_executor.exec.job.info.dumps())})
-                DBInterface.Job.set_status(self.node.job, Job.Status.FINISHED)
+                # Default job status after execution is 'FINISHED'
+                job_status = Job.Status.FINISHED
+                r = self.job_executor.results()
+                if r:
+                    DBInterface.Job.set_fields(self.node.job, {'info': "'{}'".format(self.job_executor.exec.job.info.dumps())})
+                elif r is not None:
+                    # Job considered FAILED if result is False
+                    job_status = Job.Status.FAILED
+                DBInterface.Job.set_status(self.node.job, job_status)
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:
                     self.node.status = Node.Status.IDLE

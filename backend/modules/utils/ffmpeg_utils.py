@@ -16,8 +16,6 @@ from .slices import create_slices
 from typing import List
 from modules.models.mediafile import MediaFile
 from modules.models.asset import Asset, Stream, VideoStream, AudioStream, SubStream
-import pickle
-import base64
 
 
 if os.name == 'nt':
@@ -153,8 +151,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             s.extract = subtitles.guid
             subtitles.master.set(mediafile.guid.guid)
             subtitles.subTracks.append(st)
-            subtitles.source.path = os.path.join(dir_transit.net_path,
-                                             '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
+            subtitles.source.path = os.path.join(dir_transit.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
             outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=sti, path=subtitles.source.path))
             vout_trans.append(subtitles)
         # ci = 0
@@ -162,8 +159,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         vout_refs.append(subtitles_preview)
         subtitles_preview.master.set(subtitles.guid.guid)
         subtitles_preview.isPreview = True
-        subtitles_preview.source.path = os.path.join(dir_preview.net_path,
-                                                 '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
+        subtitles_preview.source.path = os.path.join(dir_preview.net_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
         subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
         outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=sti, path=subtitles_preview.source.path))
         st.previews.append(str(subtitles_preview.guid))
@@ -727,7 +723,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
             elif fn == 'progress':
                 progress = timecode_to_float(parse['time']) / dur
                 if que_progress:
-                    que_progress.put(base64.b64encode(pickle.dumps({'time': progress})))
+                    que_progress.put({'time': progress})
                 else:
                     Logger.log('progress {}%     \r'.format(int(100.0 * progress)))
             else:

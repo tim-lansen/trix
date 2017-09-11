@@ -242,8 +242,8 @@ class Job(Record):
         super().update_str(json_str)
         self.emitted.jobId = self.guid
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name=None, guid=None):
+        super().__init__(name, guid)
         self.type = None
         self.info = Job.Info()
         self.fails = 0
