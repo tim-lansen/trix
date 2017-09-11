@@ -236,6 +236,8 @@ class MediaFile(Record):
             # ID(s) of reference video(s): separate video file for every component
             # single ID in case of mono input, two IDs for stereo, etc.
             self.previews: List[str] = []
+            # ID of mediafile that consists of archived video track
+            self.extract = None
 
         @staticmethod
         def fit_video(src, dst, dw: int, dh: int, size_round=2):
@@ -366,7 +368,7 @@ class MediaFile(Record):
 
             # ID(s) of reference subtitles track(s)
             self.previews: List[str] = []
-            # ID of mediafile that consists of extracted audio track
+            # ID of mediafile that consists of extracted subtitles track
             self.extract = None
 
     # Support classes

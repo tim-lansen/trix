@@ -100,7 +100,7 @@ class Parsers:
         return None, None
 
     @staticmethod
-    def parse_auto_text(text):
+    def ffmpeg_auto_text(text):
         parsed = {}
         for line in split_iter(text, '\n'):
             fn, fc = Parsers.parse_line(line.strip())
@@ -163,7 +163,7 @@ PARSERS_VECTORS = {
 
 
 PARSERS = {
-    'parse_auto_text': Parsers.parse_auto_text,
+    'ffmpeg_auto_text': Parsers.ffmpeg_auto_text,
     'ffmpeg_progress': Parsers.ffmpeg_progress,
     'ffmpeg_cropdetect': Parsers.ffmpeg_cropdetect,
 }

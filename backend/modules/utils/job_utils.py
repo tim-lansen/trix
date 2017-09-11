@@ -252,12 +252,11 @@ class JobUtils:
             Logger.log('{}\n'.format(job.dumps(indent=2)))
             return 1
 
-
         @staticmethod
         def _ips_p02_mediafiles(mfs: List[MediaFile]):
             """
-            Ingest prepare step 0.1: get infos
-            :param path: path to source directory
+            Ingest prepare step 0.2: create assets and jobs
+            :param mfs: list of media files
             :return:
             """
             # Create final dummy job (trigger)
@@ -275,7 +274,13 @@ class JobUtils:
                 dir_archive = Storage.storage_path('archive', str(mf.guid))
                 # Create new asset for file
                 asset: Asset = Asset()
+                asset.mediaFiles.append(mf.guid)
                 assets.append(str(asset.guid))
+                # MediaFiles
+                out_transit_audio = []
+                out_preview_audio = []
+                out_transit_subs = []
+                out_preview_subs = []
                 # Create split job for every video track
                 for vti, vt in enumerate(mf.videoTracks):
                     # First, create promises - preview media file and archive media file
@@ -283,15 +288,25 @@ class JobUtils:
                     mf_archive: MediaFile = MediaFile()
                     mf_preview.name = mf.name + '.v{}.preview'.format(vti)
                     mf_archive.name = mf.name + '.v{}.archive'.format(vti)
-                    mf_prvfile = '{}.v.preview.mp4'.format(mf_archive.guid, sti)
-                    mf_arcfile = '{}.mp4'.format(mf_archive.guid, sti)
+                    mf_prvfile = '{}.v.preview.mp4'.format(mf_archive.guid)
+                    mf_arcfile = '{}.mp4'.format(mf_archive.guid)
                     mf_preview.source.path = os.path.join(dir_preview.net_path, mf_prvfile)
                     mf_preview.source.url = '{}/{}'.format(dir_preview.web_path, mf_prvfile)
                     mf_archive.source.path = os.path.join(dir_archive.net_path, mf_arcfile)
                     mf_archive.source.url = None
 
+                    # Add VideoStream to asset
+                    vst: VideoStream = VideoStream()
+                    channel: Stream.Channel = Stream.Channel()
+                    channel.src_stream_index = vti
+                    vst.channels.append(channel)
+                    asset.videoStreams.append(vst)
+                    # Link vt to archive
+                    vt.extract = mf_archive.guid
+
                     # A job to capture slices
                     job: Job = Job(name='split.v{}'.format(vti), guid=0)
+                    job.type = Job.Type.SLICES_CREATE
                     job.groupIds.append(group_id)
                     chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
                     chain.procs = [
@@ -305,7 +320,7 @@ class JobUtils:
                     result: Job.Emitted.Result = Job.Emitted.Result()
                     job.emitted.results.append(result)
 
-                    # Trigger (pass-through info to create post-job)
+                    # Trigger (pass-through info to make post-job actions)
                     result: Job.Emitted.Result = Job.Emitted.Result()
                     result.source.step = -1
                     result.data = {
@@ -320,13 +335,22 @@ class JobUtils:
 
                     # Add job to pool
                     jobs.append(job)
+                    DBInterface.Job.register(job)
+
+                # Construct transit extraction/preview creation job
+                # We compose single command to do the job
+                # ffmpeg <input> -filter_complex <map/split complex filter> <output_audio> <output_subs>
+                complex_filter = []
+                cmd_output_audio = []
+                cmd_output_subs = []
 
                 # Create single job for A+S extraction/preview
                 if len(mf.audioTracks) + len(mf.subTracks) > 0:
                     # Enumerate subtitles tracks, collect outputs for previews and extracted tracks
                     for sti, s in enumerate(mf.subTracks):
-                        # Special case for 1-track subtitles only
+                        # Create transit mediafile
                         if len(mf.videoTracks) == 0 and len(mf.audioTracks) == 0 and len(mf.subTracks) == 1:
+                            # Special case for 1-track subtitles only
                             subtitles = mf
                             st = s
                         else:
@@ -336,52 +360,116 @@ class JobUtils:
                             s.extract = subtitles.guid
                             subtitles.master.set(mf.guid.guid)
                             subtitles.subTracks.append(st)
-                            subtitles.source.path = os.path.join(dir_transit.net_path,
-                                                                 '{}.s{:02d}.extract.mkv'.format(mf.guid, sti))
-                            outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=sti, path=subtitles.source.path))
-                            sout_trans.append(subtitles)
-                        # ci = 0
-                        subtitles_preview = MediaFile(name='preview-sub')
-                        sout_refs.append(subtitles_preview)
+                            subtitles.source.path = os.path.join(dir_transit.net_path, '{}.s{:02d}.extract.mkv'.format(mf.guid, sti))
+                            cmd_output_subs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=sti, path=subtitles.source.path))
+                            out_transit_subs.append(subtitles)
+                        # Create preview file
+                        subtitles_preview: MediaFile = MediaFile(name='preview subtitles')
                         subtitles_preview.master.set(subtitles.guid.guid)
                         subtitles_preview.isPreview = True
-                        subtitles_preview.source.path = os.path.join(dir_preview.net_path,
-                                                                     '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
-                        subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
-                        outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=sti, path=subtitles_preview.source.path))
+                        preview_file = '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti)
+                        subtitles_preview.source.path = os.path.join(dir_preview.net_path, preview_file)
+                        subtitles_preview.source.url = '{}/{}'.format(dir_preview.web_path, preview_file)
+                        cmd_output_subs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=sti, path=subtitles_preview.source.path))
+                        out_preview_subs.append(subtitles_preview)
                         st.previews.append(str(subtitles_preview.guid))
 
+                        # Add SubStream to asset
+                        sst: SubStream = SubStream()
+                        channel: Stream.Channel = Stream.Channel()
+                        channel.src_stream_index = sti
+                        sst.channels.append(channel)
+                        asset.subStreams.append(sst)
+
                     # Enumerate audio tracks, collect pan filters and outputs for previews and extracted tracks
-                    for sti, a in enumerate(mediafile.audioTracks):
+                    for sti, a in enumerate(mf.audioTracks):
                         # Special case for 1-track audio only
-                        if len(mediafile.videoTracks) == 0 and len(mediafile.subTracks) == 0 and len(mediafile.audioTracks) == 1:
-                            audio = mediafile
+                        if len(mf.videoTracks) == 0 and len(mf.subTracks) == 0 and len(mf.audioTracks) == 1:
+                            audio = mf
                             at = a
                         else:
                             at = copy.deepcopy(a)
-                            audio = MediaFile(name='transit audio')
+                            audio: MediaFile = MediaFile(name='transit audio')
                             a.extract = audio.guid
-                            audio.master.set(mediafile.guid.guid)
+                            audio.master.set(mf.guid.guid)
                             audio.audioTracks.append(at)
-                            audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
-                            outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.path))
-                            aout_trans.append(audio)
+                            audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mf.guid, sti))
+                            cmd_output_audio.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.path))
+                            out_transit_audio.append(audio)
                         # Add silencedetect filter for 1st audio track only
                         audio_filter = None if sti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
                         for ci in range(a.channels):
-                            audio_preview = MediaFile(name='preview-audio')
-                            aout_refs.append(audio_preview)
+                            audio_preview: MediaFile = MediaFile(name='preview-audio')
+                            out_preview_audio.append(audio_preview)
                             audio_preview.master.set(audio.guid.guid)
                             audio_preview.isPreview = True
-                            audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
-                            audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
+                            preview_file = '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci)
+                            audio_preview.source.path = os.path.join(dir_preview.net_path, preview_file)
+                            audio_preview.source.url = '{}/{}'.format(dir_preview.web_path, preview_file)
                             if audio_filter is None:
                                 audio_filter = '[0:a:{sti}]pan=mono|c0=c{ci}[ap_{sti:02d}_{ci:02d}]'.format(sti=sti, ci=ci)
-                            filters.append(audio_filter)
+                            complex_filter.append(audio_filter)
                             audio_filter = None
-                            outputs.append(
-                                '-map [ap_{sti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(sti=sti, ci=ci, path=audio_preview.source.path))
+                            cmd_output_audio.append('-map [ap_{sti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(sti=sti, ci=ci, path=audio_preview.source.path))
                             at.previews.append(str(audio_preview.guid))
+
+                        # Add SubStream to asset
+                        ast: AudioStream = AudioStream()
+                        ast.program_in = 0.0
+                        ast.program_out = a.duration
+                        ast.layout = a.channel_layout
+                        if a.tags and a.tags.language:
+                            ast.language = a.tags.language
+                        for ci in range(a.channels):
+                            chan: Stream.Channel = Stream.Channel()
+                            chan.src_stream_index = sti
+                            chan.src_channel_index = ci
+                            ast.channels.append(chan)
+                        asset.audioStreams.append(ast)
+
+                    # Finally, compose the command
+                    command_cli = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex "{filters}" {outputs}'.format(
+                        src=mf.source.path,
+                        filters=';'.join(complex_filter),
+                        outputs=' '.join(cmd_output_audio + cmd_output_subs))
+                    command_py = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex {filters} {outputs}'.format(
+                        src=mf.source.path,
+                        filters=';'.join(complex_filter),
+                        outputs=' '.join(cmd_output_audio + cmd_output_subs))
+                    Logger.log('{}\n'.format(command_cli))
+
+                    # Create job: single chain
+                    chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                    chain.procs = [command_py.split('')]
+                    chain.progress.parser = 'ffmpeg_progress'
+                    chain.progress.top = mf.format.duration
+                    # Create job: single step
+                    step: Job.Info.Step = Job.Info.Step()
+                    step.chains.append(chain)
+                    # Create job: the job
+                    job: Job = Job('EAS({})'.format(mf.name), 0)
+                    job.type = Job.Type.EAS
+                    job.groupIds.append(group_id)
+                    job.info.steps.append(step)
+                    # Create job: result to capture silence [and levels, ebur128, etc.]
+                    result: Job.Emitted.Result = Job.Emitted.Result()
+                    result.source.parser = 'ffmpeg_auto_text'
+                    job.emitted.results.append(result)
+                    # Create job: result (trigger) to handle captured data, bind it to asset's first audio stream
+                    result = Job.Emitted.Result()
+                    result.source.step = -1
+                    result.data = {
+                        'asset': str(asset.guid)
+                    }
+                    result.handler = JobUtils.ResultHandlers.ips_p03_audio_info.__name__
+                    job.emitted.results.append(result)
+
+                    jobs.append(job)
+                    DBInterface.Job.register(job)
+
+            DBInterface.Job.register(agg)
+
+
 
         @staticmethod
         def _ips_p03_slices(slices, trig):
@@ -410,6 +498,12 @@ class JobUtils:
                 # r = emit.results[idx]
                 mfs = [_.data for _ in emit.results[:idx]]
                 JobUtils.CreateJob._ips_p02_mediafiles(mfs)
+
+        class ips_p03_audio_info:
+            # TODO: we should bind captured silencedetect info to master asset/file
+            @staticmethod
+            def handler(emit: Job.Emitted, idx: int):
+                pass
 
         class ips_p03_slices:
             @staticmethod
@@ -544,7 +638,7 @@ class JobUtils:
                 [blackdetect @ 0000000004448c00] black_start:0 black_end:0.233333 black_duration:0.233333
                 [Parsed_showinfo_1 @ 00000000046e00e0] n:   8 pts:      8 pts_time:0.266667 pos:  4122182 fmt:yuv420p sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:9FB49018 plane_checksum:[ADB79458 90349F08 A53C5CA9] mean:[201 131 122] stdev:[34.9 5.8 4.4]
                 '''
-                res = Parsers.parse_auto_text(r)
+                res = Parsers.ffmpeg_auto_text(r)
                 Logger.log('{}\n'.format(pformat(res)))
 
         class cpeas:
