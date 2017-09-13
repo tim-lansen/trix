@@ -181,7 +181,6 @@ def execute_chain(chain: Job.Info.Step.Chain,
     all_completed = False
     progress_parser = PARSERS[chain.progress.parser] if chain.progress.parser in PARSERS else lambda x: None
     feeds = re.compile(b'[\\r\\n]+')
-    retcodes = chain.return_codes
     while not all_completed:
         all_completed = True
         if chain_error_event.is_set():
@@ -213,16 +212,16 @@ def execute_chain(chain: Job.Info.Step.Chain,
             else:
                 # Check retcode
                 rc = p.returncode
-                if rc not in retcodes[i]:
+                if rc not in chain.return_codes[i]:
                     # Error, stop chain
                     Logger.warning('Bad retcode in op#{0}: {1}\n'.format(i, rc))
                     chain_error_event.set()
                 proc[i] = None
         time.sleep(0.4)
-    Logger.log('Chain finished\n')
     # Collect ALL outputs
     # TODO: filter out progress lines
     out_result.put(text)
+    Logger.log('Chain finished\n')
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))
     # print('Execute chain finished')

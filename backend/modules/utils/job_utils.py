@@ -266,7 +266,9 @@ class JobUtils:
             group_id = agg.dependsOnGroupId
 
             jobs = []
+            paths = set([])
             assets = []
+            result: Job.Emitted.Result = None
             for mf in mfs:
                 # Get directories
                 dir_transit = Storage.storage_path('transit', str(mf.guid))
@@ -283,6 +285,8 @@ class JobUtils:
                 out_preview_subs = []
                 # Create split job for every video track
                 for vti, vt in enumerate(mf.videoTracks):
+                    paths.add(dir_preview.net_path)
+                    paths.add(dir_archive.net_path)
                     # First, create promises - preview media file and archive media file
                     mf_preview: MediaFile = vt.ref_add()
                     mf_archive: MediaFile = MediaFile()
@@ -317,7 +321,7 @@ class JobUtils:
                     job.info.steps.append(step)
 
                     # Result with captured slices
-                    result: Job.Emitted.Result = Job.Emitted.Result()
+                    result = Job.Emitted.Result()
                     job.emitted.results.append(result)
 
                     # Trigger (pass-through info to make post-job actions)
@@ -346,6 +350,9 @@ class JobUtils:
 
                 # Create single job for A+S extraction/preview
                 if len(mf.audioTracks) + len(mf.subTracks) > 0:
+                    paths.add(dir_preview.net_path)
+                    paths.add(dir_archive.net_path)
+                    paths.add(dir_transit.net_path)
                     # Enumerate subtitles tracks, collect outputs for previews and extracted tracks
                     for sti, s in enumerate(mf.subTracks):
                         # Create transit mediafile
@@ -440,7 +447,8 @@ class JobUtils:
 
                     # Create job: single chain
                     chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
-                    chain.procs = [command_py.split('')]
+                    chain.procs = [command_py.split(' ')]
+                    chain.return_codes = [[0]]
                     chain.progress.parser = 'ffmpeg_progress'
                     chain.progress.top = mf.format.duration
                     # Create job: single step
@@ -451,8 +459,9 @@ class JobUtils:
                     job.type = Job.Type.EAS
                     job.groupIds.append(group_id)
                     job.info.steps.append(step)
+                    job.info.paths = list(paths)
                     # Create job: result to capture silence [and levels, ebur128, etc.]
-                    result: Job.Emitted.Result = Job.Emitted.Result()
+                    result = Job.Emitted.Result()
                     result.source.parser = 'ffmpeg_auto_text'
                     job.emitted.results.append(result)
                     # Create job: result (trigger) to handle captured data, bind it to asset's first audio stream
@@ -467,14 +476,29 @@ class JobUtils:
                     jobs.append(job)
                     DBInterface.Job.register(job)
 
+            result = Job.Emitted.Result()
+            result.source.step = -1
+            result.data = {
+                'assets': assets
+            }
+            result.handler = JobUtils.ResultHandlers.ips_p04_merge_assets.__name__
+            agg.emitted.results.append(result)
+
             DBInterface.Job.register(agg)
 
-
-
         @staticmethod
+        @tracer
         def _ips_p03_slices(slices, trig):
             # Create compile job and encode jobs for single videoTrack
             # using captured slices and passed info
+            # Logger.log('{}\n{}\n'.format(pformat(slices), pformat(trig)))
+            # trig = {
+            #     'src_mfid': str(mf.guid),
+            #     'vti': vti,
+            #     'group_id': group_id,
+            #     'archive': mf_archive.dumps(),
+            #     'preview': mf_preview.dumps()
+            # }
             pass
 
     class ResultHandlers:
@@ -508,6 +532,13 @@ class JobUtils:
         class ips_p03_slices:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
+                # trig = {
+                #     'src_mfid': str(mf.guid),
+                #     'vti': vti,
+                #     'group_id': group_id,
+                #     'archive': mf_archive.dumps(),
+                #     'preview': mf_preview.dumps()
+                # }
                 slices = emit.results[0].data
                 trig = emit.results[1].data
                 Logger.critical('{}\n'.format(pformat(trig)))
@@ -625,6 +656,12 @@ class JobUtils:
                                     step.chains.append(chain)
                         # else:
                             # Create one EAS job
+
+        class ips_p04_merge_assets:
+            @staticmethod
+            def handler(emit: Job.Emitted, idx: int):
+                Logger.warning('ips_p04_merge_assets:\n{}\n'.format(emit.dumps(indent=2)))
+                pass
 
         class pa_slice:
             @staticmethod

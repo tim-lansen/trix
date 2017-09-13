@@ -130,7 +130,8 @@ class JobExecutor:
 
                 # Wait step to finish
                 while True:
-                    if [t.is_alive() for t in threads].count(True) == 0:
+                    alive = [t.is_alive() for t in threads]
+                    if alive.count(True) == 0:
                         break
                     # Compile info from chains
                     for ci, q_pro in enumerate(step_queues):
@@ -147,6 +148,7 @@ class JobExecutor:
                     ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, job_progress))
                     time.sleep(0.5)
 
+                Logger.warning('_process: exit loop\n')
                 # Step is finished, cleaning up
                 for chain in step.chains:
                     chain.progress.pos = 1.0
@@ -158,9 +160,10 @@ class JobExecutor:
                     ex.error.set()
                     break
                 # Collect finals
-                for ci, q_fin in enumerate(ex.finals):
+                for ci in range(len(step.chains)):
+                    q_fin = ex.finals[ci]
                     try:
-                        cap = q_fin.get()
+                        cap = q_fin.get(timeout=5)
                         for pi, text in enumerate(cap):
                             ex.final_set(ai, ci, pi, text)
                     except Exception as e:
@@ -168,7 +171,7 @@ class JobExecutor:
                         Logger.traceback()
                 Logger.info("Step {} finished\n".format(ai))
                 ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, (ai + 1.0)/len(ex.job.info.steps)))
-            Logger.info("Job finished\n")
+            Logger.log("Job finished\n")
         except Exception as e:
             Logger.error("Job failed: {}\n".format(e))
             Logger.traceback()
@@ -177,8 +180,11 @@ class JobExecutor:
         ex.running.clear()
         ex.fmap_out.put(ex.fmap)
         # Set finish event only if no error
-        if not ex.error.is_set():
+        if ex.error.is_set():
+            Logger.error('JobExecutor._process finished with error\n')
+        else:
             ex.finish.set()
+        Logger.info('JobExecutor._process done\n')
 
     def results(self):
         """

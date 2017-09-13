@@ -125,7 +125,7 @@ class Worker:
         self.node.name = _name
         self.node.channel = _channel
         self.node.guid = str(uuid.uuid4())
-        self.job_executor = JobExecutor()
+        self.job_executor: JobExecutor = JobExecutor()
 
     Vectors = {
         'exit': exit,
@@ -159,7 +159,7 @@ class Worker:
                 Logger.warning('Listening failed\n')
                 break
             for n in notifications:
-                Logger.info("Got NOTIFY: {} {} {}\n".format(n.pid, n.channel, n.payload))
+                Logger.warning("Got Notify: {} {} {}\n".format(n.pid, n.channel, n.payload))
                 params = n.payload.split(' ')
                 if params[0] in Worker.Vectors:
                     Worker.Vectors[params[0]](self, params)
@@ -177,11 +177,12 @@ class Worker:
                 # Default job status after execution is 'FINISHED'
                 job_status = Job.Status.FINISHED
                 r = self.job_executor.results()
-                if r:
-                    DBInterface.Job.set_fields(self.node.job, {'info': "'{}'".format(self.job_executor.exec.job.info.dumps())})
-                elif r is not None:
-                    # Job considered FAILED if result is False
-                    job_status = Job.Status.FAILED
+                if r is not None:
+                    if r == 0:
+                        # Job considered FAILED if result is False
+                        job_status = Job.Status.FAILED
+                    # else:
+                    #    Logger
                 DBInterface.Job.set_status(self.node.job, job_status)
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:
