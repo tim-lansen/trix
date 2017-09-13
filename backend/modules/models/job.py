@@ -183,7 +183,7 @@ class Job(Record):
             Expose maximum parallel chains that require to pass final results
             :return: int
             """
-            return max([len(s.chains) for s in self.steps])
+            return max([len(s.chains) for s in self.steps]) if len(self.steps) else 0
 
     class Status:
         INACTIVE = 0

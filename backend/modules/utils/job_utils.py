@@ -16,6 +16,7 @@ from modules.utils.database import DBInterface
 from .log_console import Logger, tracer
 from .storage import Storage
 from .parsers import Parsers
+# from .exchange import Exchange
 
 
 def merge_assets(assets):
@@ -313,8 +314,9 @@ class JobUtils:
                     job.type = Job.Type.SLICES_CREATE
                     job.groupIds.append(group_id)
                     chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                    mf_dumps = mf.dumps()
                     chain.procs = [
-                        ['ExecuteInternal.create_slices', mf.dumps(), vti]
+                        ['ExecuteInternal.create_slices', mf_dumps, vti]
                     ]
                     step: Job.Info.Step = Job.Info.Step()
                     step.chains.append(chain)
@@ -328,7 +330,7 @@ class JobUtils:
                     result: Job.Emitted.Result = Job.Emitted.Result()
                     result.source.step = -1
                     result.data = {
-                        'src_mfid': str(mf.guid),
+                        'src': mf_dumps,
                         'vti': vti,
                         'group_id': group_id,
                         'archive': mf_archive.dumps(),
@@ -493,13 +495,126 @@ class JobUtils:
             # using captured slices and passed info
             # Logger.log('{}\n{}\n'.format(pformat(slices), pformat(trig)))
             # trig = {
-            #     'src_mfid': str(mf.guid),
+            #     'src': mf_dumps,
             #     'vti': vti,
             #     'group_id': group_id,
             #     'archive': mf_archive.dumps(),
             #     'preview': mf_preview.dumps()
             # }
-            pass
+
+            def strslice(_s):
+                return 'pattern_offset={};length={};crc={}'.format(_s['pattern_offset'], _s['length'], ','.join([str(_) for _ in _s['crc']]))
+
+            mf = trig['src']
+            vti = trig['vti']
+            group_id = trig['group_id']
+            archive = trig['archive']
+            preview = trig['preview']
+
+            cdir = Storage.storage_path('cache', str(mf.guid))
+            pdir = Storage.storage_path('preview', str(mf.guid))
+            adir = Storage.storage_path('archive', str(mf.guid))
+
+            vt: MediaFile.VideoTrack = mf.videoTracks[vti]
+            # Get transform setup
+            fmap = JobUtils.PIX_FMT_MAP['default'] if vt.pix_fmt not in JobUtils.PIX_FMT_MAP else JobUtils.PIX_FMT_MAP[vt.pix_fmt]
+            tmpl3 = '{c} --input - --input-depth {d} --input-csp {csp}'.format(**fmap)
+            tmpl3 += ' --input-res {w}x{h} --fps {fps}'.format(w=vt.width, h=vt.height, fps=vt.fps.val())
+            if 'P' in fmap:
+                tmpl3 += ' --profile {}'.format(fmap['P'])
+            tmpl3 += ' --allow-non-conformance --ref 3 --me umh --merange {}'.format(int(vt.width / 35))
+            tmpl3 += ' --no-open-gop --keyint 30 --min-keyint 5 --rc-lookahead 30 -bframes 3 --force-flush 1'
+            bitrate = JobUtils.calc_bitrate_x265_kbps(fmap, vt.width, vt.height, vt.fps.val())
+            tmpl3 += ' --bitrate {} --vbv-maxrate {} --vbv-bufsize {}'.format(bitrate, bitrate + (bitrate >> 1),
+                                                                              bitrate + (bitrate >> 3))
+            tmpl3 += ' --output '
+
+            # Create video track preview
+            # preview = vt.ref_add()
+            # preview.name = 'preview-video#{}'.format(vti)
+            # preview.source.path = os.path.join(pdir.net_path, '{}.v{}.preview.mp4'.format(mf.guid, vti))
+            # preview.source.url = '{}/{}.v{}.preview.mp4'.format(pdir.web_path, mf.guid, vti)
+            pvt: MediaFile.VideoTrack = preview.videoTracks[0]
+            # 1 Create 2 concat jobs: for preview and for archive
+            job_preview_concat: Job = Job(guid=0)
+            job_preview_concat.groupIds.append(group_id)
+            job_preview_concat.dependsOnGroupId.new()
+            job_archive_concat: Job = Job(guid=0)
+            job_archive_concat.groupIds.append(group_id)
+            job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
+            # 2 Create Nx2 encode jobs
+
+            tmpl2 = 'ffmpeg -y -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps.val(), pf=vt.pix_fmt)
+            tmpl2 += ' -c:v rawvideo -f rawvideo -'
+            tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
+            tmpl2 += ' -c:v libx264 -preset slow -g 30 -bframes 3 -refs 2 -b:v 600k '
+
+            overlap = 50
+            segment_list_preview = ''
+            segment_list_archive = ''
+            jobs = []
+            pslic = None
+            for slic in slices + [None]:
+                segment_path_preview = os.path.join(cdir.net_path, 'prv_{:03d}.h264')
+                segment_path_archive = os.path.join(cdir.net_path, 'arch_{:03d}.hevc')
+                segment_list_preview += 'file {}\n'.format(segment_path_preview)
+                segment_list_archive += 'file {}\n'.format(segment_path_archive)
+                job_preview_archive_slice: Job = Job(guid=0)
+                job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
+                result: Job.Emitted.Result = Job.Emitted.Result()
+                result.handler = JobUtils.ResultHandlers.pa_slice.__name__
+
+                if slic is None:
+                    dur = vt.duration - pslic['time'] + 1
+                    proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=strslice(pslic))
+                elif pslic is None:
+                    dur = slic['time'] + (overlap + slic['pattern_offset']) / vt.fps.val()
+                    proc1 = '{trim} trim --pout {pout}'.format(trim=JobUtils.TRIMMER, pout=strslice(slic))
+                else:
+                    dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic['pattern_offset']) / vt.fps.val()
+                    proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=strslice(pslic), pout=strslice(slic))
+                if pslic is None:
+                    proc0 = 'ffmpeg -y -loglevel error -stats -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(i=mf.source.path, ti=vti, fps=vt.fps.dump_alt(), t=dur)
+                else:
+                    proc0 = 'ffmpeg -y -loglevel error -stats -ss {ss} -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(ss=pslic['time'], i=mf.source.path, ti=vti, fps=vt.fps.dump_alt(), t=dur)
+                proc0 += ' -c:v rawvideo -f rawvideo -'
+                proc1 += ' -s {} {} -p {}'.format(vt.width, vt.height, vt.pix_fmt)
+                proc2 = tmpl2 + segment_path_preview
+                proc3 = tmpl3 + segment_path_archive
+                chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                chain.procs = [
+                    proc0.split(' '),
+                    proc1.split(' '),
+                    proc2.split(' '),
+                    proc3.split(' ')
+                ]
+                chain.progress.capture = 0
+                chain.progress.parser = 'ffmpeg_progress'
+
+                step: Job.Info.Step = Job.Info.Step()
+                step.chains.append(chain)
+
+                job_preview_archive_slice.info.steps.append(step)
+
+                result: Job.Emitted.Result = Job.Emitted.Result()
+                result.handler = JobUtils.ResultHandlers.pa_slice.__name__
+                result.source.proc = 2
+                result.source.parser = 'ffmpeg_auto_text'
+
+                job_preview_archive_slice.emitted.results.append(result)
+                jobs.append(job_preview_archive_slice)
+
+            # Write concat files
+            concat_preview = os.path.join(cdir.net_path, 'preview.list')
+            concat_archive = os.path.join(cdir.net_path, 'archive.list')
+            with open(concat_preview, 'w') as f:
+                f.write(segment_list_preview)
+            with open(concat_archive, 'w') as f:
+                f.write(segment_list_archive)
+
+            # Concat commands
+            cprv = 'ffmpeg -y -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
+            carc = 'ffmpeg -y -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_archive, archive.source.path)
 
     class ResultHandlers:
         class default:
@@ -532,13 +647,6 @@ class JobUtils:
         class ips_p03_slices:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
-                # trig = {
-                #     'src_mfid': str(mf.guid),
-                #     'vti': vti,
-                #     'group_id': group_id,
-                #     'archive': mf_archive.dumps(),
-                #     'preview': mf_preview.dumps()
-                # }
                 slices = emit.results[0].data
                 trig = emit.results[1].data
                 Logger.critical('{}\n'.format(pformat(trig)))
@@ -552,8 +660,8 @@ class JobUtils:
                 #     'mediafile': mf,
                 #     'slices': []  # Slice data
 
-                job_final: Job = Job()
-                job_final.dependsOnGroupId.new()
+                # job_final: Job = Job()
+                # job_final.dependsOnGroupId.new()
 
                 def strslice(_s):
                     return 'pattern_offset={};length={};crc={}'.format(_s['pattern_offset'], _s['length'], ','.join([str(_) for _ in _s['crc']]))
@@ -589,7 +697,7 @@ class JobUtils:
                                 preview.name = 'preview-video#{}'.format(vti)
                                 preview.source.path = os.path.join(pdir.net_path, '{}.v{}.preview.mp4'.format(mf.guid, vti))
                                 preview.source.url = '{}/{}.v{}.preview.mp4'.format(pdir.web_path, mf.guid, vti)
-                                pvt:MediaFile.VideoTrack = preview.videoTracks[0]
+                                pvt: MediaFile.VideoTrack = preview.videoTracks[0]
                                 #1 Create 2 concat jobs: for preview and for archive
                                 job_preview_concat: Job = Job(guid=0)
                                 job_preview_concat.groupIds.append(job_final.dependsOnGroupId)
@@ -615,8 +723,6 @@ class JobUtils:
                                     segment_list_x265 += 'file {}\n'.format(segment_path_x265)
                                     job_preview_archive_slice: Job = Job(guid=0)
                                     job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
-                                    result: Job.Result = Job.Result()
-                                    result.handler = JobUtils.Results.pa_slice.__name__
 
                                     if slic is None:
                                         dur = vt.duration - pslic['time'] + 1
@@ -648,12 +754,17 @@ class JobUtils:
                                     ]
                                     chain.progress.capture = 0
                                     chain.progress.parser = 'ffmpeg_progress'
-
-                                    # Capture result from process #2
-                                    chain.result_capture = 2
-
                                     step: Job.Info.Step = Job.Info.Step()
                                     step.chains.append(chain)
+
+                                    job_preview_archive_slice.info.steps.append(step)
+
+                                    result: Job.Emitted.Result = Job.Emitted.Result()
+                                    result.handler = JobUtils.ResultHandlers.pa_slice.__name__
+                                    result.source.proc = 2
+                                    result.source.parser = 'ffmpeg_auto_text'
+
+                                    job_preview_archive_slice.emitted.results.append(result)
                         # else:
                             # Create one EAS job
 

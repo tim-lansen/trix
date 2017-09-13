@@ -3,9 +3,7 @@
 
 
 import multiprocessing
-import base64
-import pickle
-from .log_console import Logger
+from .exchange import Exchange
 
 
 class CPLQueue:
@@ -17,19 +15,16 @@ class CPLQueue:
         # Lose least recent messages
         while self.q.qsize() >= self.maxsize:
             self.q.get()
-        m = base64.b64encode(pickle.dumps(msg))
+        m = Exchange.object_encode(msg)
         self.q.put(m, timeout=2)
 
     def get(self, block=True, timeout=None):
-        r = self.q.get(block=block, timeout=timeout)
-        if r:
-            r = pickle.loads(base64.b64decode(r))
+        r = Exchange.object_decode(self.q.get(block=block, timeout=timeout))
         return r
 
     def flush(self):
         r = None
         while self.q.qsize() > 0:
             r = self.q.get()
-        if r:
-            r = pickle.loads(base64.b64decode(r))
+        r = Exchange.object_decode(r)
         return r

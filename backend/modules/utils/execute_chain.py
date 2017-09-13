@@ -33,6 +33,7 @@ from .parsers import PARSERS
 from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles
 from .slices import create_slices
 from .storage import Storage
+# from .exchange import Exchange
 
 
 def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
@@ -74,6 +75,7 @@ class ExecuteInternal:
             """
             mf: MediaFile = MediaFile(guid=None)
             mf.update_str(params[0])
+            # mf = Exchange.object_decode(params[0])
             slices = create_slices(mf, params[1])
             out_final.put(slices)
 
