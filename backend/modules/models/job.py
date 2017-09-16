@@ -215,9 +215,9 @@ class Job(Record):
                 # Result handler (member function of JobUtils.ResultHandlers)
                 self.handler = None
 
-        class CollectorId(Guid):
-            def __init__(self):
-                super().__init__()
+        # class CollectorId(Guid):
+        #     def __init__(self):
+        #         super().__init__()
 
         def __init__(self, jobId: Guid):
             super().__init__()
@@ -225,7 +225,7 @@ class Job(Record):
             # Results handler procedure (member function of JobUtils.ResultHandlers)
             self.handler = None
             # Aggregating collector's id
-            self.collectorId = self.CollectorId()
+            # self.collectorId = self.CollectorId()
             # List of job results
             self.results: List[self.Result] = []
 

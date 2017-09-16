@@ -1,6 +1,9 @@
 ===================
 Ubuntu 16.04 server
 ===================
+Docker
+https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository
+===================
 PostgreSQL
 ===================
     1  psql

@@ -146,6 +146,7 @@ class JobUtils:
                     ['ExecuteInternal.combined_info', '{{"guid":"${{{}}}"}}'.format(uidn), '${{{}}}'.format(srcn)]
                 ]
                 chain.result = 0
+                # chain.return_codes = [[0, 1]]
                 step.chains.append(chain)
                 # Compose result that register mew media file
                 result = Job.Emitted.Result()
