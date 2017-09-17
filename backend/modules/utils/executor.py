@@ -59,11 +59,14 @@ class JobExecutor:
         def final_set(self, step, chain, proc, obj):
             hash = self._hash(step, chain, proc)
             if hash in self.fmap:
+                Logger.log('final_set: {}\n'.format(obj))
                 self.fmap[hash] = obj
 
         def final_get(self, step, chain, proc):
             hash = self._hash(step, chain, proc)
-            return self.fmap[hash] if hash in self.fmap else None
+            obj = self.fmap[hash] if hash in self.fmap else None
+            Logger.warning('final_get: {}\n'.format(obj))
+            return obj
 
         def reset(self, finals_count=0):
             self.progress_output.flush()
@@ -214,7 +217,7 @@ class JobExecutor:
                     result.data = text
                 else:
                     result.data = parse_text(text, result.source.parser)
-            Logger.critical('{}\n'.format(result))
+            Logger.info('{}\n'.format(result.dumps(indent=2)))
             rc += 1
         JobUtils.process_results(self.exec.job)
         return rc

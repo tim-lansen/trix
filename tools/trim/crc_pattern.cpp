@@ -303,6 +303,7 @@ u_int CRCPattern::init_trim(char* man)
     // Example:
     // length=4;pattern_offset=112;crc=1020394,556345,2345678,4443
     // return 0 if error, else - required frame feed length (including negative offset)
+    m_type = pattern_trim;
     if(!man) {
         // Special case
         clog(stderr, "Special case: absent pattern.\n");
@@ -311,7 +312,7 @@ u_int CRCPattern::init_trim(char* man)
     }
     char *next;
     for(; man;) {
-        next = cut_line_z(man);
+        next = cut_line_z(man, ';');
         char *val = split(man, '=');
         if(val) {
             if(!strcmp("length", man)) {

@@ -176,19 +176,31 @@ cd x265/build/linux
 ./make-Makefiles.bash
 make
 
+# x264
+git clone http://git.videolan.org/git/x264.git
+./configure --disable-interlaced --bit-depth=8 --disable-avs --disable-swscale --disable-lavf --disable-ffms --disable-gpac --disable-lsmash
+make
+mv x264 x264.08
+./configure --disable-interlaced --bit-depth=8 --disable-avs --disable-swscale --disable-lavf --disable-ffms --disable-gpac --disable-lsmash
+make
+mv x264 x264.10
 
 mkdir ~/ffmpeg_sources
 # Yasm
 sudo apt-get install yasm
 # Nasm
+sudo apt-get install autoconf autogen
 cd ~/ffmpeg_sources
 wget http://www.nasm.us/pub/nasm/releasebuilds/2.13.01/nasm-2.13.01.tar.bz2
 tar xjvf nasm-2.13.01.tar.bz2
 cd nasm-2.13.01
 ./autogen.sh
-PATH="$HOME/bin:$PATH" ./configure --prefix="$HOME/ffmpeg_build" --bindir="$HOME/bin"
-PATH="$HOME/bin:$PATH" make
-make install
+./configure
+make
+sudo make install
+# PATH="$HOME/bin:$PATH" ./configure --prefix="$HOME/ffmpeg_build" --bindir="$HOME/bin"
+# PATH="$HOME/bin:$PATH" make
+# make install
 
 
 

@@ -148,6 +148,37 @@ class Rational:
         self._v = 1.0 * self._n
         self._calc()
 
+    def update_json(self, *args):
+        # self._n = 1
+        # self._d = 1
+        # self._s = ':'
+        if len(args) == 1:
+            if type(args[0]) is str:
+                m = Rational.RECAP.findall(args[0])
+                if len(m) == 1 and len(m[0]) == 3:
+                    self._n = int(m[0][0])
+                    self._d = int(m[0][2])
+                    self._s = m[0][1]
+                else:
+                    Logger.error('Rational: bad rational\n', *args)
+            else:
+                Logger.error('Rational: bad arg\n', *args)
+        elif len(args) in {2, 3}:
+            if type(args[0]) is int and type(args[1]) is int:
+                self._n = args[0]
+                self._d = args[1]
+                if len(args) == 3:
+                    if type(args[2]) is str and len(args[2]) == 1:
+                        self._s = args[2]
+                    else:
+                        Logger.warning('Rational: bad separator\n', *args)
+            else:
+                Logger.error('Rational: bad args\n', *args)
+        else:
+            Logger.info('Rational: default\n')
+        self._v = 1.0 * self._n
+        self._calc()
+
     def _calc(self):
         try:
             self._v = self._n / self._d

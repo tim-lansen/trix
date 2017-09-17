@@ -77,7 +77,8 @@ class ExecuteInternal:
             mf.update_str(params[0])
             # mf = Exchange.object_decode(params[0])
             slices = create_slices(mf, params[1])
-            out_final.put(slices)
+            Logger.info('ExecuteInternal.create_slices.handler: slices\n{}\n'.format(slices))
+            out_final.put([slices])
 
     class extract_audio_subtitles_create_slices:
         @staticmethod

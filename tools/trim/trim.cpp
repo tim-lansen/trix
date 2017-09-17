@@ -331,7 +331,7 @@ FALLOUT2:
 }
 
 
-int Parse_Params(int argc, char **argv)
+int parse_params_run(int argc, char **argv)
 {
     OPERATION op;
     int result = 0;
@@ -493,7 +493,7 @@ int Parse_Params(int argc, char **argv)
 }
 
 
-void Usage()
+void usage()
 {
     fprintf(stderr, Usage_String);
 }
@@ -501,7 +501,7 @@ void Usage()
 
 int main(int argc, char **argv)
 {
-    int result = Parse_Params(argc, argv);
+    int result = parse_params_run(argc, argv);
     clog(stderr, "Done\n");
     return result;
 }

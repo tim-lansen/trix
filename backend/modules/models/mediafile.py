@@ -205,6 +205,24 @@ class MediaFile(Record):
                 #     "attached_pic": 0,
                 #     "timed_thumbnails": 0
 
+        # Type helpers
+
+        class Dar(Rational):
+            def __init__(self, *args):
+                super().__init__(*args)
+
+        class Par(Rational):
+            def __init__(self, *args):
+                super().__init__(*args)
+
+        class Fps(Rational):
+            def __init__(self, *args):
+                super().__init__(*args)
+
+        class Fps_avg(Rational):
+            def __init__(self, *args):
+                super().__init__(*args)
+
         def __init__(self):
             super().__init__()
             # Auto-captured info
@@ -218,16 +236,16 @@ class MediaFile(Record):
             self.height = None
             self.height_original = 0
             self.height_offset = 0
-            self.dar = None
+            self.dar: self.Dar = self.Dar(16, 9)
             # Pixel aspect ratio is being calculated from DAR, width and height_original in "combine_ffprobe_mediainfo_track" function
-            self.par: Rational = Rational(1, 1)
+            self.par: self.Par = self.Par(1, 1)
             self.pix_fmt = None
             self.color_range = None
             self.color_primaries = None
             self.progressive = True
             self.field_order = 'PFF'
-            self.fps: Rational = Rational(25, 1)
-            self.fps_avg = None
+            self.fps: self.Fps = self.Fps(25, 1)
+            self.fps_avg: self.Fps_avg = self.Fps_avg(25, 1)
             self.start_time = 0.0
             self.delay = 0
             self.disposition = self.Disposition()

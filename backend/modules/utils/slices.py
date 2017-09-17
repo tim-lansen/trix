@@ -43,13 +43,13 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
         trout = proc2.stderr.read().decode()
         slic = {'time': draft_time}
         for line in trout.split(';'):
-            kv = line.split('=', 1)
+            kv = line.strip().split('=', 1)
             if len(kv) == 2:
                 vv = kv[1].split(',')
                 if len(vv) == 1:
-                    slic[kv[0]] = kv[1]
+                    slic[kv[0]] = int(kv[1])
                 else:
-                    slic[kv[0]] = vv
+                    slic[kv[0]] = [int(_) for _ in vv]
         if 'crc' not in slic:
             Logger.warning('Unable to create slice at {}\n'.format(draft_time))
         else:
