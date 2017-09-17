@@ -59,13 +59,13 @@ class JobExecutor:
         def final_set(self, step, chain, proc, obj):
             hash = self._hash(step, chain, proc)
             if hash in self.fmap:
-                Logger.log('final_set: {}\n'.format(obj))
+                # Logger.log('final_set: {}\n'.format(obj))
                 self.fmap[hash] = obj
 
         def final_get(self, step, chain, proc):
             hash = self._hash(step, chain, proc)
             obj = self.fmap[hash] if hash in self.fmap else None
-            Logger.warning('final_get: {}\n'.format(obj))
+            # Logger.warning('final_get: {}\n'.format(obj))
             return obj
 
         def reset(self, finals_count=0):
@@ -93,8 +93,8 @@ class JobExecutor:
         #     Logger.info("Dummy job (trigger) {}\n".format(ex.job.name))
         #     ex.finish.set()
         #     return
-        chain_enter = Event()
-        chain_error = Event()
+        chains_enter = Event()
+        chains_error = Event()
         try:
             Logger.info("Starting job {}\n".format(ex.job.name))
             # Register finals
@@ -115,26 +115,30 @@ class JobExecutor:
                 step_queues = [CPLQueue(5) for _ in step.chains]
                 # monitors: List[Job.Info.Step.Chain.Progress] = []
                 threads: List[Process] = []
+                finished: List[Event] = []
 
                 # Initialize and start step's chains execution, each chain in own thread
                 for ci, chain in enumerate(step.chains):
                     # Workaround Python's bad threading
-                    if len(threads):
-                        time.sleep(1.0)
+                    # if len(threads):
+                    #     time.sleep(1.0)
+                    chain_finished = Event()
+                    finished.append(chain_finished)
                     q_fin = ex.finals[ci]
                     # queues = [CPLQueue(5) for _ in chain.procs]
                     # EDIT: capture only proc set as progress
                     q_pro = step_queues[ci]
-                    t = Process(target=execute_chain, args=(chain, q_pro, q_fin, chain_enter, chain_error))
+                    t = Process(target=execute_chain, args=(chain, q_pro, q_fin, chains_enter, chains_error, chain_finished))
                     t.start()
                     threads.append(t)
-                    chain_enter.wait()
-                    chain_enter.clear()
+                    chains_enter.wait()
+                    chains_enter.clear()
 
                 # Wait step to finish
                 while True:
                     alive = [t.is_alive() for t in threads]
-                    if alive.count(True) == 0:
+                    finid = [_.is_set() for _ in finished]
+                    if chains_error.is_set() or alive.count(True) == 0 or finid.count(False) == 0:
                         break
                     # Compile info from chains
                     for ci, q_pro in enumerate(step_queues):
@@ -157,8 +161,8 @@ class JobExecutor:
                     chain.progress.pos = 1.0
                 for pipe in step.pipes:
                     os.remove(pipe)
-                if chain_error.is_set():
-                    chain_error.clear()
+                if chains_error.is_set():
+                    chains_error.clear()
                     Logger.error("Job failed on step {}\n".format(ai))
                     ex.error.set()
                     break
@@ -210,14 +214,14 @@ class JobExecutor:
         rc = 0
         for idx, result in enumerate(self.exec.job.emitted.results):
             # result.source may be None is case of pre-defined data
-            Logger.critical('Result #{}: {} => '.format(idx, result))
+            # Logger.critical('Result #{}: {} => '.format(idx, result))
             if result.source.step >= 0:
                 text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
                 if result.source.parser is None:
                     result.data = text
                 else:
-                    result.data = parse_text(text, result.source.parser)
-            Logger.info('{}\n'.format(result.dumps(indent=2)))
+                    result.data = PARSERS[result.source.parser](text)
+            # Logger.info('{}\n'.format(result.dumps(indent=2)))
             rc += 1
         JobUtils.process_results(self.exec.job)
         return rc

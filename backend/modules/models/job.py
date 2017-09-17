@@ -242,6 +242,10 @@ class Job(Record):
         super().update_str(json_str)
         self.emitted.jobId = self.guid
 
+    class DependsOnGroupId(Guid):
+        def __init__(self):
+            super().__init__()
+
     def __init__(self, name=None, guid=None):
         super().__init__(name, guid)
         self.type = None
@@ -255,7 +259,7 @@ class Job(Record):
         # List of groups that this job belongs to
         self.groupIds: List[Guid] = []
         # This job depends on jobs from group <dependsOnGroupId>, independent if self.dependsOnGroupId.is_null()
-        self.dependsOnGroupId = Guid()
+        self.dependsOnGroupId = self.DependsOnGroupId()
         # Condition is a pythonic expression that can be evaluated in job's context???
         self.condition = None
 

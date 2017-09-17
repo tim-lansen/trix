@@ -184,6 +184,10 @@ bool CRCPattern::operator == (CRCPattern &b)
         clog(stderr, "Sequence lengths are not equal.\n");
         return false;
     }
+    if(m_pattern_length == 0) {
+        clog(stderr, "Validate fake pattern.\n");
+        return true;
+    }
     if(m_frame < m_pattern_length || b.m_frame < m_pattern_length) {
         return false;
     }

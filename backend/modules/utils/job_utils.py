@@ -16,6 +16,7 @@ from modules.utils.database import DBInterface
 from .log_console import Logger, tracer
 from .storage import Storage
 from .parsers import Parsers
+from .types import Guid
 # from .exchange import Exchange
 
 
@@ -342,7 +343,7 @@ class JobUtils:
                     result.data = {
                         'src': mf_dumps,
                         'vti': vti,
-                        'group_id': group_id,
+                        'group_id': str(group_id),
                         'archive': mf_archive.dumps(),
                         'preview': mf_preview.dumps()
                     }
@@ -515,12 +516,12 @@ class JobUtils:
             def strslice(_s):
                 return 'pattern_offset={};length={};crc={}'.format(_s['pattern_offset'], _s['length'], ','.join([str(_) for _ in _s['crc']]))
 
-            mf = MediaFile()
-            archive = MediaFile()
-            preview = MediaFile()
+            mf: MediaFile = MediaFile()
+            archive: MediaFile = MediaFile()
+            preview: MediaFile = MediaFile()
             mf.update_str(trig['src'])
             vti = trig['vti']
-            group_id = trig['group_id']
+            group_id = Guid(trig['group_id'])
             archive.update_str(trig['archive'])
             preview.update_str(trig['preview'])
 
@@ -557,11 +558,11 @@ class JobUtils:
             tmpl3 += ' --output {output} {input}'
 
             # 1 Create 2 concat jobs: for preview and for archive
-            job_preview_concat: Job = Job(guid=0)
+            job_preview_concat: Job = Job(name='preview_concat', guid=0)
             job_preview_concat.type = Job.Type.SLICES_CONCAT
             job_preview_concat.groupIds.append(group_id)
             job_preview_concat.dependsOnGroupId.new()
-            job_archive_concat: Job = Job(guid=0)
+            job_archive_concat: Job = Job(name='archive_concat', guid=0)
             job_archive_concat.type = Job.Type.SLICES_CONCAT
             job_archive_concat.groupIds.append(group_id)
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
@@ -585,7 +586,8 @@ class JobUtils:
                 segment_path_archive = os.path.join(cdir.net_path, 'arch_{:03d}.hevc'.format(idx))
                 segment_list_preview += 'file {}\n'.format(segment_path_preview)
                 segment_list_archive += 'file {}\n'.format(segment_path_archive)
-                job_preview_archive_slice: Job = Job(guid=0)
+                job_preview_archive_slice: Job = Job(name='encode_slice_{:03d}'.format(idx), guid=0)
+                job_preview_archive_slice.type = Job.Type.ENCODE_VIDEO
                 job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
                 result: Job.Emitted.Result = Job.Emitted.Result()
                 result.handler = JobUtils.ResultHandlers.pa_slice.__name__
@@ -613,6 +615,12 @@ class JobUtils:
                     proc1.split(' '),
                     proc2.split(' '),
                     proc3.split(' ')
+                ]
+                chain.return_codes = [
+                    None,
+                    None,
+                    [0],
+                    [0]
                 ]
                 chain.progress.capture = 0
                 chain.progress.parser = 'ffmpeg_progress'
@@ -644,11 +652,12 @@ class JobUtils:
                 f.write(segment_list_archive)
 
             # Concat commands
-            cprv = 'ffmpeg -y -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
-            carc = 'ffmpeg -y -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_archive, archive.source.path)
+            cprv = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
+            carc = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_archive, archive.source.path)
 
             chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
             chain.procs = [cprv.split(' ')]
+            chain.return_codes = [[0]]
             chain.progress.capture = 0
             chain.progress.parser = 'ffmpeg_progress'
 
@@ -659,6 +668,7 @@ class JobUtils:
 
             chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
             chain.procs = [carc.split(' ')]
+            chain.return_codes = [[0]]
             chain.progress.capture = 0
             chain.progress.parser = 'ffmpeg_progress'
 
@@ -838,7 +848,7 @@ class JobUtils:
         class pa_slice:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
-                r = emit.results[idx]
+                r: Job.Emitted.Result = emit.results[idx]
                 # We need to obtain blacks from capture, and then update job record with it
                 # r is a text like this:
                 '''
@@ -847,8 +857,8 @@ class JobUtils:
                 [blackdetect @ 0000000004448c00] black_start:0 black_end:0.233333 black_duration:0.233333
                 [Parsed_showinfo_1 @ 00000000046e00e0] n:   8 pts:      8 pts_time:0.266667 pos:  4122182 fmt:yuv420p sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:9FB49018 plane_checksum:[ADB79458 90349F08 A53C5CA9] mean:[201 131 122] stdev:[34.9 5.8 4.4]
                 '''
-                res = Parsers.ffmpeg_auto_text(r)
-                Logger.log('{}\n'.format(pformat(res)))
+                Logger.critical('{}\n'.format(r.data.keys()))
+                # Logger.info('{}\n'.format(r.data['blackdetect']))
 
         class cpeas:
             @staticmethod

@@ -147,7 +147,8 @@ def execute_chain(chain: Job.Info.Step.Chain,
                   out_progress: CPLQueue,
                   out_result: CPLQueue,
                   chain_enter_event: Event,
-                  chain_error_event: Event):
+                  chain_error_event: Event,
+                  chain_finish_event: Event):
     chain_enter_event.set()
     if chain_error_event.is_set():
         Logger.error('Error event is already set\n')
@@ -155,6 +156,11 @@ def execute_chain(chain: Job.Info.Step.Chain,
     # Handle special complex cases
     if len(chain.procs) == 1 and chain.procs[0][0].startswith('ExecuteInternal.'):
         execute_internal(chain.procs[0], out_progress, out_result, chain_error_event)
+        chain_finish_event.set()
+        return
+    if chain.return_codes is None or len(chain.procs) != len(chain.return_codes):
+        Logger.error('Chain must have {} return_codes list(s)\n'.format(len(chain.procs)))
+        chain_error_event.set()
         return
     proc = []
     text = ['' for _ in chain.procs]
@@ -215,7 +221,9 @@ def execute_chain(chain: Job.Info.Step.Chain,
             else:
                 # Check retcode
                 rc = p.returncode
-                if rc not in chain.return_codes[i]:
+                if chain.return_codes[i] is None:
+                    Logger.warning('Ignoring return code {} from process #{}\n'.format(rc, i))
+                elif rc not in chain.return_codes[i]:
                     # Error, stop chain
                     Logger.warning('Bad retcode in op#{0}: {1}\n'.format(i, rc))
                     chain_error_event.set()
@@ -225,6 +233,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
     # TODO: filter out progress lines
     out_result.put(text)
     Logger.log('Chain finished\n')
+    chain_finish_event.set()
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))
     # print('Execute chain finished')

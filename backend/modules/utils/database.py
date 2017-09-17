@@ -40,7 +40,8 @@ def request_db(cur, req, exit_on_fail=False):
     try:
         cur.execute(req)
     except psycopg2.Error as e:
-        Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
+        Logger.error('Failed to execute request\n{}\n{}\n'.format(e.pgerror, e.diag.message_detail))
+        Logger.warning('{}\n'.format(req))
         Logger.traceback()
         if exit_on_fail:
             cur.connection.close()

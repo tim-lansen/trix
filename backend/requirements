@@ -177,13 +177,15 @@ cd x265/build/linux
 make
 
 # x264
+cd ~/
 git clone http://git.videolan.org/git/x264.git
+cd x264/
 ./configure --disable-interlaced --bit-depth=8 --disable-avs --disable-swscale --disable-lavf --disable-ffms --disable-gpac --disable-lsmash
 make
-mv x264 x264.08
+sudo mv x264 /usr/local/bin/x264.08
 ./configure --disable-interlaced --bit-depth=8 --disable-avs --disable-swscale --disable-lavf --disable-ffms --disable-gpac --disable-lsmash
 make
-mv x264 x264.10
+sudo mv x264 /usr/local/bin/x264.10
 
 mkdir ~/ffmpeg_sources
 # Yasm

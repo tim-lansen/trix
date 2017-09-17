@@ -122,16 +122,13 @@ class Rational:
         self._d = 1
         self._s = ':'
         if len(args) == 1:
-            if type(args[0]) is str:
-                m = Rational.RECAP.findall(args[0])
-                if len(m) == 1 and len(m[0]) == 3:
-                    self._n = int(m[0][0])
-                    self._d = int(m[0][2])
-                    self._s = m[0][1]
-                else:
-                    Logger.error('Rational: bad rational\n', *args)
+            m = Rational.RECAP.findall(str(args[0]))
+            if len(m) == 1 and len(m[0]) == 3:
+                self._n = int(m[0][0])
+                self._d = int(m[0][2])
+                self._s = m[0][1]
             else:
-                Logger.error('Rational: bad arg\n', *args)
+                Logger.error('Rational: bad rational {}\n'.format(*args))
         elif len(args) in {2, 3}:
             if type(args[0]) is int and type(args[1]) is int:
                 self._n = args[0]
@@ -149,21 +146,15 @@ class Rational:
         self._calc()
 
     def update_json(self, *args):
-        # self._n = 1
-        # self._d = 1
-        # self._s = ':'
         if len(args) == 1:
-            if type(args[0]) is str:
-                m = Rational.RECAP.findall(args[0])
-                if len(m) == 1 and len(m[0]) == 3:
-                    self._n = int(m[0][0])
-                    self._d = int(m[0][2])
-                    self._s = m[0][1]
-                else:
-                    Logger.error('Rational: bad rational\n', *args)
+            m = Rational.RECAP.findall(str(args[0]))
+            if len(m) == 1 and len(m[0]) == 3:
+                self._n = int(m[0][0])
+                self._d = int(m[0][2])
+                self._s = m[0][1]
             else:
-                Logger.error('Rational: bad arg\n', *args)
-        elif len(args) in {2, 3}:
+                Logger.error('Rational: bad rational {}\n'.format(*args))
+        elif len(args) in [2, 3]:
             if type(args[0]) is int and type(args[1]) is int:
                 self._n = args[0]
                 self._d = args[1]
