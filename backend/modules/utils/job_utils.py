@@ -525,10 +525,11 @@ class JobUtils:
             preview.update_str(trig['preview'])
 
             cdir = Storage.storage_path('cache', str(mf.guid))
-            pdir = Storage.storage_path('preview', str(mf.guid))
-            adir = Storage.storage_path('archive', str(mf.guid))
+            # pdir = Storage.storage_path('preview', str(mf.guid))
+            # adir = Storage.storage_path('archive', str(mf.guid))
 
             vt: MediaFile.VideoTrack = mf.videoTracks[vti]
+            pvt: MediaFile.VideoTrack = preview.videoTracks[0]
 
             # Get transform setup
             # fmap = JobUtils.PIX_FMT_MAP_X265['default'] if vt.pix_fmt not in JobUtils.PIX_FMT_MAP_X265 else JobUtils.PIX_FMT_MAP_X265[vt.pix_fmt]
@@ -555,19 +556,16 @@ class JobUtils:
             tmpl3 += ' --bitrate {} --vbv-maxrate {} --vbv-bufsize {}'.format(bitrate, bitrate + (bitrate >> 1), bitrate + (bitrate >> 3))
             tmpl3 += ' --output {output} {input}'
 
-            # Create video track preview
-            # preview = vt.ref_add()
-            # preview.name = 'preview-video#{}'.format(vti)
-            # preview.source.path = os.path.join(pdir.net_path, '{}.v{}.preview.mp4'.format(mf.guid, vti))
-            # preview.source.url = '{}/{}.v{}.preview.mp4'.format(pdir.web_path, mf.guid, vti)
-            pvt: MediaFile.VideoTrack = preview.videoTracks[0]
             # 1 Create 2 concat jobs: for preview and for archive
             job_preview_concat: Job = Job(guid=0)
+            job_preview_concat.type = Job.Type.SLICES_CONCAT
             job_preview_concat.groupIds.append(group_id)
             job_preview_concat.dependsOnGroupId.new()
             job_archive_concat: Job = Job(guid=0)
+            job_archive_concat.type = Job.Type.SLICES_CONCAT
             job_archive_concat.groupIds.append(group_id)
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
+
             # 2 Create Nx2 encode jobs
 
             tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps.val(), pf=vt.pix_fmt)
@@ -583,7 +581,6 @@ class JobUtils:
             jobs = []
             pslic = None
             for idx, slic in enumerate(slices + [None]):
-                # Logger.log('slic: {}  pslic: {}\n'.format(slic, pslic))
                 segment_path_preview = os.path.join(cdir.net_path, 'prv_{:03d}.h264'.format(idx))
                 segment_path_archive = os.path.join(cdir.net_path, 'arch_{:03d}.hevc'.format(idx))
                 segment_list_preview += 'file {}\n'.format(segment_path_preview)
@@ -635,7 +632,7 @@ class JobUtils:
 
                 pslic = slic
 
-                Logger.info('{} | {} | {} | {}\n\n'.format(proc0, proc1, proc2, proc3))
+                # Logger.info('{} | {} | {} | {}\n\n'.format(proc0, proc1, proc2, proc3))
 
             # Write concat files
             concat_preview = os.path.join(cdir.net_path, 'preview.list')
@@ -650,7 +647,34 @@ class JobUtils:
             cprv = 'ffmpeg -y -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
             carc = 'ffmpeg -y -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_archive, archive.source.path)
 
+            chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+            chain.procs = [cprv.split(' ')]
+            chain.progress.capture = 0
+            chain.progress.parser = 'ffmpeg_progress'
+
+            step: Job.Info.Step = Job.Info.Step()
+            step.chains.append(chain)
+
+            job_preview_concat.info.steps.append(step)
+
+            chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+            chain.procs = [carc.split(' ')]
+            chain.progress.capture = 0
+            chain.progress.parser = 'ffmpeg_progress'
+
+            step: Job.Info.Step = Job.Info.Step()
+            step.chains.append(chain)
+
+            job_preview_concat.info.steps.append(step)
+
             Logger.info('Concat preview command: {}\nConcat archive command: {}\n'.format(cprv, carc))
+
+            # Register jobs
+            for job in jobs:
+                DBInterface.Job.register(job)
+
+            DBInterface.Job.register(job_preview_concat)
+            DBInterface.Job.register(job_archive_concat)
 
     class ResultHandlers:
         class default:
