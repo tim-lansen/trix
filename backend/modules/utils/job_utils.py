@@ -489,6 +489,7 @@ class JobUtils:
                     jobs.append(job)
                     DBInterface.Job.register(job)
 
+            # TODO: register assets
             result = Job.Emitted.Result()
             result.source.step = -1
             result.data = {
@@ -502,8 +503,8 @@ class JobUtils:
         @staticmethod
         @tracer
         def _ips_p03_slices(slices, trig):
-            # Create compile job and encode jobs for single videoTrack
-            # using captured slices and passed info
+            # Create compile job and set of encode jobs for single videoTrack
+            # using captured slices
             # Logger.log('{}\n{}\n'.format(pformat(slices), pformat(trig)))
             # trig = {
             #     'src': mf_dumps,

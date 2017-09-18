@@ -1,5 +1,6 @@
 // sudo apt-get install libavutil-dev
 
+#include <unordered_set>
 #include <stdarg.h>
 
 extern "C" {
@@ -17,13 +18,24 @@ int stdIn = 0, stdOut = 1;
 
 
 int g_PipeBufferSize = 0;
-//char* g_Output = NULL;
-//char* g_Pin = NULL;
-//char* g_Pout = NULL;
-//u_int g_TrimStart = 0;
-//int g_PatternOffset = 0;
-//PIX_FMT_DESC* g_PixelFormat = NULL;
 AVPixelFormat g_PixelFormat = AV_PIX_FMT_NONE;
+std::unordered_set <int> g_8bit_formats = {
+    AV_PIX_FMT_YUV420P,   ///< planar YUV 4:2:0, 12bpp, (1 Cr & Cb sample per 2x2 Y samples)
+    AV_PIX_FMT_YUYV422,   ///< packed YUV 4:2:2, 16bpp, Y0 Cb Y1 Cr
+    AV_PIX_FMT_RGB24,     ///< packed RGB 8:8:8, 24bpp, RGBRGB...
+    AV_PIX_FMT_BGR24,     ///< packed RGB 8:8:8, 24bpp, BGRBGR...
+    AV_PIX_FMT_YUV422P,   ///< planar YUV 4:2:2, 16bpp, (1 Cr & Cb sample per 2x1 Y samples)
+    AV_PIX_FMT_YUV444P,   ///< planar YUV 4:4:4, 24bpp, (1 Cr & Cb sample per 1x1 Y samples)
+    AV_PIX_FMT_YUV410P,   ///< planar YUV 4:1:0,  9bpp, (1 Cr & Cb sample per 4x4 Y samples)
+    AV_PIX_FMT_YUV411P,   ///< planar YUV 4:1:1, 12bpp, (1 Cr & Cb sample per 4x1 Y samples)
+    AV_PIX_FMT_GRAY8,     ///<        Y        ,  8bpp
+    AV_PIX_FMT_MONOWHITE, ///<        Y        ,  1bpp, 0 is white, 1 is black, in each byte pixels are ordered from the msb to the lsb
+    AV_PIX_FMT_MONOBLACK, ///<        Y        ,  1bpp, 0 is black, 1 is white, in each byte pixels are ordered from the msb to the lsb
+    AV_PIX_FMT_PAL8,      ///< 8 bit with AV_PIX_FMT_RGB32 palette
+    AV_PIX_FMT_YUVJ420P,  ///< planar YUV 4:2:0, 12bpp, full scale (JPEG), deprecated in favor of AV_PIX_FMT_YUV420P and setting color_range
+    AV_PIX_FMT_YUVJ422P,  ///< planar YUV 4:2:2, 16bpp, full scale (JPEG), deprecated in favor of AV_PIX_FMT_YUV422P and setting color_range
+    AV_PIX_FMT_YUVJ444P,  ///< planar YUV 4:4:4, 24bpp, full scale (JPEG), deprecated in favor of AV_PIX_FMT_YUV444P and setting color_range
+};
 
 typedef enum {
     op_scan,
@@ -31,61 +43,8 @@ typedef enum {
     op_trim
 }OPERATION;
 
-
-/*
-__inline u_int _read_from_pipe_(char* buffer, int &frame_number, u_int buffer_capacity)
-{
-    u_int frame_size = cPattern::get_frame_size();
-    u_int left = frame_size;
-    buffer += (frame_number % buffer_capacity) * frame_size;
-    DWORD nBytesRead = 0;
-    for (; left > 0;)
-    {
-        if (ReadFile(stdIn, buffer, g_PipeBufferSize, &nBytesRead, NULL))
-        {
-            left -= nBytesRead;
-            if (nBytesRead != g_PipeBufferSize && left)
-            {
-                clog(stderr, "frame size error (%08x)\n", frame_size - left);
-                cPattern::set_frame_size(frame_size - left);
-                break;
-            }
-            buffer += nBytesRead;
-        }
-        else
-        {
-            clog(stderr, "=== Read error ===\n");
-            return 0;
-        }
-    }
-    frame_number++;
-    return 1;
-}
-
-__inline u_int _write_to_pipe_(char* buffer, int &frame_number, u_int buffer_capacity)
-{
-    u_int frame_size = cPattern::get_frame_size();
-    buffer += (frame_number % buffer_capacity) * frame_size;
-    DWORD nBytesWrite = 0;
-    for (; frame_size > 0;)
-    {
-        if (WriteFile(stdOut, buffer, frame_size, &nBytesWrite, NULL))
-        {
-            frame_size -= nBytesWrite;
-            buffer += nBytesWrite;
-        }
-        else
-        {
-            clog(stderr, "=== Write error ===\n");
-            return 0;
-        }
-    }
-    frame_number++;
-    return 1;
-}*/
-
-
 bool g_Log2console = true;
+
 
 void clog(_IO_FILE *std, const char *format, ...)
 {
@@ -140,13 +99,22 @@ __inline u_int write_to_pipe(FrameBuffer &fb, int &frame_number)
 }
 
 
-int scan(int frame_skip, int pattern_length, char* output)
+int scan(int frame_skip, int pattern_length, int scene_size, char* output)
 {
     // Read stdin
     // scan for sequence of 'pattern_length' unique frames
-    u_int memory_capacity = pattern_length + 3;
+    u_int memory_capacity = max(pattern_length, scene_size) + 3;
     cPattern scanner;
-    scanner.init_scan(frame_skip, pattern_length, memory_capacity);
+    
+    u_int bitdepth = 8;
+    auto search = g_8bit_formats.find(g_PixelFormat);
+    if(search == g_8bit_formats.end()) {
+        bitdepth = 16;
+    }
+    //printf("Using %d bits data\n", bitdepth);
+    
+    scanner.init_scan(frame_skip, pattern_length, scene_size, memory_capacity, bitdepth);
+    scanner.dump();
 
     int frame_number = 0;
     bool locked = false;
@@ -213,6 +181,10 @@ int trim(char* manifest_in, char* manifest_out)
     clog(stderr, "=== TRIM ===\n");
     u_int ff1 = pattern_in.init_trim(manifest_in);
     u_int ff2 = pattern_out.init_trim(manifest_out);
+    if(ff1 != ff2 && ff1 && ff2) {
+        clog(stderr, "Different pattern sizes are not supported (%d, %d)\n", ff1, ff2);
+        return -1;
+    }
     u_int memory_capacity = max(ff1, ff2);
 
     //char* frames = (char*)malloc((memory_capacity + (memory_capacity >> 1)) * cPattern::get_frame_size());
@@ -220,8 +192,7 @@ int trim(char* manifest_in, char* manifest_out)
 
     clog(stderr, "Memory capacity: %d frames\n", memory_capacity);
 
-    scanner.init_scan_trim(pattern_in.get_pattern_length(), memory_capacity);
-    //cPattern::init_scan_trim(&scanner_out, pattern_out.get_pattern_length(), memory_capacity, frame_data);
+    scanner.init_scan_trim(ff1, memory_capacity);
 
     pattern_in.dump();
     pattern_out.dump();
@@ -247,14 +218,17 @@ int trim(char* manifest_in, char* manifest_out)
     }
     clog(stderr, "\n=== In pattern found at %d ===\n", frame_read - pattern_in.get_pattern_length());
 
-    // Re-init scanner
-    scanner.init_scan_trim(pattern_out.get_pattern_length(), memory_capacity);
+    // Re-init scanner only if in-pattern is empty
+    if(!ff1) {
+        scanner.init_scan_trim(ff2, memory_capacity);
+    }
+    
 
     // Start feeding frames
     // We have to get frame_number-feeding_frame_number == g_PatternOut.get_length() + g_PatternOut.get_offset()
 
-    feeding_frame_number = frame_read - pattern_in.get_pattern_length();
-    stab = pattern_out.get_pattern_length() - pattern_in.get_pattern_length();
+    feeding_frame_number = frame_read - ff1;
+    stab = ff2 - ff1;
     clog(stderr, "Stab: %d\n", stab);
     while (stab > 0)
     {
@@ -274,14 +248,14 @@ int trim(char* manifest_in, char* manifest_out)
         stab++;
     }
     clog(stderr, "\n");
-    if (feeding_frame_number != frame_read - pattern_out.get_pattern_length())
+    if (feeding_frame_number != frame_read - ff2)
         clog(stderr, "**************************  feeding frame %d\n", feeding_frame_number);
 
     // Starting Read-N-Feed
     clog(stderr, "\n=== Read-N-Feed %d ===\n", feeding_frame_number);
     for (;;)
     {
-        if(scanner == pattern_out)
+        if(ff2 && scanner == pattern_out)
             break;
         if (!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
             goto FALLOUT2;
@@ -361,6 +335,7 @@ int parse_params_run(int argc, char **argv)
     u_int width = 0;
     u_int height = 0;
     u_int frame_start = 0;
+    u_int scene_size = 5;
     u_int pattern_length = 8;
     u_int round = 1;
 
@@ -430,7 +405,14 @@ int parse_params_run(int argc, char **argv)
             }
             frame_start = atoi(argv[++i]);
         }
-        else if (!(strcmp("-l", argv[i]) && strcmp("--pattern_length", argv[i])))
+        else if(!(strcmp("-d", argv[i]) && strcmp("--scene", argv[i]))) {
+            /*if(frame_start) {
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                return -1;
+            }*/
+            scene_size = atoi(argv[++i]);
+        }
+        else if(!(strcmp("-l", argv[i]) && strcmp("--pattern_length", argv[i])))
         {
             /*if (pattern_length)
             {
@@ -479,7 +461,7 @@ int parse_params_run(int argc, char **argv)
     
     if (op == op_scan)
     {
-        return scan(frame_start, pattern_length, output);
+        return scan(frame_start, pattern_length, scene_size, output);
     }
     else if (op == op_trim)
     {

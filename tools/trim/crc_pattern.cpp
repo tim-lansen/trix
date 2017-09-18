@@ -88,6 +88,52 @@ u_int32_t adler32(void * buffer, u_int count, u_int step, u_int32_t buf_size)
 }
 
 
+u_int64_t diff_08(void * buffer1, void * buffer2, u_int count, u_int step, u_int32_t buf_size)
+{
+    u_int8_t * b1 = (unsigned char *)buffer1;
+    u_int8_t * b2 = (unsigned char *)buffer2;
+    u_int64_t diff = 0;
+
+    u_int n = 0;
+    for(; count; --count) {
+        u_int16_t d;
+        u_int16_t d1 = b1[n];
+        u_int16_t d2 = b2[n];
+        if(d1 > d2)
+            d = (d1 - d2);
+        else
+            d = (d2 - d1);
+        diff += d*d;
+        n = (n + step) % buf_size;
+    }
+    return diff;
+}
+
+
+u_int64_t diff_16(void * buffer1, void * buffer2, u_int count, u_int step, u_int32_t buf_size)
+{
+    u_int16_t * b1 = (u_int16_t *)buffer1;
+    u_int16_t * b2 = (u_int16_t *)buffer2;
+    u_int64_t diff = 0;
+    buf_size = buf_size >> 1;
+    step = step >> 1;
+
+    u_int n = 0;
+    for(; count; --count) {
+        u_int32_t d;
+        u_int32_t d1 = b1[n];
+        u_int32_t d2 = b2[n];
+        if(d1 > d2)
+            d = (d1 - d2);
+        else
+            d = (d2 - d1);
+        diff += d*d;
+        n = (n + step) % buf_size;
+    }
+    return diff;
+}
+
+
 unsigned int FrameBuffer::frameSize = 0;
 unsigned int FrameBuffer::scanStep = 127;
 bool FrameBuffer::frameSizeChanged = false;
@@ -170,6 +216,7 @@ CRCPattern::CRCPattern()
     , m_frame(0)
     , m_skip(0), m_iskip(0)
     , m_scan_end(false)
+    , m_bitdepth(8)
 {
     memset(crc, 0, sizeof(crc));
 }
@@ -204,6 +251,32 @@ bool CRCPattern::operator == (CRCPattern &b)
     return true;
 }
 
+
+void CRCPattern::dif_frame()
+{
+    if(m_frame) {
+        u_int idx = m_frame % m_frame_buffer.m_capacity;
+        if(m_bitdepth <= 8) {
+            dif[idx] = diff_08(
+                m_frame_buffer.get_frame_pointer(m_frame - 1),
+                m_frame_buffer.get_frame_pointer(m_frame),
+                MAX_CRC_SCAN_SIZE,
+                m_frame_buffer.scanStep,
+                m_frame_buffer.frameSize
+            );
+        } else {
+            dif[idx] = diff_16(
+                m_frame_buffer.get_frame_pointer(m_frame - 1),
+                m_frame_buffer.get_frame_pointer(m_frame),
+                MAX_CRC_SCAN_SIZE,
+                m_frame_buffer.scanStep,
+                m_frame_buffer.frameSize
+            );
+        }
+    }
+}
+
+
 void CRCPattern::crc_frame()
 {
     // Calculate CRCs for given frame number
@@ -223,6 +296,7 @@ bool CRCPattern::data_lock()
 {
     int i, j;
     if(!m_scan_end) {
+        dif_frame();
         crc_frame();
         if(m_iskip) {
             m_iskip--;
@@ -230,8 +304,8 @@ bool CRCPattern::data_lock()
             if(m_frame >= m_pattern_length + m_skip) {
                 // Check frames for duplications
                 m_scan_end = true;
-                for(i = 0; i < m_pattern_length - 1; i++) {
-                    for(j = i + 1; j < m_pattern_length; j++) {
+                for(i = 0; i < m_pattern_length - 1; ++i) {
+                    for(j = i + 1; j < m_pattern_length; ++j) {
                         if(crc[i] == crc[j]) {
                             m_scan_end = false;
                             break;
@@ -239,6 +313,18 @@ bool CRCPattern::data_lock()
                     }
                     if(!m_scan_end)
                         break;
+                }
+                if(m_scan_end) {
+                    // Check dif: first frame's diff must be greater any other's
+                    u_int64_t d0 = dif[(m_frame - m_pattern_length) % m_frame_buffer.m_capacity];
+                    for(i = m_frame - m_pattern_length + 1; i < m_frame - m_pattern_length + m_scenedetect_length; ++i) {
+                        u_int64_t dx = dif[i % m_frame_buffer.m_capacity];
+                        if(dx > d0) {
+                            clog(stderr, "Skip pattern at %d\n", m_frame - m_pattern_length);
+                            m_scan_end = false;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -281,18 +367,21 @@ int CRCPattern::data_write_out(char* manifest_file)
     return 0;
 }
 
-bool CRCPattern::init_scan(u_int frame_skip, u_int pattern_length, u_int capacity)
+bool CRCPattern::init_scan(int frame_skip, int pattern_length, int scene_size, u_int capacity, u_int bitdepth)
 {
     // Initialize pattern for scan
     m_frame_buffer.init(capacity);
     m_type = pattern_scan;
     m_pattern_length = pattern_length;
+    m_scenedetect_length = scene_size;
     m_iskip = frame_skip;
     m_skip = frame_skip;
+    memset(dif, 0, sizeof(dif));
+    m_bitdepth = bitdepth;
     return true;
 }
 
-bool CRCPattern::init_scan_trim(u_int pattern_length, u_int capacity)
+bool CRCPattern::init_scan_trim(int pattern_length, u_int capacity)
 {
     // Initialize pattern for scan-trim
     m_frame_buffer.init(capacity);
@@ -358,6 +447,7 @@ void CRCPattern::dump()
         "Object 0x%08X\n"
         "  type           : %s\n"
         "  pattern_length : %d\n"
+        "  scene_length   : %d\n"
         "  mem_capacity   : %d\n"
         "  skip           : %d\n"
         "  iskip          : %d\n"
@@ -367,6 +457,7 @@ void CRCPattern::dump()
         this,
         pattern_type_names[m_type],
         m_pattern_length,
+        m_scenedetect_length,
         m_frame_buffer.m_capacity,
         m_skip,
         m_iskip,

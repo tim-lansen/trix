@@ -106,6 +106,7 @@ public:
 
     bool data_lock();
     int data_write_out(char* manifest_file);
+    void dif_frame();
     void crc_frame();
     unsigned int get_frame_crc(u_int i)
     {
@@ -113,9 +114,9 @@ public:
     }
     //void calc();
 
-    bool init_scan(u_int frame_skip, u_int pattern_length, u_int buffer_length);
+    bool init_scan(int frame_skip, int pattern_length, int scene_size, u_int buffer_length, u_int bitdepth);
 
-    bool init_scan_trim(u_int pattern_length, u_int buffer_length);
+    bool init_scan_trim(int pattern_length, u_int buffer_length);
 
     u_int init_trim(char* filename);
 
@@ -134,12 +135,14 @@ public:
 private:
     PATTERN_TYPE m_type;
     int m_pattern_length;
+    int m_scenedetect_length;
     int m_skip, m_iskip;
     int m_frame;
     bool m_scan_end;
 protected:
     unsigned int crc[64];
-    //bool calc[64];
+    u_int64_t dif[64];
+    u_int m_bitdepth;
 };
 
 
