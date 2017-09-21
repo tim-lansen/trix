@@ -17,7 +17,7 @@ from .log_console import Logger, tracer
 from .storage import Storage
 from .parsers import Parsers
 from .types import Guid
-# from .exchange import Exchange
+from .exchange import Exchange
 
 
 def merge_assets(assets):
@@ -310,6 +310,7 @@ class JobUtils:
                     mf_preview.source.url = '{}/{}'.format(dir_preview.web_path, mf_prvfile)
                     mf_archive.source.path = os.path.join(dir_archive.net_path, mf_arcfile)
                     mf_archive.source.url = None
+                    mf_archive.assets.append(asset.guid)
 
                     # Add VideoStream to asset
                     vst: VideoStream = VideoStream()
@@ -567,6 +568,15 @@ class JobUtils:
             job_archive_concat.type = Job.Type.SLICES_CONCAT
             job_archive_concat.groupIds.append(group_id)
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
+            job_archive_concat.emitted.handler = JobUtils.ResultHandlers.ips_p03_slices_concat.__name__
+            # Add result to archive concat job
+            result: Job.Emitted.Result = Job.Emitted.Result()
+            job_archive_concat.emitted.results.append(result)
+            # Second is a helper - it references results collector
+            result = Job.Emitted.Result()
+            result.data = {
+                'collector_id': 0
+            }
 
             # 2 Create Nx2 encode jobs
 
@@ -590,8 +600,8 @@ class JobUtils:
                 job_preview_archive_slice: Job = Job(name='encode_slice_{:03d}'.format(idx), guid=0)
                 job_preview_archive_slice.type = Job.Type.ENCODE_VIDEO
                 job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
-                result: Job.Emitted.Result = Job.Emitted.Result()
-                result.handler = JobUtils.ResultHandlers.pa_slice.__name__
+                # result: Job.Emitted.Result = Job.Emitted.Result()
+                # result.handler = JobUtils.ResultHandlers.pa_slice.__name__
 
                 if slic is None:
                     dur = vt.duration - pslic['time'] + 1
@@ -625,18 +635,28 @@ class JobUtils:
                 ]
                 chain.progress.capture = 0
                 chain.progress.parser = 'ffmpeg_progress'
+                chain.progress.top = dur
 
                 step: Job.Info.Step = Job.Info.Step()
                 step.chains.append(chain)
 
                 job_preview_archive_slice.info.steps.append(step)
 
+                # Single handler for 2 results
+                job_preview_archive_slice.emitted.handler = JobUtils.ResultHandlers.pa_slice.__name__
+                # First result is a ffmpeg's stderr parsed
                 result: Job.Emitted.Result = Job.Emitted.Result()
-                result.handler = JobUtils.ResultHandlers.pa_slice.__name__
                 result.source.proc = 2
                 result.source.parser = 'ffmpeg_auto_text'
-
                 job_preview_archive_slice.emitted.results.append(result)
+                # Second is a helper - it references results collector
+                result = Job.Emitted.Result()
+                result.data = {
+                    'collector_id': 0
+                }
+
+
+
                 jobs.append(job_preview_archive_slice)
 
                 pslic = slic
@@ -723,6 +743,11 @@ class JobUtils:
                 Logger.warning('{}\n'.format(emit.dumps(indent=2)))
                 # Logger.critical('{}\n'.format(pformat(trig)))
                 JobUtils.CreateJob._ips_p03_slices(slices, trig)
+
+        class ips_p03_slices_concat:
+            @staticmethod
+            def handler(emit: Job.Emitted, idx: int):
+                Logger.warning('{}\n'.format(emit))
 
         class ips_p03_assets:
             @staticmethod
@@ -850,6 +875,7 @@ class JobUtils:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
                 r: Job.Emitted.Result = emit.results[idx]
+                r.data.pop('showinfo')
                 # We need to obtain blacks from capture, and then update job record with it
                 # r is a text like this:
                 '''
@@ -858,7 +884,8 @@ class JobUtils:
                 [blackdetect @ 0000000004448c00] black_start:0 black_end:0.233333 black_duration:0.233333
                 [Parsed_showinfo_1 @ 00000000046e00e0] n:   8 pts:      8 pts_time:0.266667 pos:  4122182 fmt:yuv420p sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:9FB49018 plane_checksum:[ADB79458 90349F08 A53C5CA9] mean:[201 131 122] stdev:[34.9 5.8 4.4]
                 '''
-                Logger.critical('{}\n'.format(r.data.keys()))
+                Logger.warning('{}\n'.format(emit))
+                input()
                 # Logger.info('{}\n'.format(r.data['blackdetect']))
 
         class cpeas:
@@ -866,6 +893,7 @@ class JobUtils:
             def handler(emit: Job.Emitted, idx: int):
                 r = emit.results[idx]
                 # Parse results derived from 'internal_create_preview_extract_audio_subtitles'
+                # Logger.critical(r.data)
                 res = r.data
                 DBInterface.Asset.set(res['asset'])
                 for mf in res['trans'] + res['previews'] + res['archives']:
@@ -878,14 +906,14 @@ class JobUtils:
                 r = emit.results[idx]
                 # Get assets from DB, merge and create Interaction
                 asset_guid = None
-                if len(r.actual) == 1:
-                    asset_guid = r.actual[0]
-                elif len(r.actual) > 1:
-                    assts = DBInterface.Asset.records(r.actual)
+                if len(r.data) == 1:
+                    asset_guid = r.data[0]
+                elif len(r.data) > 1:
+                    assts = DBInterface.Asset.records(r.data)
                     assm = {}
                     for i, asst in enumerate(assts):
                         assm[str(asst['guid'])] = i
-                    assets = [assts[assm[aid]] for aid in r.actual]
+                    assets = [assts[assm[aid]] for aid in r.data]
                     asset = merge_assets(assets)
                     asset.name = 'merged'
                     DBInterface.Asset.set(asset)

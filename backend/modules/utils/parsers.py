@@ -10,6 +10,8 @@ PATTERN_TIMECODE = re.compile(r'^\d?\d:\d\d:\d\d.\d+$')
 
 
 def timecode_to_float(tc):
+    if type(tc) is float:
+        return tc
     t = 0.0
     if PATTERN_TIMECODE.match(tc):
         i, r = tc.rsplit('.', 1)

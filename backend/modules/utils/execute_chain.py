@@ -39,10 +39,11 @@ from .storage import Storage
 def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
     tdir = Storage.storage_path('transit', str(mf.guid))
     pdir = Storage.storage_path('preview', str(mf.guid))
-    res = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
-    res['asset'].name = 'auto'
-    res['asset'].guid.set(ass)
-    out_final.put(res)
+    data = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
+    data['asset'].name = 'auto'
+    data['asset'].guid.set(ass)
+    # Logger.critical('{}\n'.format(data))
+    out_final.put([data])
 
 
 class ExecuteInternal:

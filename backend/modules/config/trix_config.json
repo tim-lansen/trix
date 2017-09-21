@@ -46,23 +46,33 @@
         "name": "server1",
         "id": "server1_id",
         "address": "1.1.1.1",
-        "shares": ["crude", "store", "web"],
+        "filesystem": "cifs",
+        "shares": {
+          "crude": "/shared/crude",
+          "store": "/shared/store",
+          "web": "/shared/web"
+        },
+        "comment": "in case of nfs, shares and net_path(s) must be absolute",
         "paths": [
           {
             "role": "archive",
+            "share": "store",
             "net_path": "store/archive"
           },
           {
             "role": "production",
+            "share": "store",
             "net_path": "store/production"
           },
           {
             "role": "preview",
+            "share": "web",
             "net_path": "web/preview",
             "web_path": "http://1.1.1.101/media"
           },
           {
             "role": "transit",
+            "share": "store",
             "net_path": "store/_transit"
           }
         ],
@@ -73,10 +83,14 @@
         "name": "server2",
         "id": "server2_id",
         "address": "1.1.1.1",
-        "shares": ["cache"],
+        "filesystem": "cifs",
+        "shares": {
+          "cache": "/shared/cache"
+        },
         "paths": [
           {
             "role": "cache",
+            "share": "cache",
             "net_path": "cache"
           }
         ],

@@ -185,6 +185,7 @@ class JobExecutor:
             Logger.warning('{}\n'.format(ex.job.dumps()))
             ex.error.set()
         ex.running.clear()
+        # Logger.log('{}\n'.format(ex.fmap))
         ex.fmap_out.put(ex.fmap)
         # Set finish event only if no error
         if ex.error.is_set():

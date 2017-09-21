@@ -1,0 +1,104 @@
+{
+  "dBase": {
+    "connection": {
+      "host": "1.1.1.3",
+      "port": 5432,
+      "dbname": "trix_db"
+    },
+    "users": {
+      "superuser": {
+        "login": "trix",
+        "password": "trix"
+      },
+      "backend": {
+        "login": "trix_backend",
+        "password": "backend"
+      },
+      "node": {
+        "login": "trix_node",
+        "password": "node"
+      }
+    },
+    "templates": {},
+    "tables": {
+      "Asset": {},
+      "MediaFile": {},
+      "MediaChunk": {},
+      "Job": {},
+      "Node": {},
+      "Collector": {},
+      "Machine": {},
+      "Interaction": {}
+    }
+  },
+  "apiServer": {
+    "host": "127.0.0.1",
+    "port": 9001
+  },
+  "machines": {
+    "comment": "Machine templates",
+    "default": {"node_count": 4, "node_job_types": [[0, 1, 2], [0, 1, 2], [0, 1, 2], [3]], "tmp": "/tmp"},
+    "127.0.0.1": {"name": "local machine", "node_count": 3, "node_job_types": [[0], [1, 2], [3]]}
+  },
+  "storage": {
+    "servers": [
+      {
+        "name": "Virtual PC +200 GB #1",
+        "id": "server1_id",
+        "address": "10.128.134.16",
+        "filesystem": "nfs",
+        "shares": {
+          "crude": "/shared/crude",
+          "store": "/shared/store",
+          "web": "/shared/web"
+        },
+        "comment": "in case of nfs, shares and net_path(s) must be absolute",
+        "paths": [
+          {
+            "role": "archive",
+            "share": "store",
+            "net_path": "store/archive"
+          },
+          {
+            "role": "production",
+            "share": "store",
+            "net_path": "store/production"
+          },
+          {
+            "role": "preview",
+            "share": "web",
+            "net_path": "web/preview",
+            "web_path": "http://10.128.134.16/media"
+          },
+          {
+            "role": "transit",
+            "share": "store",
+            "net_path": "store/_transit"
+          }
+        ]
+      },
+      {
+        "name": "Virtual PC +200 GB #2",
+        "id": "server2_id",
+        "address": "10.128.134.16",
+        "filesystem": "nfs",
+        "shares": {
+          "cache": "/shared/cache"
+        },
+        "paths": [
+          {
+            "role": "cache",
+            "share": "cache",
+            "net_path": "cache"
+          }
+        ]
+      }
+    ],
+    "watchfolders": [
+      {
+        "action": "ingest",
+        "path": "/mnt/server1_id/crude"
+      }
+    ]
+  }
+}

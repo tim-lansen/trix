@@ -317,6 +317,7 @@ bool CRCPattern::data_lock()
                 if(m_scan_end) {
                     // Check dif: first frame's diff must be greater any other's
                     u_int64_t d0 = dif[(m_frame - m_pattern_length) % m_frame_buffer.m_capacity];
+                    d0 -= d0 >> 2;
                     for(i = m_frame - m_pattern_length + 1; i < m_frame - m_pattern_length + m_scenedetect_length; ++i) {
                         u_int64_t dx = dif[i % m_frame_buffer.m_capacity];
                         if(dx > d0) {

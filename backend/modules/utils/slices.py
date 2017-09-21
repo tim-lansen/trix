@@ -20,7 +20,7 @@ class Slice(JSONer):
         self.crc = []
 
 
-def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=30, overlap_time=15, start_frame=5, pattern_length=8):
+def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=49, overlap_time=15, start_frame=0, pattern_length=8):
     pattern_search_distance = start_frame + 5 * pattern_length
     vt = mf.videoTracks[vti]
     duration = vt.duration

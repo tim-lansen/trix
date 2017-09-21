@@ -140,6 +140,12 @@ http {
 }
 
 ===================
+Docker
+===================
+    Ubuntu 16.04
+
+
+===================
 Python 3.6 + psycopg2
 ===================
     sudo add-apt-repository ppa:jonathonf/python-3.6
@@ -204,7 +210,121 @@ sudo make install
 # PATH="$HOME/bin:$PATH" make
 # make install
 
-
-
 https://ffmpeg.zeranoe.com/builds/source/ffmpeg/ffmpeg-3.3.3.tar.xz
 
+
+==============================
+Testing on virtual machines
+==============================
+ticket-371232-1 	10.128.134.16   (+200GB)
+ticket-371232-2 	10.128.154.20
+ticket-371232-3 	10.128.154.19   +
+ticket-371232-4 	10.128.182.17   +
+# On ticket-371232-1
+    sudo apt-get install nfs-kernel-server nfs-common portmap
+    sudo mkdir -p /shared/crude/watch /shared/crude/in_work /shared/crude/done /shared/crude/failed
+    sudo chmod 755 /shared/crude/
+    sudo mkdir -p /shared/store/production /shared/store/archive /shared/cache /shared/web
+    sudo chmod 755 /shared/store /shared/cache /shared/web
+
+    sudo vim /etc/exports
+    # Add lines
+    /shared/crude      10.128.134.1/16(rw,no_root_squash,no_subtree_check,async)
+    /shared/store      10.128.134.1/16(rw,no_root_squash,no_subtree_check,async)
+    /shared/cache      10.128.134.1/16(rw,no_root_squash,no_subtree_check,async)
+    /shared/web        10.128.134.1/16(rw,no_root_squash,no_subtree_check,async)
+
+    # Restart service
+    sudo service nfs-kernel-server restart
+
+    # Create mount point (NGINX?)
+    sudo mkdir -p /mnt/server1_id/web
+    sudo chmod 777 /mnt/server1_id/web
+    # Mount with /etc/fstab
+    10.128.134.16:/shared/web /mnt/server1_id/web nfs rw,no_root_squash,no_subtree_check,async 0 0
+    # Mount manually
+
+
+    # DOCKER: copy ff* etc
+    sudo cp /usr/bin/ff* /mnt/server1_id/web/docker/u14/usr/bin/
+    sudo cp /usr/lib/x86_64-linux-gnu/libav*                   /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libpostproc-ffmpeg.so.52 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libsw*                   /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libX11* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libOpenCL.* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libvdpau.so.1 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libXv.so.1 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libXext.so.6 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libXfixes.so.3 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/lib /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libjack* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libasound.* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libSDL-1.2.so.0 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libdc1394.so.22 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libraw1394.so.11 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/libcdio* /mnt/server1_id/web/docker/u14/usr/lib/
+    sudo mkdir /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/mesa/
+    sudo cp /usr/lib/x86_64-linux-gnu/mesa/libGL.* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/mesa/
+    sudo cp /usr/lib/x86_64-linux-gnu/libopenal.so.* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libpulse* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libcaca* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/librom1394.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libiec61883.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libzmq.so.3* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libopencv_* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libfreetype.so.6* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libflite* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libass.so.4* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+    sudo cp /usr/lib/x86_64-linux-gnu/libfontconfig.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  140  21/09/17 20:30:42 sudo cp /usr/lib/x86_64-linux-gnu/libssh.so.4* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  141  21/09/17 20:30:59 sudo cp /usr/lib/x86_64-linux-gnu/librtmp.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  142  21/09/17 20:31:38 sudo cp /usr/lib/libmodplug.so.1* /mnt/server1_id/web/docker/u14/usr/lib/
+  143  21/09/17 20:32:09 sudo cp /usr/lib/libgme.so.0* /mnt/server1_id/web/docker/u14/usr/lib/
+  144  21/09/17 20:32:35 sudo cp /usr/lib/x86_64-linux-gnu/libbluray.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  145  21/09/17 20:32:46 sudo cp /usr/lib/x86_64-linux-gnu/libva.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  146  21/09/17 20:33:03 sudo cp /usr/lib/x86_64-linux-gnu/libzvbi* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  147  21/09/17 20:33:16 sudo cp /usr/lib/x86_64-linux-gnu/libxvidcore.so.4* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  148  21/09/17 20:33:32 sudo cp /usr/lib/x86_64-linux-gnu/libx264.so.142 /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  149  21/09/17 20:33:45 sudo cp /usr/lib/x86_64-linux-gnu/libwebp.so.5* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  150  21/09/17 20:33:57 sudo cp /usr/lib/x86_64-linux-gnu/libwavpack.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  151  21/09/17 20:34:09 sudo cp /usr/lib/x86_64-linux-gnu/libvpx.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  152  21/09/17 20:34:24 sudo cp /usr/lib/x86_64-linux-gnu/libvorbis* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  153  21/09/17 20:34:53 sudo cp /usr/lib/libtwolame.so.0* /mnt/server1_id/web/docker/u14/usr/lib/
+  154  21/09/17 20:35:13 sudo cp /usr/lib/x86_64-linux-gnu/libtheora* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  155  21/09/17 20:35:29 sudo cp /usr/lib/x86_64-linux-gnu/libspeex.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  156  21/09/17 20:35:44 sudo cp /usr/lib/x86_64-linux-gnu/libschroedinger-1.0.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  157  21/09/17 20:36:15 sudo cp /usr/lib/x86_64-linux-gnu/libopus.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  158  21/09/17 20:36:26 sudo cp /usr/lib/x86_64-linux-gnu/libopenjpeg* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  159  21/09/17 20:36:37 sudo cp /usr/lib/x86_64-linux-gnu/libmp3lame.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  160  21/09/17 20:36:51 sudo cp /usr/lib/x86_64-linux-gnu/libgsm.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  161  21/09/17 20:37:03 sudo cp /usr/lib/x86_64-linux-gnu/libfdk-aac.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  162  21/09/17 20:37:17 sudo cp /usr/lib/x86_64-linux-gnu/libcrystalhd.so.3* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  163  21/09/17 20:37:35 sudo cp /usr/lib/x86_64-linux-gnu/libsox* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  164  21/09/17 20:37:56 sudo cp /usr/lib/x86_64-linux-gnu/libxcb.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  165  21/09/17 20:39:06 sudo find /|grep libusb-1
+  166  21/09/17 20:40:14 sudo cp /lib/x86_64-linux-gnu/libusb-1.0.so.0* /mnt/server1_id/web/docker/u14/lib/x86_64-linux-gnu/
+  167  21/09/17 20:40:31 sudo cp /usr/lib/x86_64-linux-gnu/libglapi.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  168  21/09/17 20:40:44 sudo cp /usr/lib/x86_64-linux-gnu/libXdamage.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  169  21/09/17 20:41:06 sudo cp /usr/lib/x86_64-linux-gnu/libxcb-* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  170  21/09/17 20:41:26 sudo cp /usr/lib/x86_64-linux-gnu/libxshmfence.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  171  21/09/17 20:41:44 sudo cp /usr/lib/x86_64-linux-gnu/libXxf86vm.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  172  21/09/17 20:42:16 sudo cp /usr/lib/x86_64-linux-gnu/libpulse* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  173  21/09/17 20:42:31 sudo find /|grep libpulsecommon
+  174  21/09/17 20:42:53 sudo cp /usr/lib/x86_64-linux-gnu/pulseaudio/libpulsecommon-4.0.so* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  175  21/09/17 20:43:11 sudo cp /usr/lib/x86_64-linux-gnu/libpgm-5.1.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  176  21/09/17 20:48:41 sudo find /|grep libtbb
+  177  21/09/17 20:49:16 sudo cp /usr/lib/libtbb* /mnt/server1_id/web/docker/u14/usr/lib/
+  178  21/09/17 20:49:34 sudo cp /usr/lib/x86_64-linux-gnu/libenca.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  179  21/09/17 20:49:45 sudo cp /usr/lib/x86_64-linux-gnu/libxml2.so.2* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  180  21/09/17 20:49:58 sudo cp /usr/lib/x86_64-linux-gnu/libogg.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  181  21/09/17 20:50:11 sudo cp /usr/lib/x86_64-linux-gnu/liborc-* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  182  21/09/17 20:50:23 sudo cp /usr/lib/x86_64-linux-gnu/libgomp.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  183  21/09/17 20:50:42 sudo cp /usr/lib/x86_64-linux-gnu/libXau.so.6* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  184  21/09/17 20:51:02 sudo cp /usr/lib/x86_64-linux-gnu/libXdmcp.so.6* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  185  21/09/17 20:51:56 sudo cp /lib/x86_64-linux-gnu/libwrap.so.0* /mnt/server1_id/web/docker/u14/lib/x86_64-linux-gnu/
+  186  21/09/17 20:52:11 sudo cp /usr/lib/x86_64-linux-gnu/libsndfile.so.1* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  187  21/09/17 20:52:25 sudo cp /usr/lib/x86_64-linux-gnu/libasyncns.so.0* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  188  21/09/17 20:55:48 sudo cp /usr/lib/x86_64-linux-gnu/libFLAC.so.8* /mnt/server1_id/web/docker/u14/usr/lib/x86_64-linux-gnu/
+  189  21/09/17 20:56:18 sudo cp /lib/x86_64-linux-gnu/libresolv* /mnt/server1_id/web/docker/u14/lib/x86_64-linux-gnu/
+
+==============================

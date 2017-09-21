@@ -122,18 +122,33 @@ class TrixConfig(JSONer):
                 self.name = None
                 self.id = None
                 self.address = None
-                self.shares = []
+                self.filesystem = None
+                # Typical 'share' element example:
+                # "store": "/mount/disk/storage"
+                self.shares = {}
                 self.paths: List[self.Path] = []
                 self.username = None
                 self.password = None
 
+            def network_address(self, share):
+                if self.filesystem == 'cifs':
+                    return '//{}/{}'.format(self.address, share)
+                elif self.filesystem == 'nfs':
+                    return '{}:{}'.format(self.address, self.shares[share])
+                return None
+
             def mount_point(self, share):
+                # sh = share.split(os.path.sep, 1)[0]
                 if os.name == 'nt':
                     return r'\\{}\{}'.format(self.address, share)
                 return '/mnt/{}/{}'.format(self.id, share)
 
             def mount_opts(self):
-                return ['-t', 'cifs', '-o', 'username={u},password={p},dir_mode=0777,file_mode=0777'.format(u=self.username, p=self.password)]
+                if self.filesystem == 'cifs':
+                    return '-t cifs -o username={u},password={p},dir_mode=0777,file_mode=0777'.format(u=self.username, p=self.password).split(' ')
+                elif self.filesystem == 'nfs':
+                    return '-t nfs'.split(' ')
+                return None
 
             def get_paths(self, role):
                 if os.name == 'nt':

@@ -39,8 +39,9 @@ def mount_paths():
                     _f.write('.pin')
 
     for server in TRIX_CONFIG.storage.servers:
+        Logger.warning('{}\n'.format(server.dumps(indent=2)))
         for share in server.shares:
-            np = '//{}/{}'.format(server.address, share)
+            np = server.network_address(share)
             desired_mp = server.mount_point(share)
             if np in mount:
                 # Mount point must match desired pattern
