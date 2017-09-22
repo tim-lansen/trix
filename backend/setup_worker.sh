@@ -49,7 +49,7 @@ cd nasm-2.13.01
 make
 sudo make install
 
-
+cd ~/
 git clone http://git.videolan.org/git/x264.git
 cd x264/
 ./configure --disable-interlaced --bit-depth=8 --disable-avs --disable-swscale --disable-lavf --disable-ffms --disable-gpac --disable-lsmash

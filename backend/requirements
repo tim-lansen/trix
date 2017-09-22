@@ -153,11 +153,12 @@ Python 3.6 + psycopg2
     sudo apt-get install python3.6
     sudo apt-get install python3-pip
     python3.6 -m pip install --upgrade pip
-    python3.6 -m pip install psycopg2
+    sudo python3.6 -m pip install psycopg2
 
     python3.6 -m pip install Unidecode-0.04.21-py2.py3-none-any.whl
         or
     sudo -H python3.6 -m pip install Unidecode
+    sudo -H python3.6 -m pip install python_slugify
 
     python3.6 -m pip install python_slugify-1.2.4-py2.py3-none-any.whl
 ===================
