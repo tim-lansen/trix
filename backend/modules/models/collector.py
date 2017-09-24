@@ -18,8 +18,8 @@ class Collector(Record):
             self.showinfo = None
             self.blackdetect = None
 
-    def __init__(self, guid=0):
-        super().__init__(guid=guid)
+    def __init__(self, name='', guid=0):
+        super().__init__(name=name, guid=guid)
         # List of Job.Emitted objects
         self.sliceResults = []
 
@@ -27,7 +27,7 @@ class Collector(Record):
     TABLE_SETUP = {
         "relname": "trix_collector",
         "fields": [
-            ["results", "json[]"]
+            ["sliceResults", "text[]"]
         ],
         "fields_extra": [],
         "creation": [

@@ -96,7 +96,7 @@ class VideoStream(Stream):
     def __init__(self):
         super().__init__(Stream.Type.VIDEO, VideoStream.Layout.NORMAL)
         self.cropdetect = self.Cropdetect()
-        self.collector: VideoStream.Collector = VideoStream.Collector()
+        self.collector: self.Collector = self.Collector()
 
 
 class AudioStream(Stream):

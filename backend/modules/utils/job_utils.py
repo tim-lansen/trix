@@ -64,7 +64,7 @@ def merge_assets(assets):
 
 
 class JobUtils:
-    TRIMMER = '/home/tim/projects/trim/bin/x64/Debug/trim.out'
+    TRIMMER = 'trim.out'
 
     ACCEPTABLE_MEDIA_FILE_EXTENSIONS = {
         'm2ts', 'm2v', 'mov', 'mkv', 'mp4', 'mpeg', 'mpg', 'mpv',
@@ -256,11 +256,11 @@ class JobUtils:
                 return 0
 
             job: Job = mi_output['job']
-            aggregate_results = Job.Emitted.Result()
-            aggregate_results.data = mi_output['mediafiles']
-            aggregate_results.source.step = -1
-            aggregate_results.handler = JobUtils.ResultHandlers.ips_p02_mediafiles.__name__
-            job.emitted.results.append(aggregate_results)
+            handle_results = Job.Emitted.Result()
+            handle_results.data = mi_output['mediafiles']
+            handle_results.source.step = -1
+            handle_results.handler = JobUtils.ResultHandlers.ips_p02_mediafiles.__name__
+            job.emitted.results.append(handle_results)
             DBInterface.Job.register(job)
             Logger.log('{}\n'.format(job.dumps(indent=2)))
             return 1
@@ -281,7 +281,7 @@ class JobUtils:
             jobs = []
             paths = set([])
             asset_ids = []
-            collectors = []
+            # collector_ids = []
             result: Job.Emitted.Result = None
             for mf in mfs:
                 # Get directories
@@ -289,7 +289,7 @@ class JobUtils:
                 dir_preview = Storage.storage_path('preview', str(mf.guid))
                 dir_archive = Storage.storage_path('archive', str(mf.guid))
                 # Create new asset for file
-                asset: Asset = Asset()
+                asset: Asset = Asset(name='Asset by ingest for mediaFile {}'.format(mf.guid))
                 asset.mediaFiles.append(mf.guid)
                 asset_ids.append(str(asset.guid))
                 # MediaFiles
@@ -319,7 +319,9 @@ class JobUtils:
                     channel: Stream.Channel = Stream.Channel()
                     channel.src_stream_index = vti
                     vst.channels.append(channel)
+                    # Initialize GUID for collector
                     vst.collector.new()
+                    # collector_ids.append(str(vst.collector))
                     asset.videoStreams.append(vst)
                     # Link vt to archive
                     vt.extract = mf_archive.guid
@@ -354,6 +356,12 @@ class JobUtils:
                     }
                     result.handler = JobUtils.ResultHandlers.ips_p03_slices.__name__
                     job.emitted.results.append(result)
+
+                    # Register collector
+                    DBInterface.Collector.register(
+                        'Collector for videoStream #{} of asset {}'.format(vti, asset.guid),
+                        str(vst.collector)
+                    )
 
                     # Add job to pool
                     jobs.append(job)
@@ -494,7 +502,9 @@ class JobUtils:
                     jobs.append(job)
                     DBInterface.Job.register(job)
 
-            # TODO: register assets
+                # Register asset
+                DBInterface.Asset.set(asset)
+
             result = Job.Emitted.Result()
             result.source.step = -1
             result.data = {
@@ -575,13 +585,13 @@ class JobUtils:
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
             job_archive_concat.emitted.handler = JobUtils.ResultHandlers.ips_p03_slices_concat.__name__
             # Add result to archive concat job
-            result: Job.Emitted.Result = Job.Emitted.Result()
-            job_archive_concat.emitted.results.append(result)
-            # Second is a helper - it references results collector
-            result = Job.Emitted.Result()
-            result.data = {
-                'collector_id': 0
-            }
+            # result: Job.Emitted.Result = Job.Emitted.Result()
+            # job_archive_concat.emitted.results.append(result)
+            # # Second is a helper - it references results collector
+            # result = Job.Emitted.Result()
+            # result.data = {
+            #     'collector_id': trig['collector_id']
+            # }
 
             # 2 Create Nx2 encode jobs
 
@@ -652,8 +662,6 @@ class JobUtils:
 
                 job_preview_archive_slice.info.steps.append(step)
 
-                # Single handler for 2 results
-                job_preview_archive_slice.emitted.handler = JobUtils.EmittedHandlers.slice.__name__
                 # First result is a ffmpeg's stderr parsed
                 result: Job.Emitted.Result = Job.Emitted.Result()
                 result.source.proc = 2
@@ -661,6 +669,7 @@ class JobUtils:
                 job_preview_archive_slice.emitted.results.append(result)
                 # Second is a helper - it supplies slice's start time and duration, points to results collector
                 result = Job.Emitted.Result()
+                result.source.step = -1
                 result.data = {
                     'slice': {
                         'start': slice_start,
@@ -669,8 +678,9 @@ class JobUtils:
                     },
                     'collector_id': trig['collector_id']
                 }
-
-
+                job_preview_archive_slice.emitted.results.append(result)
+                # Single handler for 2 results
+                job_preview_archive_slice.emitted.handler = JobUtils.EmittedHandlers.slice.__name__
 
                 jobs.append(job_preview_archive_slice)
 
@@ -885,7 +895,11 @@ class JobUtils:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
                 Logger.warning('ips_p04_merge_assets:\n{}\n'.format(emit.dumps(indent=2)))
-                pass
+                asset_ids = emit.results[idx].data
+                # Read assets
+                assets = DBInterface.Asset.records(asset_ids)
+                for asset in assets:
+                    Logger.error('\n{}\n'.format(asset.dumps(indent=2)))
 
         class cpeas:
             @staticmethod
@@ -950,19 +964,21 @@ class JobUtils:
                 #     'collector_id': trig['collector_id']
                 # }
                 r0: Job.Emitted.Result = emit.results[0]
+                r0.data.pop('showinfo')
                 r1: Job.Emitted.Result = emit.results[1]
+                Logger.info('{}\n'.format(r0))
+                Logger.info('{}\n'.format(r1))
 
                 # collector: Collector = Collector(guid=r1.data['collector_id'])
                 sr: Collector.SliceResult = Collector.SliceResult()
 
-                r0.data.pop('showinfo')
+
                 sr.update_json(r0.data)
                 sr.update_json(r1.data['slice'])
                 Logger.warning('{}\n'.format(sr))
                 # Logger.warning('{}\n'.format(emit))
                 input()
                 DBInterface.Collector.append_slice_result(r1.data['collector_id'], sr)
-                # Logger.info('{}\n'.format(r.data['blackdetect']))
 
     @staticmethod
     def process_results(job: Job):

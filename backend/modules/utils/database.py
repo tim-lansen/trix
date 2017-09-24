@@ -684,12 +684,13 @@ class DBInterface:
             return DBInterface.get_record_to_class('Collector', uid)
 
         @staticmethod
-        def register(coll: Collector):
-            return DBInterface.register_record(coll, user=DBInterface.Collector.USER)
+        def register(collector_name: str, collector_id: str):
+            collector: Collector = Collector(name=collector_name, guid=collector_id)
+            return DBInterface.register_record(collector, user=DBInterface.Collector.USER)
 
         @staticmethod
         def append_slice_result(collector_id: str, slice_result: Collector.SliceResult):
-            request = "UPDATE trix_collector SET sliceResults = '{sr}' || sliceResults WHERE id='{id}';".format(
+            request = "UPDATE trix_collector SET sliceResults = sliceResults || '{{{sr}}}' WHERE guid='{id}';".format(
                 sr=slice_result.dumps(),
                 id=collector_id
             )
