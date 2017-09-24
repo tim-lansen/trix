@@ -18,7 +18,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from .log_console import Logger, tracer
 from .types import Guid
 from modules.config import TRIX_CONFIG
-from modules.models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record
+from modules.models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record, Collector
 
 
 # Establish a connection to db using args
@@ -676,3 +676,21 @@ class DBInterface:
         def set_status(uid, status):
             return DBInterface.Job.set_fields(uid, {'status': status})
 
+    class Collector:
+        USER = 'node'
+
+        @staticmethod
+        def get(uid) -> Collector:
+            return DBInterface.get_record_to_class('Collector', uid)
+
+        @staticmethod
+        def register(coll: Collector):
+            return DBInterface.register_record(coll, user=DBInterface.Collector.USER)
+
+        @staticmethod
+        def append_slice_result(collector_id: str, slice_result: Collector.SliceResult):
+            request = "UPDATE trix_collector SET sliceResults = '{sr}' || sliceResults WHERE id='{id}';".format(
+                sr=slice_result.dumps(),
+                id=collector_id
+            )
+            return DBInterface.request_db(request)

@@ -89,9 +89,14 @@ class VideoStream(Stream):
             self.sar = None
             self.aspect = None
 
+    class Collector(Guid):
+        def __init__(self, value=None):
+            super().__init__(value)
+
     def __init__(self):
         super().__init__(Stream.Type.VIDEO, VideoStream.Layout.NORMAL)
         self.cropdetect = self.Cropdetect()
+        self.collector: VideoStream.Collector = VideoStream.Collector()
 
 
 class AudioStream(Stream):

@@ -9,10 +9,19 @@ from .record import *
 class Collector(Record):
     # Collector record aggregates results from jobs
 
-    def __init__(self):
-        super().__init__()
+    class SliceResult(JSONer):
+        def __init__(self):
+            super().__init__()
+            self.start = 0.0
+            self.frames = 0
+            self.duration = 0.0
+            self.showinfo = None
+            self.blackdetect = None
+
+    def __init__(self, guid=0):
+        super().__init__(guid=guid)
         # List of Job.Emitted objects
-        self.results = []
+        self.sliceResults = []
 
     # Table description
     TABLE_SETUP = {

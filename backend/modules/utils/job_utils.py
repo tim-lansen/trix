@@ -17,6 +17,7 @@ from .log_console import Logger, tracer
 from .storage import Storage
 from .parsers import Parsers
 from .types import Guid
+from modules.models.collector import Collector
 from .exchange import Exchange
 
 
@@ -279,7 +280,8 @@ class JobUtils:
 
             jobs = []
             paths = set([])
-            assets = []
+            asset_ids = []
+            collectors = []
             result: Job.Emitted.Result = None
             for mf in mfs:
                 # Get directories
@@ -289,7 +291,7 @@ class JobUtils:
                 # Create new asset for file
                 asset: Asset = Asset()
                 asset.mediaFiles.append(mf.guid)
-                assets.append(str(asset.guid))
+                asset_ids.append(str(asset.guid))
                 # MediaFiles
                 out_transit_audio = []
                 out_preview_audio = []
@@ -317,6 +319,7 @@ class JobUtils:
                     channel: Stream.Channel = Stream.Channel()
                     channel.src_stream_index = vti
                     vst.channels.append(channel)
+                    vst.collector.new()
                     asset.videoStreams.append(vst)
                     # Link vt to archive
                     vt.extract = mf_archive.guid
@@ -346,7 +349,8 @@ class JobUtils:
                         'vti': vti,
                         'group_id': str(group_id),
                         'archive': mf_archive.dumps(),
-                        'preview': mf_preview.dumps()
+                        'preview': mf_preview.dumps(),
+                        'collector_id': str(vst.collector)
                     }
                     result.handler = JobUtils.ResultHandlers.ips_p03_slices.__name__
                     job.emitted.results.append(result)
@@ -494,7 +498,7 @@ class JobUtils:
             result = Job.Emitted.Result()
             result.source.step = -1
             result.data = {
-                'assets': assets
+                'assets': asset_ids
             }
             result.handler = JobUtils.ResultHandlers.ips_p04_merge_assets.__name__
             agg.emitted.results.append(result)
@@ -513,6 +517,7 @@ class JobUtils:
             #     'group_id': group_id,
             #     'archive': mf_archive.dumps(),
             #     'preview': mf_preview.dumps()
+            #     'collector_id': collector_id          # Collectors aggregate results from slices
             # }
 
             def strslice(_s):
@@ -600,10 +605,15 @@ class JobUtils:
                 job_preview_archive_slice: Job = Job(name='encode_slice_{:03d}'.format(idx), guid=0)
                 job_preview_archive_slice.type = Job.Type.ENCODE_VIDEO
                 job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
-                # result: Job.Emitted.Result = Job.Emitted.Result()
-                # result.handler = JobUtils.ResultHandlers.pa_slice.__name__
+
+                slice_start = 0.0
+                slice_frames = 0
+                slice_duration = 0.0
 
                 if slic is None:
+                    slice_start = pslic['time'] + pslic['pattern_offset'] / vt.fps.val()
+                    slice_duration = vt.duration - slice_start
+                    slice_frames = int(slice_duration *  vt.fps.val())
                     dur = vt.duration - pslic['time'] + 1
                     proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=strslice(pslic))
                 elif pslic is None:
@@ -643,16 +653,21 @@ class JobUtils:
                 job_preview_archive_slice.info.steps.append(step)
 
                 # Single handler for 2 results
-                job_preview_archive_slice.emitted.handler = JobUtils.ResultHandlers.pa_slice.__name__
+                job_preview_archive_slice.emitted.handler = JobUtils.EmittedHandlers.slice.__name__
                 # First result is a ffmpeg's stderr parsed
                 result: Job.Emitted.Result = Job.Emitted.Result()
                 result.source.proc = 2
                 result.source.parser = 'ffmpeg_auto_text'
                 job_preview_archive_slice.emitted.results.append(result)
-                # Second is a helper - it references results collector
+                # Second is a helper - it supplies slice's start time and duration, points to results collector
                 result = Job.Emitted.Result()
                 result.data = {
-                    'collector_id': 0
+                    'slice': {
+                        'start': slice_start,
+                        'frames': slice_frames,
+                        'duration': slice_duration
+                    },
+                    'collector_id': trig['collector_id']
                 }
 
 
@@ -708,11 +723,12 @@ class JobUtils:
             DBInterface.Job.register(job_archive_concat)
 
     class ResultHandlers:
+
         class default:
+            # Default handler for 'emitted' object
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
-                r = emit.results[idx]
-                # res must be a Collector.CollectedResult instance
+                # r = emit.results[idx]
                 pass
 
         class mediafile:
@@ -871,23 +887,6 @@ class JobUtils:
                 Logger.warning('ips_p04_merge_assets:\n{}\n'.format(emit.dumps(indent=2)))
                 pass
 
-        class pa_slice:
-            @staticmethod
-            def handler(emit: Job.Emitted, idx: int):
-                r: Job.Emitted.Result = emit.results[idx]
-                r.data.pop('showinfo')
-                # We need to obtain blacks from capture, and then update job record with it
-                # r is a text like this:
-                '''
-                [Parsed_showinfo_1 @ 00000000046e00e0] n:   6 pts:      6 pts_time:0.2     pos:  4103859 fmt:yuv420p sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:2DE4B9FB plane_checksum:[D810410C 508326AE 91475241] mean:[46 131 125] stdev:[47.2 4.0 4.1]
-                [Parsed_showinfo_1 @ 00000000046e00e0] n:   7 pts:      7 pts_time:0.233333 pos:  4110823 fmt:yuv420p sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:E545E8A2 plane_checksum:[39F4CDAB 1B68BB66 E2645F82] mean:[125 132 122] stdev:[81.3 5.3 4.4]
-                [blackdetect @ 0000000004448c00] black_start:0 black_end:0.233333 black_duration:0.233333
-                [Parsed_showinfo_1 @ 00000000046e00e0] n:   8 pts:      8 pts_time:0.266667 pos:  4122182 fmt:yuv420p sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:9FB49018 plane_checksum:[ADB79458 90349F08 A53C5CA9] mean:[201 131 122] stdev:[34.9 5.8 4.4]
-                '''
-                Logger.warning('{}\n'.format(emit))
-                input()
-                # Logger.info('{}\n'.format(r.data['blackdetect']))
-
         class cpeas:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
@@ -926,20 +925,60 @@ class JobUtils:
                 inter.assetOut = None
                 DBInterface.Interaction.set(inter)
 
+    class EmittedHandlers:
+        # Handlers for Job.Emitted (results list) objects
+        class default:
+            # Default handler for 'emitted' object
+            @staticmethod
+            def handler(emit: Job.Emitted):
+                pass
+
+        class slice:
+            @staticmethod
+            def handler(emit: Job.Emitted):
+                # r0.data is an output of parser 'ffmpeg_auto_text'
+                # r0.data = {
+                #     'showinfo': [...],
+                #     'blackdetect': [...]      # may not present if no blackdetect
+                # }
+                # r1.data = {
+                #     'slice': {
+                #         'start': slice_start,
+                #         'frames': slice_frames,
+                #         'duration': slice_duration
+                #     },
+                #     'collector_id': trig['collector_id']
+                # }
+                r0: Job.Emitted.Result = emit.results[0]
+                r1: Job.Emitted.Result = emit.results[1]
+
+                # collector: Collector = Collector(guid=r1.data['collector_id'])
+                sr: Collector.SliceResult = Collector.SliceResult()
+
+                r0.data.pop('showinfo')
+                sr.update_json(r0.data)
+                sr.update_json(r1.data['slice'])
+                Logger.warning('{}\n'.format(sr))
+                # Logger.warning('{}\n'.format(emit))
+                input()
+                DBInterface.Collector.append_slice_result(r1.data['collector_id'], sr)
+                # Logger.info('{}\n'.format(r.data['blackdetect']))
+
     @staticmethod
     def process_results(job: Job):
-        he = JobUtils.ResultHandlers.default
-        try:
-            he = JobUtils.ResultHandlers.__dict__[job.emitted.handler]
-        except:
-            pass
         for i, r in enumerate(job.emitted.results):
-            hr = he
+            hr = JobUtils.ResultHandlers.default
             try:
                 hr = JobUtils.ResultHandlers.__dict__[r.handler]
             except:
                 pass
             hr.handler(job.emitted, i)
+        he = JobUtils.EmittedHandlers.default
+        try:
+            he = JobUtils.EmittedHandlers.__dict__[job.emitted.handler]
+        except:
+            pass
+        he.handler(job.emitted)
 
     @staticmethod
     def get_assets_by_uids(uids):
