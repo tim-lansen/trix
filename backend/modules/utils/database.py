@@ -688,9 +688,10 @@ class DBInterface:
             collector: Collector = Collector(name=collector_name, guid=collector_id)
             return DBInterface.register_record(collector, user=DBInterface.Collector.USER)
 
+        # Temporary use text mode
         @staticmethod
         def append_slice_result(collector_id: str, slice_result: Collector.SliceResult):
-            request = "UPDATE trix_collector SET sliceResults = sliceResults || '{{{sr}}}' WHERE guid='{id}';".format(
+            request = "UPDATE trix_collector SET sliceResults = sliceResults || '{sr}'::text WHERE guid='{id}';".format(
                 sr=slice_result.dumps(),
                 id=collector_id
             )
