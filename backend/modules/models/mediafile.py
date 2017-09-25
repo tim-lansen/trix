@@ -160,6 +160,7 @@ class MediaFile(Record):
         DURATION = {'src': [['ff', 'duration']]}
 
         INDEX           = {'src': [['ff', 'index']]}
+        INDEX_KIND      = {'src': [['mi', 'StreamKindID']]}
         CODEC           = {'src': [['ff', 'codec_name']]}
         WIDTH           = {'src': [['mi', 'Stored_Width'], ['ff', 'width'], ['mi', 'Sampled_Width'], ['mi', 'Width']]}
         HEIGHT          = {'src': [['mi', 'Stored_Height'], ['ff', 'height'], ['mi', 'Sampled_Height'], ['mi', 'Height']]}
@@ -231,6 +232,7 @@ class MediaFile(Record):
             # FFMpeg track duration
             self.duration = None
             self.index = None
+            self.index_kind = None
             self.codec = None
             self.width = None
             self.height = None
@@ -315,6 +317,7 @@ class MediaFile(Record):
         CHANNELLAYOUT    = {'src': [['mi', 'ChannelLayout']]}
 
         INDEX            = {'src': [['ff', 'index']]}
+        INDEX_KIND       = {'src': [['mi', 'StreamKindID']]}
         CODEC            = {'src': [['ff', 'codec_name']]}
         SAMPLE_FMT       = {'src': [['ff', 'sample_fmt']]}
         SAMPLE_RATE      = {'src': [['ff', 'sample_rate']]}
@@ -340,6 +343,7 @@ class MediaFile(Record):
             # self.BitDepth = None
 
             self.index = None
+            self.index_kind = None
             self.codec = None
             self.sample_fmt = None
             self.sample_rate = None
@@ -366,6 +370,7 @@ class MediaFile(Record):
         DURATION = {'src': [['ff', 'duration']]}
 
         INDEX = {'src': [['ff', 'index']]}
+        INDEX_KIND = {'src': [['mi', 'StreamKindID']]}
         CODEC = {'src': [['ff', 'codec_name']]}
         START_TIME = {'src': [['ff', 'start_time']]}
         # DISPOSITION = {'src': [['ff', 'disposition']]}
@@ -379,6 +384,7 @@ class MediaFile(Record):
             self.duration = None
 
             self.index = None
+            self.index_kind = None
             self.codec = None
             self.start_time = 0.0
             # self.disposition = self.Disposition()

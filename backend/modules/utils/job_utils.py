@@ -627,9 +627,14 @@ class JobUtils:
                     dur = vt.duration - pslic['time'] + 1
                     proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=strslice(pslic))
                 elif pslic is None:
+                    slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val()
+                    slice_frames = int(slice_duration * vt.fps.val())
                     dur = slic['time'] + (overlap + slic['pattern_offset']) / vt.fps.val()
                     proc1 = '{trim} trim --pout {pout}'.format(trim=JobUtils.TRIMMER, pout=strslice(slic))
                 else:
+                    slice_start = pslic['time'] + pslic['pattern_offset'] / vt.fps.val()
+                    slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val() - slice_start
+                    slice_frames = int(slice_duration * vt.fps.val())
                     dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic['pattern_offset']) / vt.fps.val()
                     proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=strslice(pslic), pout=strslice(slic))
                 if pslic is None:
@@ -895,10 +900,12 @@ class JobUtils:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
                 Logger.warning('ips_p04_merge_assets:\n{}\n'.format(emit.dumps(indent=2)))
-                asset_ids = emit.results[idx].data
+                asset_ids = emit.results[idx].data['assets']
                 # Read assets
                 assets = DBInterface.Asset.records(asset_ids)
-                for asset in assets:
+                for ass in assets:
+                    asset: Asset = Asset()
+                    asset.update_json(ass)
                     Logger.error('\n{}\n'.format(asset.dumps(indent=2)))
 
         class cpeas:
@@ -972,12 +979,10 @@ class JobUtils:
                 # collector: Collector = Collector(guid=r1.data['collector_id'])
                 sr: Collector.SliceResult = Collector.SliceResult()
 
-
                 sr.update_json(r0.data)
                 sr.update_json(r1.data['slice'])
                 Logger.warning('{}\n'.format(sr))
                 # Logger.warning('{}\n'.format(emit))
-                input()
                 DBInterface.Collector.append_slice_result(r1.data['collector_id'], sr)
 
     @staticmethod

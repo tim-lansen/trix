@@ -63,6 +63,21 @@ class ExecuteInternal:
             combined_info(mf, params[1])
             out_final.put([mf])
 
+    class create_mediafile_and_asset:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            """
+            Get combined info, create mediafile and asset
+            :param params:            ['<url>']
+            :param out_progress:      progress output queue
+            :param out_final:         final output queue
+            :param chain_error_event: error event
+            :return:
+            """
+            mf: MediaFile = combined_info_mediafile(params[0])
+            combined_info(mf, params[0])
+            out_final.put([mf])
+
     class create_slices:
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
