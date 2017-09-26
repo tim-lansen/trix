@@ -3,6 +3,7 @@
 
 
 import os
+import copy
 from random import randint
 from modules.config import TRIX_CONFIG
 
@@ -28,9 +29,10 @@ class Storage:
         if len(paths):
             # path = '{}{}{}'.format(paths[randint(0, len(paths) - 1)].net_path, os.path.sep, guid)
             path = paths[randint(0, len(paths) - 1)]
-            path.net_path += os.path.sep + guid
-            if path.web_path:
-                path.web_path += '/' + guid
+            if guid:
+                path.net_path += os.path.sep + guid
+                if path.web_path:
+                    path.web_path += '/' + guid
         else:
             path = None #Storage.DEVNULL
         return path

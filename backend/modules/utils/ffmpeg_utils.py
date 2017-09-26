@@ -16,6 +16,7 @@ from .slices import create_slices
 from typing import List
 from modules.models.mediafile import MediaFile
 from modules.models.asset import Asset, Stream, VideoStream, AudioStream, SubStream
+from modules.config.trix_config import TrixConfig
 
 
 if os.name == 'nt':
@@ -610,7 +611,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
         # preview.source.url
         outputs.append(
             '-map [pv{sti}] -c:v libx264 -preset fast -g 20 -b:v 320k {path}'.format(sti=sti, path=preview.source.path))
-        arch = MediaFile()
+        arch: MediaFile = MediaFile()
         arch.videoTracks.append(vt)
         # vout_arch.append(arch)
         vout_arch.append(mediafile)
@@ -658,16 +659,16 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
             at.previews.append(str(audio_preview.guid))
 
     # Finally, compose the command
-    command_cli = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex "{filters}" {outputs}'.format(src=src,
-                                                                                                     filters=';'.join(
-                                                                                                         filters),
-                                                                                                     outputs=' '.join(
-                                                                                                         outputs))
-    command_py = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex {filters} {outputs}'.format(src=src,
-                                                                                                  filters=';'.join(
-                                                                                                      filters),
-                                                                                                  outputs=' '.join(
-                                                                                                      outputs))
+    command_cli = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex "{filters}" {outputs}'.format(
+        src=src,
+        filters=';'.join(filters),
+        outputs=' '.join(outputs)
+    )
+    command_py = 'ffmpeg -y -i {src} -map_metadata -1 -filter_complex {filters} {outputs}'.format(
+        src=src,
+        filters=';'.join(filters),
+        outputs=' '.join(outputs)
+    )
 
     Logger.log('{}\n'.format(command_cli))
 
@@ -798,30 +799,56 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
         'archives': vout_arch
     }
 
+
 # Get combined info for URL, create mediafile and asset objects, fill asset with streams,
 # create transit and preview mediafile objects
-def mediafile_asset_for_ingest(url, dir_transit, dir_preview):
+def mediafile_asset_for_ingest(url):
+    #, dir_archive: TrixConfig.Storage.Server.Path, dir_transit: TrixConfig.Storage.Server.Path, dir_preview: TrixConfig.Storage.Server.Path):
+    # Create mediafile and asset
     mediafile: MediaFile = MediaFile()
+    asset: Asset = Asset()
+    asset.mediaFiles.append(mediafile.guid)
+
     combined_info(mediafile, url)
-    cropdetects = []
-    dur = None
-    if len(mediafile.videoTracks):
-        dur = mediafile.videoTracks[0].duration
-        for vt in mediafile.videoTracks:
-            cropdetects.append(ffmpeg_cropdetect(mediafile.source.path, vt))
-    if dur is None:
-        dur = mediafile.format.duration
-    vout_arch: List[MediaFile] = []
-    vout_refs: List[MediaFile] = []
-    vout_trans: List[MediaFile] = []
+    dur = mediafile.format.duration
+
+    # Add main video stream and auto-detected params
+    for ti, vt in enumerate(mediafile.videoTracks):
+        cd = ffmpeg_cropdetect(mediafile.source.path, vt)
+        v_stream = VideoStream()
+        v_stream.program_in = 0.0
+        v_stream.program_out = dur
+        v_stream.cropdetect.update_json(cd)
+        v_stream.channels.append(Stream.Channel())
+        v_stream.collector.new()
+        asset.videoStreams.append(v_stream)
+
+    return {
+        'asset': asset,
+        'mediafile': mediafile
+    }
+
+    # dir_archive.net_path += os.path.sep + str(asset.guid)
+    # dir_transit.net_path += os.path.sep + str(asset.guid)
+    # dir_preview.net_path += os.path.sep + str(asset.guid)
+    # dir_preview.web_path += '/' + str(asset.guid)
+
+    out_archives: List[MediaFile] = []
+    out_previews: List[MediaFile] = []
+    out_transits: List[MediaFile] = []
 
     # Enumerate video tracks, create preview mediafile object(s)
     for sti, v in enumerate(mediafile.videoTracks):
-        preview = v.ref_add()
-        preview.name = 'preview-video'
-        vout_refs.append(preview)
-        preview.source.path = os.path.join(dir_preview.net_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
-        preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
+        # preview: MediaFile = v.ref_add()
+        vt = copy.deepcopy(v)
+        # archive: MediaFile = MediaFile(name='Archive: {}'.format(mediafile.name))
+        # archive.source.path = os.path.join(dir_archive.net_path, '{}.v{}.archive.mp4'.format(mediafile.guid, sti))
+        # archive.videoTracks.append(vt)
+        # out_archives.append(archive)
+        # preview.name = 'preview-video'
+        # out_previews.append(preview)
+        # preview.source.path = os.path.join(dir_preview.net_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
+        # preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
 
     # Enumerate subtitles tracks, previews and extracted tracks
     for sti, s in enumerate(mediafile.subTracks):
@@ -837,9 +864,9 @@ def mediafile_asset_for_ingest(url, dir_transit, dir_preview):
             subtitles.master.set(mediafile.guid.guid)
             subtitles.subTracks.append(st)
             subtitles.source.path = os.path.join(dir_transit.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
-            vout_trans.append(subtitles)
+            out_transits.append(subtitles)
         subtitles_preview: MediaFile = MediaFile(name='preview-sub')
-        vout_refs.append(subtitles_preview)
+        out_previews.append(subtitles_preview)
         subtitles_preview.master.set(subtitles.guid.guid)
         subtitles_preview.isPreview = True
         subtitles_preview.source.path = os.path.join(dir_preview.net_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
@@ -859,79 +886,62 @@ def mediafile_asset_for_ingest(url, dir_transit, dir_preview):
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
             audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
-            vout_trans.append(audio)
+            out_transits.append(audio)
         for ci in range(a.channels):
             audio_preview: MediaFile = MediaFile(name='preview-audio')
-            vout_refs.append(audio_preview)
+            out_previews.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
             audio_preview.isPreview = True
             audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
             audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
             at.previews.append(str(audio_preview.guid))
 
-    # Merge blacks and silence to find dark silent blocks
-    # Guess program in and out
-    program_in = 0.0
-    program_out = dur
-
-    # Create asset
-    asset: Asset = Asset()
     # Add main source
-    asset.mediaFiles.append(mediafile.guid)
-    # Add trans source(s)
-    asset.mediaFiles += [_.guid for _ in vout_trans]
 
-    # Add main video stream and auto-detected params
-    for ti, a in enumerate(mediafile.audioTracks):
-    if len(mediafile.videoTracks):
-        v_stream = VideoStream()
-        v_stream.program_in = 0.0
-        v_stream.program_out = dur
-        v_stream.cropdetect.update_json(cropdetect)
-        v_stream.channels.append(Stream.Channel())
-        asset.videoStreams.append(v_stream)
+    # Add transit source(s)
+    asset.mediaFiles += [_.guid for _ in out_transits]
 
-    # Add audio stream(s)
-    for ti, a in enumerate(mediafile.audioTracks):
-        # asset.mediaFiles.append(trans.guid)
-        channels = a.channels
-        a_stream = AudioStream()
-        a_stream.program_in = program_in
-        a_stream.program_out = program_out
-        a_stream.layout = a.channel_layout
-        if a.tags and a.tags.language:
-            a_stream.language = a.tags.language
-        for ci in range(channels):
-            chan = Stream.Channel()
-            chan.src_stream_index = ti
-            chan.src_channel_index = ci
-            a_stream.channels.append(chan)
-        asset.audioStreams.append(a_stream)
-
-    # Add audio track(s)
-    # for ti, trans in enumerate(vout_trans):
-    #     asset.mediaFiles.append(trans.guid)
-    #     channels = trans.audioTracks[0].channels
+    # # Add main video stream and auto-detected params
+    # for ti, vt in enumerate(mediafile.videoTracks):
+    #     v_stream = VideoStream()
+    #     v_stream.program_in = 0.0
+    #     v_stream.program_out = dur
+    #     v_stream.cropdetect.update_json(cropdetects[ti])
+    #     v_stream.channels.append(Stream.Channel())
+    #     v_stream.collector.new()
+    #     asset.videoStreams.append(v_stream)
+    #
+    # # Add audio stream(s)
+    # for ti, at in enumerate(mediafile.audioTracks):
+    #     # asset.mediaFiles.append(trans.guid)
+    #     channels = at.channels
     #     a_stream = AudioStream()
-    #     a_stream.program_in = program_in
-    #     a_stream.program_out = program_out
-    #     # a_stream.layout = AudioStream.Layout.DEFAULT[channels]
-    #     a_stream.layout = trans.audioTracks[0].channel_layout
+    #     a_stream.program_in = 0.0
+    #     a_stream.program_out = dur
+    #     a_stream.layout = at.channel_layout
+    #     if at.tags and at.tags.language:
+    #         a_stream.language = at.tags.language
     #     for ci in range(channels):
     #         chan = Stream.Channel()
-    #         chan.src_stream_index = ti + advance_audio_index
+    #         chan.src_stream_index = ti
     #         chan.src_channel_index = ci
     #         a_stream.channels.append(chan)
     #     asset.audioStreams.append(a_stream)
+    #
+    # # Add subtitles stream(s)
+    # for ti in range(len(mediafile.subTracks)):
+    #     s_stream: SubStream = SubStream()
+    #     s_stream.program_in = 0.0
+    #     s_stream.program_out = dur
+    #     asset.subStreams.append(s_stream)
 
-    # Update info for every mediafile
-    for mf in vout_arch + vout_refs + vout_trans:
-        if mf.format.stream_count is None:
-            Logger.info('Updating info for file {} / '.format(mf.guid))
-            combined_info(mf)
-            Logger.info('{}\n'.format(mf.guid))
-
-    return mf
+    return {
+        'asset': asset,
+        'mediafile': mediafile,
+        # 'archives': out_archives,
+        # 'previews': out_previews,
+        # 'transits': out_transits
+    }
 
 
 def test_ffmpeg_cropdetect():

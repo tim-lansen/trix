@@ -30,7 +30,7 @@ from .combined_info import combined_info, combined_info_mediafile
 from .commands import *
 from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
-from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles
+from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles, mediafile_asset_for_ingest
 from .slices import create_slices
 from .storage import Storage
 # from .exchange import Exchange
@@ -74,9 +74,11 @@ class ExecuteInternal:
             :param chain_error_event: error event
             :return:
             """
-            mf: MediaFile = combined_info_mediafile(params[0])
-            combined_info(mf, params[0])
-            out_final.put([mf])
+            adir = Storage.storage_path('archive', None)
+            tdir = Storage.storage_path('transit', None)
+            pdir = Storage.storage_path('preview', None)
+            res = mediafile_asset_for_ingest(params[0], adir, tdir, pdir)
+            out_final.put([res])
 
     class create_slices:
         @staticmethod
