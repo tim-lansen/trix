@@ -67,7 +67,8 @@ class Job(Record):
         # Create proxy video and audio tracks by channels, extract audio to separate tracks,
         #  scan A/V to detect in/out/padding/loudness/..., save frames info including hashes
         CPEAS = 0x8000
-        EAS = 0x8001
+        PEAS = 0x8001
+        EAS = 0x8002
         # Aggregate results from CPEAS
         INGEST_AGGREGATE = 0x8002
         # Create slices

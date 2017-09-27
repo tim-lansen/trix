@@ -806,7 +806,7 @@ def mediafile_asset_for_ingest(url):
     #, dir_archive: TrixConfig.Storage.Server.Path, dir_transit: TrixConfig.Storage.Server.Path, dir_preview: TrixConfig.Storage.Server.Path):
     # Create mediafile and asset
     mediafile: MediaFile = MediaFile()
-    asset: Asset = Asset()
+    asset: Asset = Asset(name='Asset for {}'.format(mediafile.name))
     asset.mediaFiles.append(mediafile.guid)
 
     combined_info(mediafile, url)

@@ -74,10 +74,10 @@ class ExecuteInternal:
             :param chain_error_event: error event
             :return:
             """
-            adir = Storage.storage_path('archive', None)
-            tdir = Storage.storage_path('transit', None)
-            pdir = Storage.storage_path('preview', None)
-            res = mediafile_asset_for_ingest(params[0], adir, tdir, pdir)
+            # adir = Storage.storage_path('archive', None)
+            # tdir = Storage.storage_path('transit', None)
+            # pdir = Storage.storage_path('preview', None)
+            res = mediafile_asset_for_ingest(params[0])
             out_final.put([res])
 
     class create_slices:
