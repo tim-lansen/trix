@@ -20,14 +20,14 @@ class Collector(Record):
 
     def __init__(self, name='', guid=0):
         super().__init__(name=name, guid=guid)
-        # List of Job.Emitted objects
-        self.sliceResults = []
+        # List of various results
+        self.collected = []
 
     # Table description
     TABLE_SETUP = {
         "relname": "trix_collector",
         "fields": [
-            ["sliceResults", "text[]"]
+            ["collected", "text[]"]
         ],
         "fields_extra": [],
         "creation": [

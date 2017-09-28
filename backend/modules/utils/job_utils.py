@@ -394,6 +394,8 @@ class JobUtils:
 
                 filters = []
                 outputs = []
+                subStreams: List[SubStream] = []
+                audioStreams: List[AudioStream] = []
                 # Enumerate subtitles tracks, create previews and transit (extracted track) files
                 for ti, s in enumerate(mediafile.subTracks):
                     # Special case for 1-track subtitles only
@@ -420,6 +422,17 @@ class JobUtils:
                     st.previews.append(str(subtitles_preview.guid))
                     outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=ti, path=subtitles_preview.source.path))
                     previews.append(subtitles_preview)
+
+                    sub_stream: SubStream = SubStream()
+                    sub_stream.program_in = 0
+                    sub_stream.program_out = s.duration
+                    sub_stream.layout = s.channel_layout
+                    if s.tags and s.tags.language:
+                        sub_stream.language = s.tags.language
+                    chan = Stream.Channel()
+                    chan.src_stream_index = ti
+                    sub_stream.channels.append(chan)
+                    asset.audioStreams.append(sub_stream)
 
                 # Enumerate audio tracks, create previews and transit (extracted track) files
                 for ti, a in enumerate(mediafile.audioTracks):
@@ -452,6 +465,22 @@ class JobUtils:
                         audio_filter = None
                         outputs.append('-map [ap_{ti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(ti=ti, ci=ci, path=audio_preview.source.path))
                         previews.append(audio_preview)
+
+                    # Create AudioStream for asset
+                    a_stream = AudioStream()
+                    a_stream.program_in = 0
+                    a_stream.program_out = a.duration
+                    a_stream.layout = a.channel_layout
+                    if ti == 0:
+                        a_stream.collector.new()
+                    if a.tags and a.tags.language:
+                        a_stream.language = a.tags.language
+                    for ci in range(a.channels):
+                        chan = Stream.Channel()
+                        chan.src_stream_index = ti
+                        chan.src_channel_index = ci
+                        a_stream.channels.append(chan)
+                    asset.audioStreams.append(a_stream)
 
                 # Create extract/preview job if needed
                 if len(outputs):
@@ -963,6 +992,7 @@ class JobUtils:
                     asset: Asset = Asset()
                     asset.update_json(ass)
                     Logger.error('\n{}\n'.format(asset.dumps(indent=2)))
+                exit(1)
 
         class slice:
             @staticmethod

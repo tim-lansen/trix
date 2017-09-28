@@ -17,6 +17,10 @@ class Stream(JSONer):
             self.src_stream_index = 0
             self.src_channel_index = 0
 
+    class Collector(Guid):
+        def __init__(self, value=None):
+            super().__init__(value)
+
     def __init__(self, type, layout):
         super().__init__()
         self.type = None
@@ -25,6 +29,8 @@ class Stream(JSONer):
         self.language = None
         self.program_in = None
         self.program_out = None
+        self.collector: self.Collector = self.Collector()
+
 
 
 class VideoStream(Stream):
@@ -89,14 +95,9 @@ class VideoStream(Stream):
             self.sar = None
             self.aspect = None
 
-    class Collector(Guid):
-        def __init__(self, value=None):
-            super().__init__(value)
-
     def __init__(self):
         super().__init__(Stream.Type.VIDEO, VideoStream.Layout.NORMAL)
         self.cropdetect = self.Cropdetect()
-        self.collector: self.Collector = self.Collector()
 
 
 class AudioStream(Stream):
