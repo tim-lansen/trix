@@ -246,6 +246,9 @@ class JobUtils:
         def ingest_prepare_sliced(path):
             """
             Ingest prepare step 0.1: get infos
+            The pipeline is:
+            ingest_prepare_sliced: info job => mediafiles_and_assets: create slices, audio/subs extract and and preview =>
+                    _ips_p02_mediafiles_and_assets
             :param path: path to source directory
             :return:
             """
@@ -286,7 +289,7 @@ class JobUtils:
                 result = Job.Emitted.Result()
                 result.source.chain = ci
                 job.emitted.results.append(result)
-            job.emitted.handler = 'mediafiles_and_assets'
+            job.emitted.handler = JobUtils.EmittedHandlers.mediafiles_and_assets.__name__
 
             DBInterface.Job.register(job)
             Logger.log('{}\n'.format(job.dumps(indent=2)))
