@@ -244,8 +244,8 @@ class Job(Record):
         self.emitted.jobId = self.guid
 
     class DependsOnGroupId(Guid):
-        def __init__(self):
-            super().__init__()
+        def __init__(self, value=None):
+            super().__init__(value=value)
 
     def __init__(self, name=None, guid=None):
         super().__init__(name, guid)

@@ -307,11 +307,8 @@ class JobUtils:
             #     'asset': asset,
             #     'mediafile': mediafile,
             # }
-            # Create final dummy job (trigger)
-            agg: Job = Job(name='Ingest sliced: aggregate assets', guid=0)
-            agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
-            agg.dependsOnGroupId.new()
-            group_id = agg.dependsOnGroupId
+            # Create group id to trigger final aggregative job
+            group_id = Job.DependsOnGroupId(value=0)
 
             asset_ids = []
             for param in params:
@@ -397,8 +394,8 @@ class JobUtils:
 
                 filters = []
                 outputs = []
-                subStreams: List[SubStream] = []
-                audioStreams: List[AudioStream] = []
+                # subStreams: List[SubStream] = []
+                # audioStreams: List[AudioStream] = []
                 # Enumerate subtitles tracks, create previews and transit (extracted track) files
                 for ti, s in enumerate(mediafile.subTracks):
                     # Special case for 1-track subtitles only
@@ -543,8 +540,12 @@ class JobUtils:
                 result.data = {
                     'assets': asset_ids
                 }
+                # Create final aggregative job (trigger)
+                agg: Job = Job(name='Ingest sliced: aggregate assets', guid=0)
+                agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
                 agg.emitted.results.append(result)
                 agg.emitted.handler = JobUtils.EmittedHandlers.ips_p04_merge_assets.__name__
+                agg.dependsOnGroupId.set(group_id)
 
                 DBInterface.Job.register(agg)
 
@@ -995,7 +996,175 @@ class JobUtils:
                     asset: Asset = Asset()
                     asset.update_json(ass)
                     Logger.error('\n{}\n'.format(asset.dumps(indent=2)))
+                    if type(asset.videoStreams) is list and len(asset.videoStreams) == 1:
+                        for vs in asset.videoStreams:
+                            collector: Collector = DBInterface.Collector.get(vs['collector'])
+                            Logger.warning('\n{}\n'.format(collector.dumps(indent=2)))
                 exit(1)
+
+                coll = {
+                  "guid": "8d53af8b-a647-4f8b-a470-cbbc36501f90",
+                  "name": "Collector for videoStream #0 of asset ba2282c4-6331-4502-aaa9-9",
+                  "ctime": "2017-10-15 14:27:31.796714",
+                  "mtime": "2017-10-15 14:27:31.796714",
+                  "collected": [
+                    "{\"start\": 0.0, \"frames\": 1260, \"duration\": 50.4}",
+                    "{\"start\": 50.4, \"frames\": 1240, \"duration\": 49.6}",
+                    "{\"start\": 100.0, \"frames\": 1275, \"duration\": 51.0}",
+                    "{\"start\": 151.0, \"frames\": 1250, \"duration\": 50.0}",
+                    "{\"start\": 201.0, \"frames\": 1250, \"duration\": 50.0}",
+                    "{\"start\": 251.0, \"frames\": 1275, \"duration\": 51.0}",
+                    "{\"start\": 302.0, \"frames\": 1250, \"duration\": 50.0}",
+                    "{\"start\": 352.0, \"frames\": 1250, \"duration\": 50.0}",
+                    "{\"start\": 402.0, \"frames\": 1275, \"duration\": 51.0}",
+                    "{\"start\": 453.0, \"frames\": 1250, \"duration\": 50.0}",
+                    "{\"start\": 503.0, \"frames\": 1250, \"duration\": 50.0}",
+                    "{\"start\": 553.0, \"frames\": 1275, \"duration\": 51.0}",
+                    "{\"start\": 604.0, \"frames\": 1250, \"duration\": 50.0}",
+                    "{\"start\": 654.0, \"frames\": 1281, \"duration\": 51.24000000000001, \"blackdetect\": [{\"black_start\": \"21.16\", \"black_end\": \"51.16\", \"black_duration\": \"30\"}]}",
+                    "{\"start\": 705.24, \"frames\": 1246, \"duration\": 49.84000000000003}",
+                    "{\"start\": 0.0, \"frames\": 1260, \"duration\": 50.4, \"blackdetect\": [{\"black_start\": \"0\", \"black_end\": \"30.08\", \"black_duration\": \"30.08\"}]}"
+                  ]
+                }
+
+                r = {
+                    "guid": "a842c1c0-64f9-4b57-ab11-1f9e46da7067",
+                    "name": "Asset for ",
+                    "ctime": "2017-10-15 14:27:31.782852",
+                    "mtime": "2017-10-15 14:27:31.782852",
+                    "mediaFiles": [
+                    "74d333ce-9d0f-40c8-8f51-4bcc98c96271"
+                    ],
+                    "audioStreams": [
+                    {
+                      "layout": "5.1(side)",
+                      "channels": [
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 0
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 1
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 2
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 3
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 4
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 5
+                        }
+                      ],
+                      "language": "rus",
+                      "program_in": 0,
+                      "program_out": 755.104,
+                      "collector": "45a77bcd-b721-409c-ada8-fd6b6b01f839"
+                    }
+                    ]
+                }
+                r = {
+                    "guid": "b6800315-9b3d-4db3-b44e-e3314550eb03",
+                    "name": "Asset for ",
+                    "ctime": "2017-10-15 14:27:31.791830",
+                    "mtime": "2017-10-15 14:27:31.791830",
+                    "mediaFiles": [
+                    "bce4a6aa-5f69-40b1-849e-a3b96559b013"
+                    ],
+                    "audioStreams": [
+                    {
+                      "layout": "5.1(side)",
+                      "channels": [
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 0
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 1
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 2
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 3
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 4
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 5
+                        }
+                      ],
+                      "language": "eng",
+                      "program_in": 0,
+                      "program_out": 755.104,
+                      "collector": "0c4319fe-230b-4624-92c6-5ae36fe6047f"
+                    }
+                    ]
+                }
+
+                r = {
+                    "guid": "ba2282c4-6331-4502-aaa9-97824e9f21ca",
+                    "name": "Asset for ",
+                    "ctime": "2017-10-15 14:27:31.807259",
+                    "mtime": "2017-10-15 14:27:31.807259",
+                    "mediaFiles": [
+                    "2d984fdc-1d80-40af-912a-a0e21e90d4b7"
+                    ],
+                    "videoStreams": [
+                    {
+                      "channels": [
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 0
+                        }
+                      ],
+                      "program_in": 0.0,
+                      "program_out": 755.12,
+                      "collector": "8d53af8b-a647-4f8b-a470-cbbc36501f90",
+                      "cropdetect": {
+                        "w": 960,
+                        "h": 400,
+                        "x": 32,
+                        "y": 184,
+                        "sar": 1.0,
+                        "aspect": 2.4
+                      }
+                    }
+                    ],
+                    "audioStreams": [
+                    {
+                      "layout": "stereo",
+                      "channels": [
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 0
+                        },
+                        {
+                          "src_stream_index": 0,
+                          "src_channel_index": 1
+                        }
+                      ],
+                      "language": "rus",
+                      "program_in": 0,
+                      "program_out": 755.12,
+                      "collector": "642ecb59-e301-4df0-9379-89fb72a56f2b"
+                    }
+                    ]
+                }
 
         class slice:
             @staticmethod
@@ -1014,7 +1183,8 @@ class JobUtils:
                 #     'collector_id': trig['collector_id']
                 # }
                 r0: Job.Emitted.Result = emit.results[0]
-                r0.data.pop('showinfo')
+                if 'showinfo' in r0.data:
+                    r0.data.pop('showinfo')
                 r1: Job.Emitted.Result = emit.results[1]
                 Logger.info('{}\n'.format(r0))
                 Logger.info('{}\n'.format(r1))
