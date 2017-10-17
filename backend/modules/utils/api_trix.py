@@ -14,6 +14,7 @@ import json
 import threading
 from pprint import pformat
 from modules.websocket_server import ApiClassBase, ApiClientClassBase, WebsocketServer
+from modules.models.asset import Asset
 from modules.models.mediafile import MediaFile
 import traceback
 
@@ -119,8 +120,43 @@ class ApiTrix(ApiClassBase):
             class submit(meth):
                 @staticmethod
                 def handler(*args):
-                    # params = args[0]
-                    Logger.log('{}\n'.format(args[0]))
+                    # TODO: archive interaction
+
+                    # New asset from interaction result
+                    asset: Asset = Asset()
+                    asset.update_json(args[0]['asset'])
+                    asset.guid.new()
+                    Logger.log('{}\n'.format(asset.dumps(indent=2)))
+                    # Load mediafiles
+                    media_files = []
+                    for idx, guid in enumerate(asset.mediaFiles):
+                        mf: MediaFile = DBInterface.MediaFile.get(guid)
+                        media_files.append(mf)
+
+                    def mfindex(atindex):
+                        for i, mf in enumerate(media_files):
+                            if atindex < len(mf.audioTracks):
+                                return [i, atindex]
+                            atindex -= len(mf.audioTracks)
+                        return None
+
+                    # Compile audio tracks
+                    for audio_stream in asset.audioStreams:
+                        sources = [[_, ]]
+                        source_mediafiles_streams = [mfindex(ch.src_stream_index) for ch in audio_stream.channels]
+                        smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
+                        offsets = []
+                        idx = 0
+                        for mfi in smss:
+                            if mfi > idx:
+                                offsets.append([mfi, mfi - idx])
+                            idx = mfi + 1
+                        for off in offsets:
+                            for idx in range(len(source_mediafiles_streams)):
+                                if source_mediafiles_streams[idx][0] >= off[0]:
+                                    source_mediafiles_streams[idx][0] -= off[1]
+
+
                     return True
 
         class asset:

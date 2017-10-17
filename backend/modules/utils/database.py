@@ -479,6 +479,14 @@ class DBInterface:
             return DBInterface.register_record(ass, user=DBInterface.Machine.USER)
 
         @staticmethod
+        def update_videoStreams(asset: Asset, vstrs: str):
+            request = "UPDATE trix_assets SET videoStreams = '{vs}' WHERE guid='{id}';".format(
+                vs=vstrs,
+                id=asset.guid
+            )
+            return DBInterface.request_db(request)
+
+        @staticmethod
         def delete(uid):
             DBInterface.delete_records('Asset', [uid])
 
@@ -682,6 +690,16 @@ class DBInterface:
         @staticmethod
         def get(uid) -> Collector:
             return DBInterface.get_record_to_class('Collector', uid)
+
+        @staticmethod
+        def set(collector: Collector):
+            request = "INSERT INTO trix_collector (guid,name,ctime,mtime,collected) VALUES ('{guid}','{name}',localtimestamp,localtimestamp,ARRAY[{var}]::text[]);".format(
+                guid=str(collector.guid),
+                name=collector.name,
+                var=','.join(["'{}'".format(_) for _ in collector.collected])
+            )
+            return DBInterface.request_db(request)
+            # return DBInterface.register_record(collector, user=DBInterface.Collector.USER)
 
         @staticmethod
         def register(collector_name: str, collector_id: str):

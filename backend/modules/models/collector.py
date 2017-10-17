@@ -18,7 +18,7 @@ class Collector(Record):
             self.showinfo = None
             self.blackdetect = None
 
-    def __init__(self, name='', guid=0):
+    def __init__(self, name='', guid=None):
         super().__init__(name=name, guid=guid)
         # List of various results
         self.collected = []

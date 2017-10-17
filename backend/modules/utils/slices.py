@@ -20,17 +20,27 @@ class Slice(JSONer):
         self.crc = []
 
 
-def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=49, overlap_time=15, start_frame=0, pattern_length=8):
+def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=48, first_slice_duration=180, overlap_time=15, start_frame=0, pattern_length=8):
     pattern_search_distance = start_frame + 5 * pattern_length
     vt = mf.videoTracks[vti]
     duration = vt.duration
-    if duration/float(number_of_slices) < min_slice_duration:
-        number_of_slices = int(duration / min_slice_duration)
+    if duration < first_slice_duration + min_slice_duration:
+        return []
+    if (duration - first_slice_duration)/float(number_of_slices) < min_slice_duration:
+        number_of_slices = 1 + int((duration - first_slice_duration) / min_slice_duration)
     Logger.log('Creating slices\nSource: {}\nDUration: {}\n Count: {}\n'.format(mf.source.path, duration, number_of_slices))
-    dur = duration/float(number_of_slices) + overlap_time
+
+    dur0 = first_slice_duration
+    dur1 = (duration - first_slice_duration)/float(number_of_slices)
+
     slices = []
     for i in range(number_of_slices):
-        draft_time = int((duration * float(i) / float(number_of_slices)))
+        if i == 0:
+            dur = dur0 + overlap_time
+            draft_time = 0.0
+        else:
+            dur = dur1 + overlap_time
+            draft_time = first_slice_duration + dur1 * float(i)
         Logger.log('  creating slice at time: {0}\n'.format(draft_time))
         command1 = 'ffmpeg -y -loglevel quiet -ss {:.3f} -i {} -vsync 1 -r {} -map v:{} -vframes {} -c:v rawvideo -f rawvideo -'.format(draft_time, mf.source.path, vt.fps, vti, pattern_search_distance)
         command2 = 'trim.out scan --size {} {} --pix_fmt {} --start_frame {} --pattern_length {}'.format(vt.width, vt.height, vt.pix_fmt, start_frame, pattern_length)
@@ -56,7 +66,7 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
             Logger.info('{}\n'.format(slic))
             slices.append(slic)
         if draft_time + overlap_time + dur > duration:
-            dur = duration - draft_time - overlap_time
+            dur1 = duration - draft_time - overlap_time
     return slices
 
 

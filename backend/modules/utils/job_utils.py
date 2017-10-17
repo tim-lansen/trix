@@ -63,6 +63,33 @@ def merge_assets(assets):
     return asset
 
 
+def merge_assets_create_interaction(asset_ids: List[str]):
+    # Get assets from DB, merge and create Interaction
+    guid = None
+    if len(asset_ids) == 1:
+        guid = asset_ids[0]
+    elif len(asset_ids) > 1:
+        assts = DBInterface.Asset.records(asset_ids)
+        assm = {}
+        for i, asst in enumerate(assts):
+            assm[str(asst['guid'])] = i
+        assets = [assts[assm[aid]] for aid in asset_ids]
+        asset = merge_assets(assets)
+        asset.name = 'merged'
+        DBInterface.Asset.set(asset)
+        guid = str(asset.guid)
+    if guid:
+        # Create Interaction
+        inter = Interaction()
+        inter.guid.new()
+        inter.name = 'inter'
+        inter.assetIn.set(guid)
+        inter.assetOut = None
+        DBInterface.Interaction.set(inter)
+        guid = str(inter.guid)
+    return guid
+
+
 class JobUtils:
     TRIMMER = 'trim.out'
 
@@ -413,6 +440,7 @@ class JobUtils:
                         subtitles.source.path = os.path.join(tdir.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, ti))
                         outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=ti, path=subtitles.source.path))
                         transits.append(subtitles)
+                        asset.mediaFiles.append(subtitles.guid)
                     preview_name = '{}.s{:02d}.preview.vtt'.format(subtitles.guid, ti)
                     subtitles_preview: MediaFile = MediaFile(name='preview-sub')
                     subtitles_preview.master.set(subtitles.guid.guid)
@@ -450,7 +478,9 @@ class JobUtils:
                         audio.source.path = os.path.join(tdir.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, ti))
                         outputs.append('-map 0:a:{ti} -c:a copy {path}'.format(ti=ti, path=audio.source.path))
                         transits.append(audio)
+                        asset.mediaFiles.append(audio.guid)
                     audio_filter = None if ti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
+                    # audio_filter = '[0:a:{ti}]silencedetect,pan=mono|c0=c0[ap_{ti:02d}_00]'.format(ti=ti)
                     for ci in range(a.channels):
                         preview_name = '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, ti, ci)
                         audio_preview: MediaFile = MediaFile(name='preview-audio')
@@ -513,7 +543,7 @@ class JobUtils:
                         pdir.net_path,
                         tdir.net_path
                     ]
-                    # Create job: result to capture silence [and levels, ebur128, etc.]
+                    # Create job: result to capture silence [and levels, ebur128, etc.] ***only for 1st audio track
                     result: Job.Emitted.Result = Job.Emitted.Result()
                     result.source.parser = 'ffmpeg_auto_text'
                     job.emitted.results.append(result)
@@ -527,10 +557,16 @@ class JobUtils:
                     # Create job: the handler
                     job.emitted.handler = JobUtils.EmittedHandlers.ips_p03_audio_info.__name__
 
-                    DBInterface.Job.register(job)
                     # Register asset and mediafile
                     DBInterface.Asset.set(asset)
                     DBInterface.MediaFile.set(mediafile)
+
+                    # Register temp mediafiles
+                    for mf in archives + previews + transits:
+                        DBInterface.MediaFile.set(mf)
+
+                    # Register job
+                    DBInterface.Job.register(job)
                 else:
                     Logger.error('JobUtils.CreateJob._ips_p02_mediafiles_and_assets: No outputs for {}\n'.format(param))
 
@@ -772,6 +808,10 @@ class JobUtils:
             DBInterface.Job.register(job_preview_concat)
             DBInterface.Job.register(job_archive_concat)
 
+        @staticmethod
+        def mediafile_by_asset(asset: Asset):
+            pass
+
     class ResultHandlers:
 
         class default:
@@ -932,27 +972,28 @@ class JobUtils:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
                 r = emit.results[idx]
-                # Get assets from DB, merge and create Interaction
-                asset_guid = None
-                if len(r.data) == 1:
-                    asset_guid = r.data[0]
-                elif len(r.data) > 1:
-                    assts = DBInterface.Asset.records(r.data)
-                    assm = {}
-                    for i, asst in enumerate(assts):
-                        assm[str(asst['guid'])] = i
-                    assets = [assts[assm[aid]] for aid in r.data]
-                    asset = merge_assets(assets)
-                    asset.name = 'merged'
-                    DBInterface.Asset.set(asset)
-                    asset_guid = str(asset.guid)
-                # Create Interaction
-                inter = Interaction()
-                inter.guid.new()
-                inter.name = 'inter'
-                inter.assetIn.set(asset_guid)
-                inter.assetOut = None
-                DBInterface.Interaction.set(inter)
+
+                guid = merge_assets_create_interaction(r.data)
+                Logger.log('assets_to_ingest: interaction created {}\n'.format(guid))
+                # if len(r.data) == 1:
+                #     asset_guid = r.data[0]
+                # elif len(r.data) > 1:
+                #     assts = DBInterface.Asset.records(r.data)
+                #     assm = {}
+                #     for i, asst in enumerate(assts):
+                #         assm[str(asst['guid'])] = i
+                #     assets = [assts[assm[aid]] for aid in r.data]
+                #     asset = merge_assets(assets)
+                #     asset.name = 'merged'
+                #     DBInterface.Asset.set(asset)
+                #     asset_guid = str(asset.guid)
+                # # Create Interaction
+                # inter = Interaction()
+                # inter.guid.new()
+                # inter.name = 'inter'
+                # inter.assetIn.set(asset_guid)
+                # inter.assetOut = None
+                # DBInterface.Interaction.set(inter)
 
     class EmittedHandlers:
         # Handlers for Job.Emitted (results list) objects
@@ -981,9 +1022,20 @@ class JobUtils:
             # TODO: we should bind captured silencedetect info to master asset/file
             @staticmethod
             def handler(emit: Job.Emitted):
-                # r[0].data = audio scan info: silencedetect, levels, etc
-                # r[1].data = {'asset': asset_id}
-                pass
+                Logger.warning('ips_p03_audio_info:\n{}\n'.format(emit.dumps(indent=2)))
+                try:
+                    sd = emit.results[0]['data']['silencedetect']
+                    asset_id = emit.results[-1]['data']['asset']
+                    asset: Asset = DBInterface.Asset.get(asset_id)
+                    if asset.audioStreams and len(asset.audioStreams):
+                        collector: Collector = Collector(name='Audio info collector', guid=asset.audioStreams[0]['collector'])
+                        collector.collected = [json.dumps(_) for _ in sd]
+                        DBInterface.Collector.set(collector)
+                    # r[0].data = audio scan info: silencedetect, levels, etc
+                    # r[1].data = {'asset': asset_id}
+                    # pass\
+                except Exception as e:
+                    Logger.warning('ips_p03_audio_info: no silencedetect in results\n{}\n'.format(e))
 
         class ips_p04_merge_assets:
             @staticmethod
@@ -996,34 +1048,146 @@ class JobUtils:
                     asset: Asset = Asset()
                     asset.update_json(ass)
                     Logger.error('\n{}\n'.format(asset.dumps(indent=2)))
-                    if type(asset.videoStreams) is list and len(asset.videoStreams) == 1:
-                        for vs in asset.videoStreams:
-                            collector: Collector = DBInterface.Collector.get(vs['collector'])
-                            Logger.warning('\n{}\n'.format(collector.dumps(indent=2)))
-                exit(1)
+                    if type(asset.videoStreams) is list and len(asset.videoStreams) > 0:
+                        vstr: VideoStream = VideoStream()
+                        vstr.update_json(asset.videoStreams[0])
+                        # This collector contains blackdetect data captured from slices
+                        collector_v: Collector = DBInterface.Collector.get(vstr.collector)
+                        Logger.warning('\n{}\n'.format(collector_v.dumps(indent=2)))
+                        # Merge sliced blacks
+                        blacks = []
+                        silences = []
+                        for ctd in collector_v.collected:
+                            rec = json.loads(ctd)
+                            if 'blackdetect' in rec:
+                                for bd in rec['blackdetect']:
+                                    blacks.append([[rec['start'] + float(bd['black_start']), -1], [rec['start'] + float(bd['black_end']), 1]])
+                        blacks.sort()
+                        # Merge overlapped blackdetects
+                        blacks_filtered = []
+                        j = 0
+                        for i in range(len(blacks)):
+                            if i == 0:
+                                blacks_filtered += blacks[i]
+                                j += 2
+                            else:
+                                if blacks[i][0][0] - blacks[i-1][1][0] > 0.1:
+                                    blacks_filtered += blacks[i]
+                                    j += 2
+                                else:
+                                    blacks_filtered[j][0] = blacks[i][1][0]
+                        if type(asset.audioStreams) is list and len(asset.audioStreams) > 0:
+                            astr = asset.audioStreams[0]
+                            collector_a: Collector = DBInterface.Collector.get(astr['collector'])
+                            Logger.error('\n{}\n'.format(collector_a.dumps(indent=2)))
+                            # std = json.loads(collector_a.collected[0])
+                            for ctd in collector_a.collected:
+                                rec = json.loads(ctd)
+                                if 'silence_start' in rec:
+                                    silences.append([float(rec['silence_start']), -1])
+                                elif 'silence_end' in rec:
+                                    if len(silences) == 0:
+                                        silences.append([astr.program_in, -1])
+                                    silences.append([float(rec['silence_end']), 1])
+                                    # else:
+                                    #     Logger.warning('silencedetect: silence_end without silence_start\n')
+                            if len(silences) > 0 and len(silences[-1]) == 1:
+                                silences[-1].append(astr.program_out)
 
-                coll = {
+                        Logger.critical('\n{}\n\n{}\n\n'.format(blacks_filtered, silences))
+
+                        program_in = vstr.program_in
+                        program_out = vstr.program_out
+                        if len(blacks_filtered):
+                            bound_in = min(program_out / 2.0, 200.0)
+                            bound_out = program_out / 2.0
+                            s = 2 if len(silences) else 1
+                            silent_dark = False
+                            for bs in sorted(blacks_filtered + silences):
+                                s += bs[1]
+                                if s == 0:
+                                    silent_dark = True
+                                    # Set program_out only once!
+                                    if program_out > bs[0] > bound_out:
+                                        program_out = bs[0]
+                                    continue
+                                if silent_dark:
+                                    silent_dark = False
+                                    if bs[0] < bound_in:
+                                        program_in = bs[0]
+                            Logger.log('Guessed program IN: {:.2f},  OUT: {:.2f}\n'.format(program_in, program_out))
+                            vstr.program_in = program_in
+                            vstr.program_out = program_out
+                            asset.videoStreams[0] = json.loads(vstr.dumps())
+                            vstrs = json.dumps(asset.videoStreams)
+                            DBInterface.Asset.update_videoStreams(asset, vstrs)
+
+                guid = merge_assets_create_interaction(asset_ids)
+                Logger.log('assets_to_ingest: interaction created {}\n'.format(guid))
+                return
+                # if len(asset_ids) == 1:
+                #     asset_guid = asset_ids[0]
+                # elif len(asset_ids) > 1:
+                #     # assets = DBInterface.Asset.records(r.data)
+                #     assm = {}
+                #     for i, asst in enumerate(assets):
+                #         assm[str(asst['guid'])] = i
+                #     assets = [assts[assm[aid]] for aid in r.data]
+                #     asset = merge_assets(assets)
+                #     asset.name = 'merged'
+                #     DBInterface.Asset.set(asset)
+                #     asset_guid = str(asset.guid)
+                # # Create Interaction
+                # inter = Interaction()
+                # inter.guid.new()
+                # inter.name = 'inter'
+                # inter.assetIn.set(asset_guid)
+                # inter.assetOut = None
+                # DBInterface.Interaction.set(inter)
+                #
+                # exit(1)
+
+                coll_a_collected = [
+                  {
+                    "silence_start": "0.0426667"
+                  },
+                  {
+                    "silence_end": "30.0747",
+                    "silence_duration": "30.032"
+                  },
+                  {
+                    "silence_start": "40.064"
+                  },
+                  {
+                    "silence_end": "50.2987",
+                    "silence_duration": "10.2347"
+                  },
+                  {
+                    "silence_start": "73.1307"
+                  },
+                  {
+                    "silence_end": "86.5013",
+                    "silence_duration": "13.3707"
+                  },
+                  {
+                    "silence_start": "670.016"
+                  }
+                ]
+
+                coll_v = {
                   "guid": "8d53af8b-a647-4f8b-a470-cbbc36501f90",
                   "name": "Collector for videoStream #0 of asset ba2282c4-6331-4502-aaa9-9",
                   "ctime": "2017-10-15 14:27:31.796714",
                   "mtime": "2017-10-15 14:27:31.796714",
                   "collected": [
-                    "{\"start\": 0.0, \"frames\": 1260, \"duration\": 50.4}",
-                    "{\"start\": 50.4, \"frames\": 1240, \"duration\": 49.6}",
-                    "{\"start\": 100.0, \"frames\": 1275, \"duration\": 51.0}",
-                    "{\"start\": 151.0, \"frames\": 1250, \"duration\": 50.0}",
-                    "{\"start\": 201.0, \"frames\": 1250, \"duration\": 50.0}",
-                    "{\"start\": 251.0, \"frames\": 1275, \"duration\": 51.0}",
-                    "{\"start\": 302.0, \"frames\": 1250, \"duration\": 50.0}",
-                    "{\"start\": 352.0, \"frames\": 1250, \"duration\": 50.0}",
-                    "{\"start\": 402.0, \"frames\": 1275, \"duration\": 51.0}",
-                    "{\"start\": 453.0, \"frames\": 1250, \"duration\": 50.0}",
-                    "{\"start\": 503.0, \"frames\": 1250, \"duration\": 50.0}",
-                    "{\"start\": 553.0, \"frames\": 1275, \"duration\": 51.0}",
-                    "{\"start\": 604.0, \"frames\": 1250, \"duration\": 50.0}",
-                    "{\"start\": 654.0, \"frames\": 1281, \"duration\": 51.24000000000001, \"blackdetect\": [{\"black_start\": \"21.16\", \"black_end\": \"51.16\", \"black_duration\": \"30\"}]}",
-                    "{\"start\": 705.24, \"frames\": 1246, \"duration\": 49.84000000000003}",
-                    "{\"start\": 0.0, \"frames\": 1260, \"duration\": 50.4, \"blackdetect\": [{\"black_start\": \"0\", \"black_end\": \"30.08\", \"black_duration\": \"30.08\"}]}"
+                    "{\"start\": 0.0, \"frames\": 5706, \"duration\": 228.24333333333334, \"blackdetect\": [{\"black_start\": \"0\", \"black_end\": \"30.08\", \"black_duration\": \"30.08\"}, {\"black_start\": \"40.08\", \"black_end\": \"50.08\", \"black_duration\": \"10\"}]}",
+                    "{\"start\": 228.24333333333334, \"frames\": 1193, \"duration\": 47.72333333333336}",
+                    "{\"start\": 275.9666666666667, \"frames\": 1213, \"duration\": 48.52333333333331}",
+                    "{\"start\": 324.49, \"frames\": 2382, \"duration\": 95.28666666666669}",
+                    "{\"start\": 419.7766666666667, \"frames\": 1204, \"duration\": 48.1633333333333}",
+                    "{\"start\": 467.94, \"frames\": 3588, \"duration\": 143.53000000000003}",
+                    "{\"start\": 611.47, \"frames\": 2396, \"duration\": 95.84666666666669, \"blackdetect\": [{\"black_start\": \"63.68\", \"black_end\": \"93.68\", \"black_duration\": \"30\"}]}",
+                    "{\"start\": 707.3166666666667, \"frames\": 1194, \"duration\": 47.76333333333332, \"blackdetect\": [{\"black_start\": \"13.16\", \"black_end\": \"23.16\", \"black_duration\": \"10\"}, {\"black_start\": \"38.16\", \"black_end\": \"48\", \"black_duration\": \"9.84\"}]}"
                   ]
                 }
 
