@@ -9,7 +9,7 @@ import copy
 from pprint import pformat
 from typing import List
 from modules.models.job import Job
-from modules.models.asset import Asset, VideoStream, AudioStream, SubStream, Stream
+from modules.models.asset import Asset, Stream
 from modules.models.mediafile import MediaFile
 from modules.models.interaction import Interaction
 from modules.utils.database import DBInterface
@@ -45,11 +45,11 @@ def merge_assets(assets):
     for a in assets:
         Logger.warning('{}\n\n'.format(pformat(a)))
 
-        vss = _advance_streams(VideoStream, a['videoStreams'], vii)
+        vss = _advance_streams(Asset.VideoStream, a['videoStreams'], vii)
         vii += len(vss)
-        ass = _advance_streams(AudioStream, a['audioStreams'], aii)
+        ass = _advance_streams(Asset.AudioStream, a['audioStreams'], aii)
         aii += len(ass)
-        sss = _advance_streams(SubStream, a['subStreams'], sii)
+        sss = _advance_streams(Asset.SubStream, a['subStreams'], sii)
         sii += len(sss)
 
         Logger.warning('vss: {}\nass: {}\n sss: {}\n\n'.format(vss, ass, sss))
@@ -451,7 +451,7 @@ class JobUtils:
                     outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=ti, path=subtitles_preview.source.path))
                     previews.append(subtitles_preview)
 
-                    sub_stream: SubStream = SubStream()
+                    sub_stream: Asset.SubStream = Asset.SubStream()
                     sub_stream.program_in = 0
                     sub_stream.program_out = s.duration
                     sub_stream.layout = s.channel_layout
@@ -497,7 +497,7 @@ class JobUtils:
                         previews.append(audio_preview)
 
                     # Create AudioStream for asset
-                    a_stream = AudioStream()
+                    a_stream = Asset.AudioStream()
                     a_stream.program_in = 0
                     a_stream.program_out = a.duration
                     a_stream.layout = a.channel_layout
@@ -812,6 +812,41 @@ class JobUtils:
         def mediafile_by_asset(asset: Asset):
             pass
 
+        @staticmethod
+        def asset_to_mediafile(asset: Asset):
+            # Sample code that creates a set of jobs to compile single mediafile using asset data
+            media_files = []
+            for idx, guid in enumerate(asset.mediaFiles):
+                mf: MediaFile = DBInterface.MediaFile.get(guid)
+                media_files.append(mf)
+
+            def mfindex(atindex):
+                for i, mf in enumerate(media_files):
+                    if atindex < len(mf.audioTracks):
+                        return [i, i, atindex]
+                    atindex -= len(mf.audioTracks)
+                return None
+
+            # Compile audio tracks
+            for audio_stream in asset.audioStreams:
+                # Filter source media files
+                source_mediafiles_streams = [mfindex(ch.src_stream_index) + [ch.src_channel_index] for ch in audio_stream.channels]
+                smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
+                offsets = []
+                idx = 0
+                for mfi in smss:
+                    if mfi > idx:
+                        offsets.append([mfi, mfi - idx])
+                    idx = mfi + 1
+                for off in offsets:
+                    for idx in range(len(source_mediafiles_streams)):
+                        if source_mediafiles_streams[idx][0] >= off[0]:
+                            source_mediafiles_streams[idx][0] -= off[1]
+                # Debug
+                Logger.warning('\n{}\n'.format(audio_stream))
+                Logger.error('{}\n'.format(source_mediafiles_streams))
+                # join=inputs=2:channel_layout=5.1:map=0.0-FL|0.1-FR|1.2-FC|1.3-LFE|1.1-BL|0.5-BR
+
     class ResultHandlers:
 
         class default:
@@ -1049,8 +1084,7 @@ class JobUtils:
                     asset.update_json(ass)
                     Logger.error('\n{}\n'.format(asset.dumps(indent=2)))
                     if type(asset.videoStreams) is list and len(asset.videoStreams) > 0:
-                        vstr: VideoStream = VideoStream()
-                        vstr.update_json(asset.videoStreams[0])
+                        vstr: Asset.VideoStream = asset.videoStreams[0]
                         # This collector contains blackdetect data captured from slices
                         collector_v: Collector = DBInterface.Collector.get(vstr.collector)
                         Logger.warning('\n{}\n'.format(collector_v.dumps(indent=2)))
@@ -1078,7 +1112,7 @@ class JobUtils:
                                     blacks_filtered[j][0] = blacks[i][1][0]
                         if type(asset.audioStreams) is list and len(asset.audioStreams) > 0:
                             astr = asset.audioStreams[0]
-                            collector_a: Collector = DBInterface.Collector.get(astr['collector'])
+                            collector_a: Collector = DBInterface.Collector.get(astr.collector)
                             Logger.error('\n{}\n'.format(collector_a.dumps(indent=2)))
                             # std = json.loads(collector_a.collected[0])
                             for ctd in collector_a.collected:
@@ -1118,9 +1152,9 @@ class JobUtils:
                             Logger.log('Guessed program IN: {:.2f},  OUT: {:.2f}\n'.format(program_in, program_out))
                             vstr.program_in = program_in
                             vstr.program_out = program_out
-                            asset.videoStreams[0] = json.loads(vstr.dumps())
-                            vstrs = json.dumps(asset.videoStreams)
-                            DBInterface.Asset.update_videoStreams(asset, vstrs)
+                            asset.videoStreams[0] = vstr #json.loads(vstr.dumps())
+                            # vstrs = json.dumps(asset.videoStreams)
+                            DBInterface.Asset.update_videoStreams(asset)
 
                 guid = merge_assets_create_interaction(asset_ids)
                 Logger.log('assets_to_ingest: interaction created {}\n'.format(guid))

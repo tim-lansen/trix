@@ -221,7 +221,8 @@ class JobExecutor:
                 if result.source.parser is None:
                     result.data = text
                 else:
-                    result.data = PARSERS[result.source.parser](text)
+                    if text is not None:
+                        result.data = PARSERS[result.source.parser](text)
             # Logger.info('{}\n'.format(result.dumps(indent=2)))
             rc += 1
         JobUtils.process_results(self.exec.job)

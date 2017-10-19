@@ -15,7 +15,7 @@ from .combined_info import combined_info
 from .slices import create_slices
 from typing import List
 from modules.models.mediafile import MediaFile
-from modules.models.asset import Asset, Stream, VideoStream, AudioStream, SubStream
+from modules.models.asset import Asset, Stream
 from modules.config.trix_config import TrixConfig
 
 
@@ -298,7 +298,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
                         program_in = bs[0]
             Logger.log('Guessed program IN: {:.2f},  OUT: {:.2f}\n'.format(program_in, program_out))
 
-        v_stream = VideoStream()
+        v_stream = Asset.VideoStream()
         v_stream.program_in = program_in
         v_stream.program_out = program_out
         v_stream.cropdetect.update_json(cropdetect)
@@ -309,7 +309,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     for ti, a in enumerate(mediafile.audioTracks):
         # asset.mediaFiles.append(trans.guid)
         channels = a.channels
-        a_stream = AudioStream()
+        a_stream = Asset.AudioStream()
         a_stream.program_in = program_in
         a_stream.program_out = program_out
         a_stream.layout = a.channel_layout
@@ -524,7 +524,7 @@ def ffmpeg_eas(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None
 
     # Add main video stream and auto-detected params
     if len(mediafile.videoTracks):
-        v_stream = VideoStream()
+        v_stream = Asset.VideoStream()
         v_stream.program_in = program_in
         v_stream.program_out = program_out
         v_stream.cropdetect.update_json(cropdetect)
@@ -535,7 +535,7 @@ def ffmpeg_eas(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None
     for ti, a in enumerate(mediafile.audioTracks):
         # asset.mediaFiles.append(trans.guid)
         channels = a.channels
-        a_stream = AudioStream()
+        a_stream = Asset.AudioStream()
         a_stream.program_in = program_in
         a_stream.program_out = program_out
         a_stream.layout = a.channel_layout
@@ -764,7 +764,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
 
         asset.mediaFiles.append(mediafile.guid)
         # asset.mediaFiles.append(vout_arch[0].guid)
-        v_stream = VideoStream()
+        v_stream = Asset.VideoStream()
         v_stream.program_in = program_in
         v_stream.program_out = program_out
         v_stream.cropdetect.update_json(cropdetect)
@@ -774,7 +774,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
     for ti, trans in enumerate(vout_trans):
         asset.mediaFiles.append(trans.guid)
         channels = trans.audioTracks[0].channels
-        a_stream = AudioStream()
+        a_stream = Asset.AudioStream()
         a_stream.program_in = program_in
         a_stream.program_out = program_out
         # a_stream.layout = AudioStream.Layout.DEFAULT[channels]
@@ -815,7 +815,7 @@ def mediafile_asset_for_ingest(url):
     # Add main video stream and auto-detected params
     for ti, vt in enumerate(mediafile.videoTracks):
         cd = ffmpeg_cropdetect(mediafile.source.path, vt)
-        v_stream = VideoStream()
+        v_stream = Asset.VideoStream()
         v_stream.program_in = 0.0
         v_stream.program_out = dur
         v_stream.cropdetect.update_json(cd)
@@ -948,7 +948,7 @@ def test_ffmpeg_cropdetect():
     from .combined_info import combined_info_mediafile
     mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AVS)
     Logger.warning('Combined info:\n{}\n'.format(mf.videoTracks[0].dumps(indent=2)))
-    cd = VideoStream.Cropdetect()
+    cd = Asset.VideoStream.Cropdetect()
     cd.update_json(ffmpeg_cropdetect(mf.source.path, mf.videoTracks[0]))
     Logger.log('Cropdetect:\n{}\n'.format(cd.dumps(indent=2)))
 

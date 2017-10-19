@@ -5,6 +5,7 @@ import json
 import uuid
 import datetime
 from .log_console import Logger
+from .types import Guid, Rational
 
 
 class NonJSONSerializibleEncoder(json.JSONEncoder):
@@ -121,19 +122,30 @@ class JSONer:
         class_name = JSONer.subclass_name(name)
         # Check if there is a child class with the same name (capitalized)
         #  declared in current class (preferred) or in global space
-        subclass = None
+        # subclass = None
         is_root = False
-        if class_name in self.__class__.__dict__:
-            subclass = self.__class__.__dict__[class_name]
-        elif class_name in roots:
-            subclass = roots[class_name]
-            is_root = True
-        if subclass:
-            # If so, check default member type:
-            # if it has the same type as subclass, update it with val
+        try:
+            subclass = getattr(self, class_name)
             if isinstance(self.__dict__[name], subclass):
                 self.__dict__[name].update_json(val)
                 return
+            subclass = None
+        except:
+            subclass = None
+            if class_name in roots:
+                subclass = roots[class_name]
+                is_root = True
+        # if class_name in self.__class__.__dict__:
+        #     subclass = self.__class__.__dict__[class_name]
+        # elif class_name in roots:
+        #     subclass = roots[class_name]
+        #     is_root = True
+        if subclass:
+            # If so, check default member type:
+            # if it has the same type as subclass, update it with val
+            # if isinstance(self.__dict__[name], subclass):
+            #     self.__dict__[name].update_json(val)
+            #     return
             # if val is a string, lookup subclass member <val> and use it's value for member
             if isinstance(val, str):
                 if val in subclass.__dict__:
@@ -183,13 +195,22 @@ class JSONer:
         if name[-1] == 's':
             # class_name = class_name[:-1]
             class_name = JSONer.subclass_name(name, array=True)
-            subclass = None
+            # subclass = None
             is_root = False
-            if class_name in self.__class__.__dict__ and isinstance(self.__class__.__dict__[class_name], type(object)):
-                subclass = self.__class__.__dict__[class_name]
-            elif class_name in roots and isinstance(roots[class_name], type(object)):
-                subclass = roots[class_name]
-                is_root = True
+            try:
+                subclass = getattr(self, class_name)
+                test = subclass()
+            except:
+                subclass = None
+                if class_name in roots and isinstance(roots[class_name], type(object)):
+                    subclass = roots[class_name]
+                    is_root = True
+
+            # if hasattr(self, class_name):# and isinstance(self.__class__.__dict__[class_name], type(object)):
+            #     subclass = getattr(self, class_name)
+            # elif class_name in roots and isinstance(roots[class_name], type(object)):
+            #     subclass = roots[class_name]
+            #     is_root = True
             if subclass:
                 if isinstance(self.__dict__[name], list):
                     if val is None:
@@ -303,3 +324,7 @@ class JSONer:
         for k in self.__dict__:
             if type(self.__dict__[k]) is list:
                 self.__dict__[k].clear()
+
+    # @staticmethod
+    # def jsoner_list_to_json(obj):
+    #     return json.dumps([_.dumps() for _ in obj])

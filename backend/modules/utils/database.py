@@ -35,7 +35,7 @@ def connect_to_db(args):
 
 # Execute a request using cursor supplied
 def request_db(cur, req, exit_on_fail=False):
-    # Logger.info('Request:\n{}\n'.format(req))
+    Logger.log('Request:\n{}\n'.format(req))
     result = True
     try:
         cur.execute(req)
@@ -479,8 +479,9 @@ class DBInterface:
             return DBInterface.register_record(ass, user=DBInterface.Machine.USER)
 
         @staticmethod
-        def update_videoStreams(asset: Asset, vstrs: str):
-            request = "UPDATE trix_assets SET videoStreams = '{vs}' WHERE guid='{id}';".format(
+        def update_videoStreams(asset: Asset):
+            vstrs = ','.join([_.dumps() for _ in asset.videoStreams])  # Asset.jsoner_list_to_json(asset.videoStreams)
+            request = "UPDATE trix_assets SET videoStreams = '[{vs}]'::json WHERE guid='{id}';".format(
                 vs=vstrs,
                 id=asset.guid
             )
