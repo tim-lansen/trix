@@ -95,6 +95,9 @@ class Asset(Record):
                 self.sar = None
                 self.aspect = None
 
+            def filter_string(self):
+                return 'crop=w={}:h={}:x={}:y={}'.format(self.w, self.h, self.x, self.y)
+
         def __init__(self):
             super().__init__(Stream.Type.VIDEO, Asset.VideoStream.Layout.NORMAL)
             self.cropdetect = self.Cropdetect()
@@ -125,7 +128,7 @@ class Asset(Record):
                 {'code': '5.0(side)', 'name': '5.0 (side)', 'layout': ['FL', 'FR', 'FC', 'SL', 'SR']},
                 {'code': '4.1', 'name': '4.1', 'layout': ['FL', 'FR', 'FC', 'LFE', 'BC']},
                 {'code': '5.1', 'name': '5.1', 'layout': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR']},
-                # {'code': '5.1(side)',      'name': '5.1 (side)',      'layout': ['FL',  'FR',  'FC',  'LFE', 'SL',  'SR']},
+                {'code': '5.1(side)', 'name': '5.1 (side)', 'layout': ['FL',  'FR',  'FC',  'LFE', 'SL',  'SR']},
                 {'code': '6.0', 'name': '6.0', 'layout': ['FL', 'FR', 'FC', 'BC', 'SL', 'SR']},
                 # {'code': '6.0(front)',     'name': '6.0 (front)',     'layout': ['FL',  'FR',  'FLC', 'FRC', 'SL',  'SR']},
                 {'code': 'hexagonal', 'name': 'Hexagonal', 'layout': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC']},
@@ -140,6 +143,8 @@ class Asset(Record):
                 {'code': 'octagonal', 'name': 'Octagonal', 'layout': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR']},
                 # {'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
             ]
+
+            LAYMAP = {_['code']: _ for _ in LAYOUTS}
 
             DEFAULT = [
                 INVALID,

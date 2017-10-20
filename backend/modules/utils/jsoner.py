@@ -105,7 +105,7 @@ class JSONer:
                 d[k] = v
         return d
 
-    def dumps(self, ensure_ascii=True, indent=None, separators=None, expose_unmentioned=False, expose_empty=True, expose_none=False):
+    def dumps(self, ensure_ascii=True, indent=None, separators=None, expose_unmentioned=True, expose_empty=True, expose_none=False):
         # Exclude unmentioned, None and empty lists
         json_string = json.dumps(
             JSONer.filter(self.__dict__, expose_unmentioned=expose_unmentioned, expose_empty=expose_empty, expose_none=expose_none),

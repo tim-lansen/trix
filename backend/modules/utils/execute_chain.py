@@ -24,16 +24,17 @@ from .cross_process_lossy_queue import CPLQueue
 
 from subprocess import Popen, PIPE
 from modules.models.job import Job
+from modules.models.asset import Asset
 from modules.models.mediafile import MediaFile
 from .log_console import Logger, tracer
 from .combined_info import combined_info, combined_info_mediafile
 from .commands import *
 from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
-from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles, mediafile_asset_for_ingest
+from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles, mediafile_asset_for_ingest, ffmpeg_get_iframes
 from .slices import create_slices
 from .storage import Storage
-# from .exchange import Exchange
+from .exchange import Exchange
 
 
 def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
@@ -116,6 +117,209 @@ class ExecuteInternal:
             """
             mf = combined_info_mediafile(params[0])
             _icpeas(mf, params[1], out_progress, out_final)
+
+    class asset_to_mediafile:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            """
+            Create mediafile using asset
+            :param params:       [<expanded asset>]
+            :param out_progress: progress output queue
+            :param out_final:    final output queue (mediaFile)
+            :return:
+            """
+
+            reencode = True
+
+            asset: Asset = Exchange.object_decode(params[0])
+            vstr: Asset.VideoStream = asset.videoStreams[0]
+            media_files_dict = {}
+            for mf in asset.mediaFiles:
+                media_files_dict[str(mf.guid)] = mf
+
+            # TODO take into account the rate conversion
+
+            tmpdir = '/mnt/server2_id/cache/{}'.format(asset.guid)
+            os.makedirs(tmpdir, exist_ok=True)
+
+            mediafile: MediaFile = MediaFile(name='Made from asset')
+            adir = Storage.storage_path('archive', str(mediafile.guid))
+            path = '{}/{}.mp4'.format(adir.net_path, mediafile.guid)
+            os.makedirs(adir.net_path, exist_ok=True)
+
+            # Trim source video if needed
+            # Search mediafile that contains video
+            mf_video: MediaFile = None
+            for mf in asset.mediaFiles:
+                if len(mf.videoTracks):
+                    mf_video = mf
+                    break
+            video_src = mf_video.source.path
+            program_in = asset.videoStreams[0].program_in
+            program_out = asset.videoStreams[0].program_out
+            if program_in is None or program_in < 0.2:
+                program_in = 0.0
+            elif not reencode:
+                start = max(0.0, program_in - 1.0)
+                iscan = ffmpeg_get_iframes(video_src, start)
+                tp = None
+                pin = None
+                for scan in iscan:
+                    t = start + float(scan['pts_time'])
+                    if t >= program_in:
+                        if tp is None or t - program_in <= 0.2:
+                            pin = t
+                            break
+                        pin = tp
+                        break
+                    tp = t
+                if pin is None:
+                    pin = tp
+                program_in = pin
+            if program_out is None or abs(mf_video.format.duration - program_out) < 0.2:
+                program_out = mf_video.format.duration
+            elif not reencode:
+                start = program_out - 1.0
+                iscan = ffmpeg_get_iframes(video_src, start)
+                tp = None
+                pout = None
+                for scan in iscan:
+                    t = start + float(scan['pts_time'])
+                    if t >= program_in:
+                        pout = t
+                        break
+                    tp = t
+                if pout is None:
+                    pout = tp
+                program_out = pout
+
+            program_dur = program_out - program_in
+            trimmed_video_file = '{}/video.mp4'.format(tmpdir)
+            if reencode:
+                if vstr.cropdetect.w is None:
+                    command = 'ffmpeg -y -loglevel error -stats -ss {start} -i {src} -map v:0 -t {dur} -c:v libx264 -b:v 6000k {dst}'.format(
+                        start=program_in,
+                        dur=program_dur,
+                        src=video_src,
+                        dst=trimmed_video_file,
+                    )
+                else:
+                    command = 'ffmpeg -y -loglevel error -stats -ss {start} -i {src} -map v:0 -t {dur} -c:v libx264 -b:v 6000k -vf {vf} {dst}'.format(
+                        start=program_in,
+                        dur=program_dur,
+                        src=video_src,
+                        dst=trimmed_video_file,
+                        vf=vstr.cropdetect.filter_string()
+                    )
+                Logger.info('asset_to_mediafile: video\n')
+                Logger.warning('{}\n'.format(command))
+                proc = Popen(command.split(' '))
+                proc.communicate()
+                # TODO check proc.returncode
+            else:
+                if abs(asset.mediaFiles[asset.videoStreams[0].channels[0].src_stream_index].format.duration - program_out) < 0.2:
+                    trimmed_video_file = video_src
+                else:
+                    command = 'ffmpeg -y -loglevel error -stats -ss {start} -i {src} -t {dur} -c copy {dst}'.format(
+                        start=program_in,
+                        dur=program_dur,
+                        src=video_src,
+                        dst=trimmed_video_file
+                    )
+                    Logger.info('asset_to_mediafile: video\n')
+                    Logger.warning('{}\n'.format(command))
+                    proc = Popen(command.split(' '))
+                    proc.communicate()
+                    # TODO check proc.returncode
+
+            def mfindex(atindex):
+                for i, mf in enumerate(asset.mediaFiles):
+                    if atindex < len(mf.audioTracks):
+                        return [i, i, atindex]
+                    atindex -= len(mf.audioTracks)
+                return None
+
+            # cdir = Storage.storage_path('cache', str(asset.guid))
+
+            # FIXME calculate start/duration for every track
+            # commands = []
+            audio_files = []
+
+            # Compile audio tracks
+            for i, audio_stream in enumerate(asset.audioStreams):
+                output = '{}/{}.mp4'.format(tmpdir, str(uuid.uuid4()))
+                audio_files.append(output)
+                command = 'ffmpeg -y -loglevel error -stats'
+                # Filter source media files
+                source_mediafiles_streams = [mfindex(ch.src_stream_index) + [ch.src_channel_index] for ch in audio_stream.channels]
+                smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
+                offsets = []
+                idx = 0
+                for mfi in smss:
+                    if mfi > idx:
+                        offsets.append([mfi, mfi - idx])
+                    idx = mfi + 1
+                for off in offsets:
+                    for idx in range(len(source_mediafiles_streams)):
+                        if source_mediafiles_streams[idx][0] >= off[0]:
+                            source_mediafiles_streams[idx][0] -= off[1]
+                # Debug
+                Logger.warning('\n{}\n'.format(audio_stream))
+                Logger.error('{}\n'.format(source_mediafiles_streams))
+                # Collect source files
+                join_inputs = 0
+                joined = set([])
+                for smfs in source_mediafiles_streams:
+                    if smfs[1] not in joined:
+                        joined.add(smfs[1])
+                        mf: MediaFile = asset.mediaFiles[smfs[1]]
+                        # TODO optimize extracted tracks usage
+                        if mf.audioTracks[0].extract is None:
+                            join_inputs += len(mf.audioTracks)
+                            command += ' -ss {start} -i {src}'.format(start=program_in, src=mf.source.path)
+                        else:
+                            for at in mf.audioTracks:
+                                mfe: MediaFile = media_files_dict[str(at.extract)]
+                                join_inputs += 1
+                                command += ' -ss {start} -i {src}'.format(start=program_in, src=mfe.source.path)
+                command += ' -t {:.3f}'.format(program_dur)
+                # Compose filter, example:
+                # join=inputs=2:channel_layout=5.1:map=0.0-FL|0.1-FR|1.2-FC|1.3-LFE|1.1-BL|0.5-BR
+                layout = Asset.AudioStream.Layout.LAYMAP[audio_stream.layout]
+                layout_dst = layout['layout']
+                layout_map = '|'.join(['{}.{}-{}'.format(_s[2], _s[3], layout_dst[_i]) for _i, _s in enumerate(source_mediafiles_streams)])
+                command += ' -filter_complex join=inputs={inputs}:channel_layout={layout}:map={laymap}'.format(
+                    inputs=join_inputs,
+                    layout=audio_stream.layout,
+                    laymap=layout_map
+                )
+                bitrate = 96 * len(audio_stream.channels)
+                command += ' -c:a aac -strict -2 -b:a {br}k -metadata:s:a:0 language={lang} {dst}'.format(
+                    br=bitrate,
+                    lang=audio_stream.language,
+                    dst=output
+                )
+                Logger.info('asset_to_mediafile: audio #{}\n'.format(i))
+                Logger.warning('{}\n'.format(command))
+                proc = Popen(command.split(' '))
+                proc.communicate()
+                # TODO check proc.returncode
+
+            # Assemble video and audio
+            command = 'ffmpeg -y -loglevel error -stats -i {video} {audio} {smap} -c copy {dst}'.format(
+                video=trimmed_video_file,
+                audio=' '.join(['-i {}'.format(_) for _ in audio_files]),
+                smap='-map 0:v {}'.format(' '.join(['-map {}:a'.format(_i + 1) for _i in range(len(audio_files))])),
+                dst=path
+            )
+            Logger.info('asset_to_mediafile: assemble\n')
+            Logger.warning('{}\n'.format(command))
+            proc = Popen(command.split(' '))
+            proc.communicate()
+            # TODO check proc.returncode
+
+            combined_info(mediafile)
+            out_final.put([Exchange.object_encode(mediafile)])
 
 
 # def internal_ingest_assets(params, out_progress: CPLQueue, out_final: CPLQueue):

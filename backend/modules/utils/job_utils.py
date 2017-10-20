@@ -816,36 +816,24 @@ class JobUtils:
         def asset_to_mediafile(asset: Asset):
             # Sample code that creates a set of jobs to compile single mediafile using asset data
             media_files = []
+
             for idx, guid in enumerate(asset.mediaFiles):
                 mf: MediaFile = DBInterface.MediaFile.get(guid)
                 media_files.append(mf)
 
-            def mfindex(atindex):
-                for i, mf in enumerate(media_files):
-                    if atindex < len(mf.audioTracks):
-                        return [i, i, atindex]
-                    atindex -= len(mf.audioTracks)
-                return None
+            asset.mediaFiles = media_files
+            job: Job = Job(name='asset to mediafile', guid=0)
+            job.type = Job.Type.ENCODE_VIDEO | Job.Type.ENCODE_AUDIO
+            step: Job.Info.Step = Job.Info.Step()
+            step.name = 'Create media file using asset'
+            job.info.steps.append(step)
+            chain = Job.Info.Step.Chain()
+            chain.procs = [['ExecuteInternal.asset_to_mediafile', Exchange.object_encode(asset)]]
+            step.chains.append(chain)
+            # Compose result
+            job.emitted.handler = JobUtils.EmittedHandlers.asset_to_mediafile.__name__
 
-            # Compile audio tracks
-            for audio_stream in asset.audioStreams:
-                # Filter source media files
-                source_mediafiles_streams = [mfindex(ch.src_stream_index) + [ch.src_channel_index] for ch in audio_stream.channels]
-                smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
-                offsets = []
-                idx = 0
-                for mfi in smss:
-                    if mfi > idx:
-                        offsets.append([mfi, mfi - idx])
-                    idx = mfi + 1
-                for off in offsets:
-                    for idx in range(len(source_mediafiles_streams)):
-                        if source_mediafiles_streams[idx][0] >= off[0]:
-                            source_mediafiles_streams[idx][0] -= off[1]
-                # Debug
-                Logger.warning('\n{}\n'.format(audio_stream))
-                Logger.error('{}\n'.format(source_mediafiles_streams))
-                # join=inputs=2:channel_layout=5.1:map=0.0-FL|0.1-FR|1.2-FC|1.3-LFE|1.1-BL|0.5-BR
+            DBInterface.Job.register(job)
 
     class ResultHandlers:
 
@@ -1044,6 +1032,14 @@ class JobUtils:
                 Logger.warning('{}\n'.format(emit.dumps(indent=2)))
                 params = [_.data for _ in emit.results]
                 JobUtils.CreateJob._ips_p02_mediafiles_and_assets(params)
+
+        class asset_to_mediafile:
+            @staticmethod
+            def handler(emit: Job.Emitted):
+                mf: MediaFile = Exchange.object_decode(emit.results[0].data)
+                # Logger.warning('{}\n'.format(emit.dumps(indent=2)))
+                Logger.error('{}\n'.format(mf.dumps(indent=2)))
+                exit(1)
 
         class ips_p03_slices:
             @staticmethod

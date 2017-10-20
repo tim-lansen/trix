@@ -36,6 +36,26 @@ else:
     FFMPEG_UTILS_STORAGE_PREVIEW = '/mnt/server1_id/crude/_preview'
 
 
+def ffmpeg_get_iframes(path, start, frames_to_scan=60):
+    # Scan command
+    command = 'ffmpeg -y -ss {} -i {} -map v:0 -vframes {} -vf showinfo -f null {}'.format(start, path, frames_to_scan, DEVNULL)
+    Logger.debug('{}\n'.format(command))
+    proc = Popen(command.split(' '), stderr=PIPE)
+    result = []
+    while proc.poll() is None:
+        lines = proc.stderr.readline().decode().split('\r')
+        for line in lines:
+            fn, parse = Parsers.parse_auto(line)
+            if parse is None:
+                continue
+            if fn == 'showinfo':
+                if parse['type'] == 'I':
+                    result.append(parse)
+    Logger.info('ffmpeg_get_iframes: {}\n'.format(result))
+    return result
+
+
+
 def ffmpeg_cropdetect(url, video_track: MediaFile.VideoTrack, cd_black=0.08, cd_round=4, cd_reset=40, frames=100):
     start = video_track.duration/12.0
     step = video_track.duration/11.0

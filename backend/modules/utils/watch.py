@@ -85,7 +85,7 @@ def watch_once():
                 break
     # process results
     for d in directories_in_work:
-        job = JobUtils.CreateJob.ingest_prepare(d)
+        job = JobUtils.CreateJob.ingest_prepare_sliced(d)
         Logger.info('Job created:\n{}\n'.format(job.dumps(indent=2)))
         # Create PROBE job
         # CreateJob.media_info(**d)
