@@ -56,6 +56,10 @@ class InteractionInternal
 
         @asset.audioStreams.push(stream)
 
+        console.log(@player.get_audio_element_current())
+        console.log(channel_map)
+        console.log(stream)
+
         @showAudioOutputs()
         @audioRemoveBindAll()
         return

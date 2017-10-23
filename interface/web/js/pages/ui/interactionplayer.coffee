@@ -345,8 +345,8 @@ class InteractionPlayer
             tv2 = ta2 + aint.sync2[1]
             @timeBend = (tv2 - tv1) / (ta2 - ta1)
             @timeOffset = tv1 - @timeBend*ta1
+        # Calculate program in/out
         @updateDelay()
-
 
     synchronize: ->
         if @audioSwitchingInProgress
@@ -410,6 +410,12 @@ class InteractionPlayer
                 j = i
                 break
         @bars[j]
+
+    get_audio_element: (idx) ->
+        @audio_inter[idx]
+
+    get_audio_element_current: () ->
+        @audio_inter[@LI]
 
 module.exports = InteractionPlayer
 
