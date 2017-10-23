@@ -17,6 +17,14 @@ class Stream(JSONer):
             self.src_stream_index = 0
             self.src_channel_index = 0
 
+    class Sync(JSONer):
+        def __init__(self):
+            super().__init__()
+            self.offset1 = None
+            self.offset2 = None
+            self.delay1 = None
+            self.delay2 = None
+
     class Collector(Guid):
         def __init__(self, value=None):
             super().__init__(value)
@@ -29,6 +37,7 @@ class Stream(JSONer):
         self.language = None
         self.program_in = None
         self.program_out = None
+        self.sync: self.Sync = self.Sync()
         self.collector: self.Collector = self.Collector()
 
 
@@ -167,10 +176,15 @@ class Asset(Record):
         def __init__(self, v=None):
             super().__init__(v)
 
+    class MediaFileExtra(Guid):
+        def __init__(self, v=None):
+            super().__init__(v)
+
     def __init__(self, name=None, guid=0):
         super().__init__(name=name, guid=guid)
         # List of source media files (GUIDs)
         self.mediaFiles: List[Asset.MediaFile] = []
+        self.mediaFilesExtra: List[Asset.MediaFileExtra] = []
         # List of streams
         self.videoStreams: List[Asset.VideoStream] = []
         self.audioStreams: List[Asset.AudioStream] = []
@@ -192,6 +206,7 @@ class Asset(Record):
         "relname": "trix_assets",
         "fields": [
             ["mediaFiles", "uuid[]"],
+            ["mediaFilesExtra", "uuid[]"],
             ["videoStreams", "json"],
             ["audioStreams", "json"],
             ["subStreams", "json"],

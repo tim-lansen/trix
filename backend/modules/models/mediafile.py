@@ -281,7 +281,7 @@ class MediaFile(Record):
         def ref_add(self, w=640, h=360):
             # Create preview mediafile for this stream
             mf: MediaFile = MediaFile()
-            mf.isPreview = True
+            mf.role = MediaFile.Role.PREVIEW
             self.previews.append(mf.guid)
             vt = MediaFile.VideoTrack()
             MediaFile.VideoTrack.fit_video(self, vt, w, h)
@@ -395,6 +395,11 @@ class MediaFile(Record):
             # ID of mediafile that consists of extracted subtitles track
             self.extract = None
 
+    class Role:
+        ORIGINAL = 0
+        TRANSIT = 1
+        PREVIEW = 2
+
     # Support classes
 
     class Master(Guid):
@@ -408,7 +413,7 @@ class MediaFile(Record):
     def __init__(self, name='', guid=0):
         super().__init__(name=name, guid=guid)
         # This flag is set when media file is created as reference of media component (video or audio channel)
-        self.isPreview = False
+        self.role = MediaFile.Role.ORIGINAL
         # Master mediafile: guid of source media
         self.master = self.Master()
         # Set of ASSETs that use this mediafile
@@ -431,8 +436,8 @@ class MediaFile(Record):
         if 'mtime' in mf:
             self.mtime = str(mf['mtime'])
 
-        if 'isPreview' in mf:
-            self.isPreview = mf['isPreview']
+        if 'role' in mf:
+            self.role = mf['role']
         if 'master' in mf:
             self.master = mf['master']
         if 'assets' in mf and type(mf['assets']) is list:
@@ -460,7 +465,7 @@ class MediaFile(Record):
     TABLE_SETUP = {
         "relname": "trix_files",
         "fields": [
-            ["isPreview", "boolean NOT NULL"],
+            ["role", "integer NOT NULL"],
             ["master", "uuid"],
             ["assets", "uuid[]"],
             ["source", "json NOT NULL"],

@@ -5,9 +5,9 @@ class InteractionInternal
     constructor: (asset, audio_channels_map, player) ->
         @asset = asset
         @changed = false
-#            'id': data.id
-#            'movie': data.movie
-#            'studio': data.studio
+#        'id': data.id
+#        'movie': data.movie
+#        'studio': data.studio
         @player = player
         @audio_channels_map = audio_channels_map
         console.log(audio_channels_map)
@@ -47,18 +47,25 @@ class InteractionInternal
         stream.language = language
         stream.program_in = null  # None
         stream.program_out = null  # None
+        stream.sync = new Asset_AudioStream_Sync()
 
         for ai in channel_map
             stream.channels.push({'src_stream_index': @audio_channels_map[ai][0], 'src_channel_index': @audio_channels_map[ai][1]})
         console.log(stream.channels)
-        # TODO: calc program_in, program_out
-        stream.delay = @player.audio_inter[@player.LI].delay_ms / 1000.0
+
+        # Get *current* audio element
+        ae = @player.get_audio_element_current()
+        # Store sync points
+        if ae.sync1
+            stream.sync.offset1 = ae.sync1[0]
+            stream.sync.delay1 = ae.sync1[1]
+            if ae.sync2
+                stream.sync.offset2 = ae.sync2[0]
+                stream.sync.delay2 = ae.sync2[1]
+
+        console.log(stream)
 
         @asset.audioStreams.push(stream)
-
-        console.log(@player.get_audio_element_current())
-        console.log(channel_map)
-        console.log(stream)
 
         @showAudioOutputs()
         @audioRemoveBindAll()

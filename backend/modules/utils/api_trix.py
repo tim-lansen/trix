@@ -143,36 +143,46 @@ class ApiTrix(ApiClassBase):
                     return asset
 
             class get_expanded(meth):
+                @staticmethod
+                def _preview_guid_to_url_(mf: MediaFile):
+                    for t in mf.videoTracks:
+                        previews = []
+                        for preview_guid in t.previews:
+                            Logger.log('Get preview media file: {}\n'.format(preview_guid))
+                            preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
+                            previews.append(preview_mf.source.url)
+                        t.previews = previews
+                    for t in mf.audioTracks:
+                        previews = []
+                        for preview_guid in t.previews:
+                            preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
+                            previews.append(preview_mf.source.url)
+                        t.previews = previews
+                    for t in mf.subTracks:
+                        previews = []
+                        for preview_guid in t.previews:
+                            preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
+                            previews.append(preview_mf.source.url)
+                        t.previews = previews
+
                 # Load MediaFile(s) objects in place of their GUIDs, and source urls of previews in place of their guids
                 @staticmethod
                 def handler(*args):
                     params = args[0]
                     asset = DBInterface.Asset.get_dict(params['guid'])
                     media_files = []
+                    media_files_extra = []
                     for guid in asset['mediaFiles']:
                         mf = DBInterface.MediaFile.get(guid)
-                        mf = json.loads(mf.dumps())
-                        for t in mf['videoTracks']:
-                            previews = []
-                            for preview_guid in t['previews']:
-                                Logger.log('Get preview media file: {}\n'.format(preview_guid))
-                                preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
-                                previews.append(preview_mf.source.url)
-                            t['previews'] = previews
-                        for t in mf['audioTracks']:
-                            previews = []
-                            for preview_guid in t['previews']:
-                                preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
-                                previews.append(preview_mf.source.url)
-                            t['previews'] = previews
-                        for t in mf['subTracks']:
-                            previews = []
-                            for preview_guid in t['previews']:
-                                preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
-                                previews.append(preview_mf.source.url)
-                            t['previews'] = previews
-                        media_files.append(mf)
+                        ApiTrix.Request.asset.get_expanded._preview_guid_to_url_(mf)
+                        media_files.append(json.loads(mf.dumps()))
+                    if type(asset['mediaFilesExtra']) is list:
+                        for guid in asset['mediaFilesExtra']:
+                            mf = DBInterface.MediaFile.get(guid)
+                            ApiTrix.Request.asset.get_expanded._preview_guid_to_url_(mf)
+                            media_files_extra.append(json.loads(mf.dumps()))
                     asset['mediaFiles'] = media_files
+                    asset['mediaFilesExtra'] = media_files_extra
                     return asset
 
             class set(meth):

@@ -156,11 +156,10 @@ Python 3.6 + psycopg2
     sudo python3.6 -m pip install psycopg2
 
     python3.6 -m pip install Unidecode-0.04.21-py2.py3-none-any.whl
+    python3.6 -m pip install python_slugify-1.2.4-py2.py3-none-any.whl
         or
     sudo -H python3.6 -m pip install Unidecode
     sudo -H python3.6 -m pip install python_slugify
-
-    python3.6 -m pip install python_slugify-1.2.4-py2.py3-none-any.whl
 ===================
 Tools
 ===================
@@ -176,7 +175,7 @@ sudo apt-get update
 sudo apt-get -y install autoconf automake build-essential libass-dev libfreetype6-dev libtheora-dev libtool libvorbis-dev pkg-config texinfo wget zlib1g-dev
 
 # x265
-sudo apt-get install mercurial cmake cmake-curses-gui build-essential
+sudo apt-get install mercurial cmake cmake-curses-gui build-essential yasm
 cd ~/
 hg clone https://bitbucket.org/multicoreware/x265
 cd x265/build/linux

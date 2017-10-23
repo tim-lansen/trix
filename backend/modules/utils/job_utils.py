@@ -59,6 +59,8 @@ def merge_assets(assets):
         asset.subStreams += sss
 
         asset.mediaFiles += [Asset.MediaFile(_) for _ in a['mediaFiles']]
+        if type(a['mediaFilesExtra']) is list:
+            asset.mediaFilesExtra += [Asset.MediaFileExtra(_) for _ in a['mediaFilesExtra']]
 
     return asset
 
@@ -435,16 +437,17 @@ class JobUtils:
                         st.index = 0
                         subtitles: MediaFile = MediaFile(name='transit subtitles')
                         s.extract = subtitles.guid
+                        subtitles.role = MediaFile.Role.TRANSIT
                         subtitles.master.set(mediafile.guid.guid)
                         subtitles.subTracks.append(st)
                         subtitles.source.path = os.path.join(tdir.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, ti))
                         outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=ti, path=subtitles.source.path))
                         transits.append(subtitles)
-                        asset.mediaFiles.append(subtitles.guid)
+                        asset.mediaFilesExtra.append(subtitles.guid)
                     preview_name = '{}.s{:02d}.preview.vtt'.format(subtitles.guid, ti)
                     subtitles_preview: MediaFile = MediaFile(name='preview-sub')
                     subtitles_preview.master.set(subtitles.guid.guid)
-                    subtitles_preview.isPreview = True
+                    subtitles_preview.role = MediaFile.Role.PREVIEW
                     subtitles_preview.source.path = os.path.join(pdir.net_path, preview_name)
                     subtitles_preview.source.url = '{}/{}'.format(pdir.web_path, preview_name)
                     st.previews.append(str(subtitles_preview.guid))
@@ -473,19 +476,20 @@ class JobUtils:
                         at = copy.deepcopy(a)
                         audio: MediaFile = MediaFile(name='transit audio')
                         a.extract = audio.guid
+                        audio.role = MediaFile.Role.TRANSIT
                         audio.master.set(mediafile.guid.guid)
                         audio.audioTracks.append(at)
                         audio.source.path = os.path.join(tdir.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, ti))
                         outputs.append('-map 0:a:{ti} -c:a copy {path}'.format(ti=ti, path=audio.source.path))
                         transits.append(audio)
-                        asset.mediaFiles.append(audio.guid)
+                        asset.mediaFilesExtra.append(audio.guid)
                     audio_filter = None if ti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
                     # audio_filter = '[0:a:{ti}]silencedetect,pan=mono|c0=c0[ap_{ti:02d}_00]'.format(ti=ti)
                     for ci in range(a.channels):
                         preview_name = '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, ti, ci)
                         audio_preview: MediaFile = MediaFile(name='preview-audio')
                         audio_preview.master.set(audio.guid.guid)
-                        audio_preview.isPreview = True
+                        audio_preview.role = MediaFile.Role.PREVIEW
                         audio_preview.source.path = os.path.join(pdir.net_path, preview_name)
                         audio_preview.source.url = '{}/{}'.format(pdir.web_path, preview_name)
                         at.previews.append(str(audio_preview.guid))

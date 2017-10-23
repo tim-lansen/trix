@@ -63,32 +63,32 @@ class AudioMan
         {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']}
         #{'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
     ]
-#    @audioChannels:
-#        'FL': 'front left'
-#        'FR': 'front right'
-#        'FC': 'front center'
-#        'LFE': 'low frequency'
-#        'BL': 'back left'
-#        'BR': 'back right'
-#        'FLC': 'front left-of-center'
-#        'FRC': 'front right-of-center'
-#        'BC': 'back center'
-#        'SL': 'side left'
-#        'SR': 'side right'
-#        'TC': 'top center'
-#        'TFL': 'top front left'
-#        'TFC': 'top front center'
-#        'TFR': 'top front right'
-#        'TBL': 'top back left'
-#        'TBC': 'top back center'
-#        'TBR': 'top back right'
-#        'DL': 'downmix left'
-#        'DR': 'downmix right'
-#        'WL': 'wide left'
-#        'WR': 'wide right'
-#        'SDL': 'surround direct left'
-#        'SDR': 'surround direct right'
-#        'LFE2': 'low frequency 2'
+    # @audioChannels:
+    #     'FL': 'front left'
+    #     'FR': 'front right'
+    #     'FC': 'front center'
+    #     'LFE': 'low frequency'
+    #     'BL': 'back left'
+    #     'BR': 'back right'
+    #     'FLC': 'front left-of-center'
+    #     'FRC': 'front right-of-center'
+    #     'BC': 'back center'
+    #     'SL': 'side left'
+    #     'SR': 'side right'
+    #     'TC': 'top center'
+    #     'TFL': 'top front left'
+    #     'TFC': 'top front center'
+    #     'TFR': 'top front right'
+    #     'TBL': 'top back left'
+    #     'TBC': 'top back center'
+    #     'TBR': 'top back right'
+    #     'DL': 'downmix left'
+    #     'DR': 'downmix right'
+    #     'WL': 'wide left'
+    #     'WR': 'wide right'
+    #     'SDL': 'surround direct left'
+    #     'SDR': 'surround direct right'
+    #     'LFE2': 'low frequency 2'
 
     constructor: ->
         @audioChannelSelectOptionsHtml = ''
@@ -149,13 +149,13 @@ class InteractionsPage
         @interaction_requested = null
         @interaction_internal = null
         @interactions = {}
-#        @inter = null
-#        @interaction_player = null
+        # @inter = null
+        # @interaction_player = null
         @interaction_audioContext = new AudioContext
-#        @api_rightholders_all = []
-#        @api_rightholders = {}
-#        @api_movies_all = []
-#        @api_movies = {}
+        # @api_rightholders_all = []
+        # @api_rightholders = {}
+        # @api_movies_all = []
+        # @api_movies = {}
         @content_cards = [
             {title: 'dummy', id: '1'}
         ]
@@ -168,26 +168,26 @@ class InteractionsPage
         return
 
     updateInteractionDataOut: ->
-#        data = @interactions[@interaction_selected].data_out
-#        # Video part
-#        # Copy crop data
-#        data.program.video.crop.w = liveCrop.liveCrop[1] - (liveCrop.liveCrop[0])
-#        data.program.video.crop.h = liveCrop.liveCrop[3] - (liveCrop.liveCrop[2])
-#        data.program.video.crop.x = liveCrop.liveCrop[0]
-#        data.program.video.crop.y = liveCrop.liveCrop[2]
-#        # Program in/out/duration
-#        data.video.map.in = g_InteractionPlayer.timeStart
-#        data.video.map.out = g_InteractionPlayer.timeEnd
-#        # Sample fragments considering program start time
-#        data.sample = []
-#        i = 0
-#        while i < g_InteractionPlayer.bars.length
-#            bar = g_InteractionPlayer.bars[i]
-#            data.sample.push [
-#                bar.timeStart - (g_InteractionPlayer.timeStart)
-#                bar.timeEnd - (bar.timeStart)
-#            ]
-#            i++
+        # data = @interactions[@interaction_selected].data_out
+        # # Video part
+        # # Copy crop data
+        # data.program.video.crop.w = liveCrop.liveCrop[1] - (liveCrop.liveCrop[0])
+        # data.program.video.crop.h = liveCrop.liveCrop[3] - (liveCrop.liveCrop[2])
+        # data.program.video.crop.x = liveCrop.liveCrop[0]
+        # data.program.video.crop.y = liveCrop.liveCrop[2]
+        # # Program in/out/duration
+        # data.video.map.in = g_InteractionPlayer.timeStart
+        # data.video.map.out = g_InteractionPlayer.timeEnd
+        # # Sample fragments considering program start time
+        # data.sample = []
+        # i = 0
+        # while i < g_InteractionPlayer.bars.length
+        #     bar = g_InteractionPlayer.bars[i]
+        #     data.sample.push [
+        #         bar.timeStart - (g_InteractionPlayer.timeStart)
+        #         bar.timeEnd - (bar.timeStart)
+        #     ]
+        #     i++
         # Audio part
         # Color generation
         #var fileCWS = 6;
@@ -247,20 +247,16 @@ class InteractionsPage
                 i = 0
                 for pos, idx in AudioMan.audioLayouts[layout].layout
                     id = 'map' + idx + '-' + pos + '-select'
-                    console.log(id)
                     sel = document.getElementById(id).value
-                    console.log(sel)
+                    console.log('channel id: ' + id + 'channel selection: ' + sel)
                     cl.push sel
                     i++
-                console.log(cl)
+                # console.log(cl)
                 console.log('====================')
                 @interaction_internal.addAudioOutput(lang, AudioMan.audioLayouts[layout].code, cl)
                 return
             ).bind(@))
             $('#interaction-submit').bind 'click', (->
-#                if !@interactions[@interaction_selected]
-#                    console.log 'No interaction selected'
-#                    return false
                 @updateAssetOut()
                 @app.ws_api_trix.request {
                     'method': 'interaction.submit'
@@ -403,9 +399,9 @@ class InteractionsPage
             for col in cols
                 html += '<td>' + ans[col] + '</td>'
             html += '</tr>'
-#            @interactions[answer[i].id] = new InteractionInternal(answer[i], g_InteractionPlayer)
-#            inter = new Interaction()
-#            UpdateObjectWithJSON(inter, ans)
+            # @interactions[answer[i].id] = new InteractionInternal(answer[i], g_InteractionPlayer)
+            # inter = new Interaction()
+            # UpdateObjectWithJSON(inter, ans)
             @interactions[ans.guid] = ans
             i++
         document.getElementById('interaction-table').innerHTML = html
@@ -427,7 +423,7 @@ class InteractionsPage
             # TODO: delete @interaction_internal, player, etc.
             @interaction_internal.update_asset(@liveCrop)
             inter = @interactions[@interaction_selected]
-#            inter.assetOut = @interaction_internal.asset    # ???
+            # inter.assetOut = @interaction_internal.asset    # ???
             document.getElementById(@interaction_selected).className = 'interaction row row' + inter.index % 2
         @interaction_selected = inter_id
         inter = @interactions[inter_id]
@@ -438,25 +434,25 @@ class InteractionsPage
                 'params': 'guid': inter.assetIn
             }, @assetInRequestHandler.bind(@))
             # Request pre-set output asset if there is one
-#            if typeof(inter.assetOut) == 'string'
-#                @app.ws_api_trix.request({
-#                    'method': 'asset.get'
-#                    'params': 'guid': inter.assetOut
-#                }, @assetOutRequestHandler.bind(@))
+            # if typeof(inter.assetOut) == 'string'
+            #     @app.ws_api_trix.request({
+            #         'method': 'asset.get'
+            #         'params': 'guid': inter.assetOut
+            #     }, @assetOutRequestHandler.bind(@))
         else
             @interactionLoad()
-#            @interactionCreatePlayer()
-#            inter.showAudioOutputs()
-#            @interactionShowInfo inter
+            # @interactionCreatePlayer()
+            # inter.showAudioOutputs()
+            # @interactionShowInfo inter
         return
 
     assetInRequestHandler: (msg) ->
         console.log 'assetInRequestHandler'
         console.log msg
         inter = @interactions[@interaction_selected]
-#        @interaction_selected = @interaction_requested
-#        @inter = @interactions[@interaction_selected]
-#        html = '<text>ID: ' + @interaction_selected + '</text>'
+        # @interaction_selected = @interaction_requested
+        # @inter = @interactions[@interaction_selected]
+        # html = '<text>ID: ' + @interaction_selected + '</text>'
         inter.assetIn = msg.result
         if typeof(inter.assetOut) != 'string'
             # Clone assetIn to assetOut
@@ -468,14 +464,14 @@ class InteractionsPage
         @interactionLoad()
         return
 
-#    assetOutRequestHandler: (msg) ->
-#        console.log 'assetOutRequestHandler'
-#        console.log msg
-#        inter = @interactions[@interaction_selected]
-#        inter.assetOut = msg.result
-#        document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
-#        @interactionLoad()
-#        return
+        # assetOutRequestHandler: (msg) ->
+        #     console.log 'assetOutRequestHandler'
+        #     console.log msg
+        #     inter = @interactions[@interaction_selected]
+        #     inter.assetOut = msg.result
+        #     document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
+        #     @interactionLoad()
+        #     return
 
     interactionLoad: () ->
         inter = @interactions[@interaction_selected]
@@ -490,19 +486,19 @@ class InteractionsPage
     interactionShowInfo: ->
         inter = @interactions[@interaction_selected]
         html = '<text>ID: ' + inter.guid + '</text>'
-#        if typeof inter.data_in != 'undefined' and inter.data_in != null
-#            arr = Object.keys(inter.data_in)
-#            arr.sort()
-#            i = 0
-#            while i < arr.length
-#                key = arr[i]
-#                outputData = ''
-#                if typeof inter.data_in[key] == 'object'
-#                    outputData = JSON.stringify(inter.data_in[key])
-#                else
-#                    outputData = inter.data_in[key]
-#                html += '<br/><text>' + key + ': ' + outputData + '</text>'
-#                i++
+        # if typeof inter.data_in != 'undefined' and inter.data_in != null
+        #     arr = Object.keys(inter.data_in)
+        #     arr.sort()
+        #     i = 0
+        #     while i < arr.length
+        #         key = arr[i]
+        #         outputData = ''
+        #         if typeof inter.data_in[key] == 'object'
+        #             outputData = JSON.stringify(inter.data_in[key])
+        #         else
+        #             outputData = inter.data_in[key]
+        #         html += '<br/><text>' + key + ': ' + outputData + '</text>'
+        #         i++
         document.getElementById('interaction-info').innerHTML = html
         return
 
@@ -557,11 +553,13 @@ class InteractionsPage
 
         # Map media files
         mf_map = {}
+        mfex_map = {}
         for mf in inter.assetIn.mediaFiles
             mf_map[mf.guid] = mf
+        for mf in inter.assetIn.mediaFilesExtra
+            mfex_map[mf.guid] = mf
 
-        # Collect transit files, audio previews
-        transit_files = {}
+        # Compile channel map, copy preview urls
         # Abs channel index to track:channel map
         audio_channels_map_to_tracks = []
         ti = 0
@@ -569,26 +567,17 @@ class InteractionsPage
             for track in mf.audioTracks
                 for ci in [0...track.channels]
                     audio_channels_map_to_tracks.push([ti, ci])
-                ti++
                 tid = track.extract
-                if mf_map.hasOwnProperty(tid)
-                    transit_files[tid] = 1
-                    # Copy previews
-                    track.previews = mf_map[tid].audioTracks[0].previews
+                if mfex_map.hasOwnProperty(tid)
+                    track.previews = mfex_map[tid].audioTracks[0].previews
+                ti++
             for track in mf.subTracks
                 tid = track.extract
-                if mf_map.hasOwnProperty(tid)
-                    transit_files[tid] = 1
-                    # Copy previews
-                    console.log(track.previews)
-                    console.log(mf_map[tid].subTracks[0].previews)
-                    track.previews = mf_map[tid].subTracks[0].previews
+                if mfex_map.hasOwnProperty(tid)
+                    track.previews = mfex_map[tid].subTracks[0].previews
 
-        # Enumerate media files excluding transit
+        # Enumerate original media files
         for mf, mi in inter.assetIn.mediaFiles
-            if transit_files.hasOwnProperty(mf.guid)
-                console.log('Skip transit media file ' + mf.guid)
-                continue
             # count tracks and channels to set file rowspan (total channel count in file)
             ct = 0
             for track in mf.audioTracks
@@ -649,10 +638,10 @@ class InteractionsPage
                         'sync2': null
                         'track': ti
                         'channel': ci
-#                    if 'start_time' of info[mi][ttype][ti]
-#                        st = parseFloat(+info[mi][ttype][ti].start_time)
-#                        if !isNaN(st)
-#                            ae.delay_ms = Math.round(1000 * st)
+                    # if 'start_time' of info[mi][ttype][ti]
+                    #     st = parseFloat(+info[mi][ttype][ti].start_time)
+                    #     if !isNaN(st)
+                    #         ae.delay_ms = Math.round(1000 * st)
                     audio_elements.push ae
                     @audioMan.appendAudioChannelSelectOptions count_ac, mi, ti, ci
                     count_ac++
@@ -666,7 +655,7 @@ class InteractionsPage
                     html_t = ''
                     cc++
                     ci++
-#                ti++
+                # ti++
             for track, ti in mf.subTracks
                 id = 'sub-abs-' + padz(count_sc, 2)
                 codec = track.codec
@@ -842,7 +831,7 @@ class InteractionsPage
         @api_movies_all = []
         i = 0
         while i < m.result.length
-# Rebuild data
+            # Rebuild data
             moStudio = m.result[i].rightholder_ids[0]
             if !@api_movies.hasOwnProperty(moStudio)
                 @api_movies[moStudio] = {}

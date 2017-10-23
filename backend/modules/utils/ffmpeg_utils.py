@@ -180,7 +180,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         subtitles_preview: MediaFile = MediaFile(name='preview-sub')
         vout_refs.append(subtitles_preview)
         subtitles_preview.master.set(subtitles.guid.guid)
-        subtitles_preview.isPreview = True
+        subtitles_preview.Role = MediaFile.Role.PREVIEW
         subtitles_preview.source.path = os.path.join(dir_preview.net_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
         subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
         outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=sti, path=subtitles_preview.source.path))
@@ -207,7 +207,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             audio_preview: MediaFile = MediaFile(name='preview-audio')
             vout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
-            audio_preview.isPreview = True
+            audio_preview.Role = MediaFile.Role.PREVIEW
             audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
             audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
             if audio_filter is None:
@@ -433,7 +433,7 @@ def ffmpeg_eas(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None
         subtitles_preview = MediaFile(name='preview-sub')
         sout_refs.append(subtitles_preview)
         subtitles_preview.master.set(subtitles.guid.guid)
-        subtitles_preview.isPreview = True
+        subtitles_preview.role = MediaFile.Role.PREVIEW
         subtitles_preview.source.path = os.path.join(dir_preview.net_path,
                                                  '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
         subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
@@ -461,7 +461,7 @@ def ffmpeg_eas(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None
             audio_preview = MediaFile(name='preview-audio')
             aout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
-            audio_preview.isPreview = True
+            audio_preview.role = MediaFile.Role.PREVIEW
             audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
             audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
             if audio_filter is None:
@@ -665,7 +665,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
             audio_preview = MediaFile(name='preview audio')
             vout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
-            audio_preview.isPreview = True
+            audio_preview.role = MediaFile.Role.PREVIEW
             audio_preview.source.path = os.path.join(dir_preview.net_path,
                                                      '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
             audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti,
@@ -881,6 +881,7 @@ def mediafile_asset_for_ingest(url):
             st.index = 0
             subtitles: MediaFile = MediaFile(name='transit subtitles')
             s.extract = subtitles.guid
+            subtitles.role = MediaFile.Role.TRANSIT
             subtitles.master.set(mediafile.guid.guid)
             subtitles.subTracks.append(st)
             subtitles.source.path = os.path.join(dir_transit.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
@@ -888,7 +889,7 @@ def mediafile_asset_for_ingest(url):
         subtitles_preview: MediaFile = MediaFile(name='preview-sub')
         out_previews.append(subtitles_preview)
         subtitles_preview.master.set(subtitles.guid.guid)
-        subtitles_preview.isPreview = True
+        subtitles_preview.role = MediaFile.Role.PREVIEW
         subtitles_preview.source.path = os.path.join(dir_preview.net_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
         subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
         st.previews.append(str(subtitles_preview.guid))
@@ -903,6 +904,7 @@ def mediafile_asset_for_ingest(url):
             at = copy.deepcopy(a)
             audio: MediaFile = MediaFile(name='transit audio')
             a.extract = audio.guid
+            audio.role = MediaFile.Role.TRANSIT
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
             audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
@@ -911,7 +913,7 @@ def mediafile_asset_for_ingest(url):
             audio_preview: MediaFile = MediaFile(name='preview-audio')
             out_previews.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
-            audio_preview.isPreview = True
+            audio_preview.role = MediaFile.Role.PREVIEW
             audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
             audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
             at.previews.append(str(audio_preview.guid))
@@ -919,7 +921,8 @@ def mediafile_asset_for_ingest(url):
     # Add main source
 
     # Add transit source(s)
-    asset.mediaFiles += [_.guid for _ in out_transits]
+    # asset.mediaFiles += [_.guid for _ in out_transits]
+    asset.mediaFilesExtra = [_.guid for _ in out_transits]
 
     # # Add main video stream and auto-detected params
     # for ti, vt in enumerate(mediafile.videoTracks):
