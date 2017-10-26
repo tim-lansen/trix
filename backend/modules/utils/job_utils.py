@@ -6,6 +6,7 @@ import os
 import json
 import uuid
 import copy
+import math
 from pprint import pformat
 from typing import List
 from modules.models.job import Job
@@ -16,9 +17,15 @@ from modules.utils.database import DBInterface
 from .log_console import Logger, tracer
 from .storage import Storage
 from .parsers import Parsers
-from .types import Guid
+from .types import Guid, Rational
 from modules.models.collector import Collector
 from .exchange import Exchange
+
+
+# def fps2int(fps: Rational):
+#     fps.sanitize(math.floor(fps.val() + 0.5), 1)
+#     fi = fps.__class__([math.floor(fps.val() + 0.5), 1])
+#     return fi
 
 
 def merge_assets(assets):
@@ -37,7 +44,7 @@ def merge_assets(assets):
                 _ass.append(_cs)
         return _ass
 
-    asset: Asset = Asset()
+    asset: Asset = Asset(programName=', '.join([_.programName for _ in assets]))
     vii = 0
     aii = 0
     sii = 0
@@ -70,6 +77,7 @@ def merge_assets_create_interaction(asset_ids: List[str]):
     guid = None
     if len(asset_ids) == 1:
         guid = asset_ids[0]
+        asset = DBInterface.Asset.get(guid)
     elif len(asset_ids) > 1:
         assts = DBInterface.Asset.records(asset_ids)
         assm = {}
@@ -84,7 +92,7 @@ def merge_assets_create_interaction(asset_ids: List[str]):
         # Create Interaction
         inter = Interaction()
         inter.guid.new()
-        inter.name = 'inter'
+        inter.name = asset.programName
         inter.assetIn.set(guid)
         inter.assetOut = None
         DBInterface.Interaction.set(inter)
@@ -188,7 +196,7 @@ class JobUtils:
                 chain.result = 0
                 # chain.return_codes = [[0, 1]]
                 step.chains.append(chain)
-                # Compose result that register mew media file
+                # Compose result that register new media file
                 result = Job.Emitted.Result()
                 result.handler = JobUtils.ResultHandlers.mediafile.__name__
                 result.source.chain = ci
@@ -351,7 +359,7 @@ class JobUtils:
                 pdir = Storage.storage_path('preview', str(asset.guid))
                 cdir = Storage.storage_path('cache', str(asset.guid))
 
-                archives: List[MediaFile] = []
+                # archives: List[MediaFile] = []
                 previews: List[MediaFile] = []
                 transits: List[MediaFile] = []
 
@@ -359,17 +367,24 @@ class JobUtils:
                 # For every video track create a job that marks out slices
                 for ti, v in enumerate(mediafile.videoTracks):
                     vst = asset.videoStreams[ti]
+                    vst.fpsOriginal.set(v.fps)
+                    vst.fpsEncode.set2int(v.fps)
                     preview: MediaFile = v.ref_add()
-                    vt = copy.deepcopy(v)
-                    archive: MediaFile = MediaFile(name='Archive: {}'.format(mediafile.name))
+                    # vt = copy.deepcopy(v)
+                    archive_id = str(uuid.uuid4())
+                    # archive: MediaFile = MediaFile(name='Archive: {}'.format(mediafile.name))
+                    # archive_name = '{}.v{:02d}.archive.mp4'.format(archive.guid, ti)
+                    # preview_name = '{}.v{:02d}.preview.mp4'.format(archive.guid, ti)
+                    archive_name = '{}.v{:02d}.archive.mp4'.format(archive_id, ti)
+                    preview_name = '{}.v{:02d}.preview.mp4'.format(mediafile.guid, ti)
 
-                    archive_name = '{}.v{:02d}.archive.mp4'.format(archive.guid, ti)
-                    preview_name = '{}.v{:02d}.preview.mp4'.format(archive.guid, ti)
-
-                    archive.master.guid = mediafile.guid.guid
-                    archive.source.path = os.path.join(adir.net_path, archive_name)
-                    archive.videoTracks.append(vt)
-                    archives.append(archive)
+                    # archive.master.guid = mediafile.guid.guid
+                    # archive.source.path = os.path.join(adir.net_path, archive_name)
+                    # archive.videoTracks.append(vt)
+                    # archives.append(archive)
+                    # v.extract = archive.guid
+                    v.extract = archive_id
+                    asset.mediaFilesExtra.append(Guid(value=archive_id))
 
                     preview.master.guid = mediafile.guid.guid
                     preview.name = 'Preview: {}'.format(mediafile.name)
@@ -406,8 +421,11 @@ class JobUtils:
                         'src': mf_dumps,
                         'vti': ti,
                         'group_id': str(group_id),
-                        'archive': archive.dumps(),
+                        # 'archive': archive.dumps(),
+                        'archive_id': archive_id,
+                        'archive_name': archive_name,
                         'preview': preview.dumps(),
+                        'cropdetect': vst.cropdetect.dumps(),
                         'collector_id': str(vst.collector)
                     }
                     job.emitted.results.append(result)
@@ -565,8 +583,8 @@ class JobUtils:
                     DBInterface.Asset.set(asset)
                     DBInterface.MediaFile.set(mediafile)
 
-                    # Register temp mediafiles
-                    for mf in archives + previews + transits:
+                    # Register temporary mediafiles
+                    for mf in previews + transits:
                         DBInterface.MediaFile.set(mf)
 
                     # Register job
@@ -592,15 +610,19 @@ class JobUtils:
         @staticmethod
         @tracer
         def _ips_p03_slices(slices, trig):
+            #
             # Create compile job and set of encode jobs for single videoTrack
             # using captured slices
             # Logger.log('{}\n{}\n'.format(pformat(slices), pformat(trig)))
             # trig = {
             #     'src': mf_dumps,
-            #     'vti': vti,
-            #     'group_id': group_id,
-            #     'archive': mf_archive.dumps(),
-            #     'preview': mf_preview.dumps()
+            #     'vti': ti,
+            #     'group_id': str(group_id),
+            #     # 'archive': archive.dumps(),
+            #     'archive_id': archive_id,
+            #     'archive_name': archive_name,
+            #     'preview': preview.dumps(),
+            #     'cropdetect': vst.cropdetect.dumps(),
             #     'collector_id': collector_id          # Collectors aggregate results from slices
             # }
 
@@ -608,17 +630,22 @@ class JobUtils:
                 return 'pattern_offset={};length={};crc={}'.format(_s['pattern_offset'], _s['length'], ','.join([str(_) for _ in _s['crc']]))
 
             mf: MediaFile = MediaFile()
-            archive: MediaFile = MediaFile()
+            # archive: MediaFile = MediaFile(guid=trig['archive_id'])
             preview: MediaFile = MediaFile()
+            cropdetect: Asset.VideoStream.Cropdetect = Asset.VideoStream.Cropdetect()
             mf.update_str(trig['src'])
             vti = trig['vti']
             group_id = Guid(trig['group_id'])
-            archive.update_str(trig['archive'])
+            # archive.update_str(trig['archive'])
+
             preview.update_str(trig['preview'])
+            cropdetect.update_str(trig['cropdetect'])
 
             cdir = Storage.storage_path('cache', str(mf.guid))
             # pdir = Storage.storage_path('preview', str(mf.guid))
-            # adir = Storage.storage_path('archive', str(mf.guid))
+            adir = Storage.storage_path('archive', str(mf.guid))
+
+            archive_path = os.path.join(adir.net_path, trig['archive_name'])
 
             vt: MediaFile.VideoTrack = mf.videoTracks[vti]
             pvt: MediaFile.VideoTrack = preview.videoTracks[0]
@@ -638,13 +665,28 @@ class JobUtils:
 
             fmap = JobUtils.PIX_FMT_MAP_X264['default'] if vt.pix_fmt not in JobUtils.PIX_FMT_MAP_X264 else JobUtils.PIX_FMT_MAP_X264[vt.pix_fmt]
 
+            # Archive file fps, width & height
+            fps = Rational()
+            fps.set2int(vt.fps)
+            aw = vt.width
+            ah = vt.height
+            vflts = []
+            if 't' in fmap:
+                vflts.append('format={}'.format(fmap['t']))
+            cdfs = cropdetect.filter_string()
+            if cdfs:
+                if cropdetect.w < vt.width or cropdetect.h < vt.height:
+                    vflts.append(cdfs)
+                    aw = cropdetect.w
+                    ah = cropdetect.h
+
             tmpl3 = '{x264} --input-depth {d} --input-csp {csp}'.format(**fmap)
-            tmpl3 += ' --input-res {w}x{h} --fps {fps}'.format(w=vt.width, h=vt.height, fps=vt.fps.val())
+            tmpl3 += ' --input-res {w}x{h} --fps {fps}'.format(w=aw, h=ah, fps=fps)
             if 'P' in fmap:
                 tmpl3 += ' --profile {}'.format(fmap['P'])
             tmpl3 += ' --ref 3 --me umh --merange {}'.format(int(vt.width / 35))
             tmpl3 += ' --keyint 30 --min-keyint 5 --rc-lookahead 30 --bframes 3'
-            bitrate = JobUtils.calc_bitrate_x265_kbps(fmap, vt.width, vt.height, vt.fps.val())
+            bitrate = JobUtils.calc_bitrate_x265_kbps(fmap, vt.width, vt.height, fps.val())
             tmpl3 += ' --bitrate {} --vbv-maxrate {} --vbv-bufsize {}'.format(bitrate, bitrate + (bitrate >> 1), bitrate + (bitrate >> 3))
             tmpl3 += ' --output {output} {input}'
 
@@ -656,6 +698,7 @@ class JobUtils:
             job_archive_concat: Job = Job(name='archive_concat', guid=0)
             job_archive_concat.type = Job.Type.SLICES_CONCAT
             job_archive_concat.groupIds.append(group_id)
+            job_archive_concat.info.paths.append(adir.net_path)
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
             job_archive_concat.emitted.handler = JobUtils.ResultHandlers.ips_p03_slices_concat.__name__
             # Add result to archive concat job
@@ -669,9 +712,9 @@ class JobUtils:
 
             # 2 Create Nx2 encode jobs
 
-            tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps.val(), pf=vt.pix_fmt)
-            if 't' in fmap:
-                tmpl2 += ' -vf format={}'.format(fmap['t'])
+            tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps, pf=vt.pix_fmt)
+            if len(vflts):
+                tmpl2 += ' -vf {}'.format(','.join(vflts))
             tmpl2 += ' -c:v rawvideo -f rawvideo -'
             tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
             tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 3 -refs 2 -b:v 600k '
@@ -779,8 +822,9 @@ class JobUtils:
 
             # Concat commands
             cprv = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
-            carc = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_archive, archive.source.path)
+            carc = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_archive, archive_path)
 
+            ##################################################
             chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
             chain.procs = [cprv.split(' ')]
             chain.return_codes = [[0]]
@@ -789,9 +833,8 @@ class JobUtils:
 
             step: Job.Info.Step = Job.Info.Step()
             step.chains.append(chain)
-
             job_preview_concat.info.steps.append(step)
-
+            ##################################################
             chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
             chain.procs = [carc.split(' ')]
             chain.return_codes = [[0]]
@@ -800,8 +843,25 @@ class JobUtils:
 
             step: Job.Info.Step = Job.Info.Step()
             step.chains.append(chain)
+            job_archive_concat.info.steps.append(step)
+            #==============
+            chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+            chain.procs = [
+                [
+                    'ExecuteInternal.combined_info',
+                    '{{"guid": "{}"}}'.format(trig['archive_id']),
+                    archive_path
+                ]
+            ]
+            # Compose result that update archive media file
+            result = Job.Emitted.Result()
+            result.handler = JobUtils.ResultHandlers.mediafile.__name__
+            result.source.step = len(job_archive_concat.info.steps) #1
+            job_archive_concat.emitted.results.append(result)
 
-            job_preview_concat.info.steps.append(step)
+            step: Job.Info.Step = Job.Info.Step()
+            step.chains.append(chain)
+            job_archive_concat.info.steps.append(step)
 
             Logger.info('Concat preview command: {}\nConcat archive command: {}\n'.format(cprv, carc))
 
@@ -824,17 +884,25 @@ class JobUtils:
             for idx, guid in enumerate(asset.mediaFiles):
                 mf: MediaFile = DBInterface.MediaFile.get(guid)
                 media_files.append(mf)
-
             asset.mediaFiles = media_files
+            if type(asset.mediaFilesExtra) is list:
+                media_files_extra = []
+                for idx, guid in enumerate(asset.mediaFilesExtra):
+                    mf: MediaFile = DBInterface.MediaFile.get(guid)
+                    media_files_extra.append(mf)
+                asset.mediaFilesExtra = media_files_extra
+
             job: Job = Job(name='asset to mediafile', guid=0)
             job.type = Job.Type.ENCODE_VIDEO | Job.Type.ENCODE_AUDIO
             step: Job.Info.Step = Job.Info.Step()
             step.name = 'Create media file using asset'
             job.info.steps.append(step)
             chain = Job.Info.Step.Chain()
+            Logger.log('{}\n'.format(asset))
             chain.procs = [['ExecuteInternal.asset_to_mediafile', Exchange.object_encode(asset)]]
             step.chains.append(chain)
             # Compose result
+            job.emitted.results.append(Job.Emitted.Result())
             job.emitted.handler = JobUtils.EmittedHandlers.asset_to_mediafile.__name__
 
             DBInterface.Job.register(job)

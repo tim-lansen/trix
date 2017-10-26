@@ -48,12 +48,16 @@ class InteractionPlayer
         @timeBend = 1.0
         @timeOffset = 0.0
         @updateDelay()
-        @update_counter = 10
-        @sync_counter = 2
+#        @update_counter = 10
+        @sync_counter = 1
         @updateInterval = setInterval((->
             @updateTime()
             return
-        ).bind(this), 40)
+        ).bind(this), 80)
+        @syncInterval = setInterval((->
+            @synchronize()
+            return
+        ).bind(this), 751)
         @timeline_back.addEventListener 'click', @seek.bind(this), false
         return
 
@@ -75,6 +79,7 @@ class InteractionPlayer
 
     stop: ->
         clearInterval @updateInterval
+        clearInterval @syncInterval
         $(@timeline_back).unbind 'click'
         return
 
@@ -330,6 +335,20 @@ class InteractionPlayer
         @doc_audioDelay.innerHTML = @audio_inter[@LI].delay_ms + 'ms'
         return
 
+    decreaseDelay1s: ->
+        delay = @audio_inter[@LI].delay_ms - 1000
+        delay -= delay % 1000
+        @audio_inter[@LI].delay_ms = delay
+        @doc_audioDelay.innerHTML = @audio_inter[@LI].delay_ms + 'ms'
+        return
+
+    increaseDelay1s: ->
+        delay = @audio_inter[@LI].delay_ms + 1000
+        delay -= delay % 1000
+        @audio_inter[@LI].delay_ms = delay
+        @doc_audioDelay.innerHTML = @audio_inter[@LI].delay_ms + 'ms'
+        return
+
     addSyncPoint: ->
         aint = @audio_inter[@LI]
         audioCurrentTime = aint.audio.currentTime
@@ -359,24 +378,26 @@ class InteractionPlayer
         else
             videoCalcTime = @timeOffset + @timeBend*audioCurrentTime
         delta = videoCurrentTime - videoCalcTime
-        @sync_counter = 4
-        if @video.readyState > 0 and Math.abs(delta) > 0.05
-            @video.currentTime = videoCalcTime
-            @sync_counter = 20
+        @sync_counter -= 1
+        if @sync_counter < 1
+            @sync_counter = 1
+            if @video.readyState > 0 and Math.abs(delta) > 0.09
+                @video.currentTime = videoCalcTime
+                @sync_counter = 5
         return
 
     updateTime: ->
-        @update_counter -= 1
-        if @update_counter < 1
-            vct = @video.currentTime
-            delay_ms = parseInt(1000.0 * (vct - @audio_inter[@LI].audio.currentTime))
-            @doc_currentTime.innerHTML = Timecode.timecode(vct)
-            #+ ' (' + delay_ms + 'ms)'
-            @timeline_pb.style.width = 100 * @video.currentTime / @video.duration + '%'
-            @update_counter = 3
-        @sync_counter -= 1
-        if @sync_counter < 1
-            @synchronize()
+#        @update_counter -= 1
+#        if @update_counter < 1
+        vct = @video.currentTime
+        delay_ms = parseInt(1000.0 * (vct - @audio_inter[@LI].audio.currentTime))
+        @doc_currentTime.innerHTML = Timecode.timecode(vct)
+        #+ ' (' + delay_ms + 'ms)'
+        @timeline_pb.style.width = 100 * @video.currentTime / @video.duration + '%'
+#            @update_counter = 3
+#        @sync_counter -= 1
+#        if @sync_counter < 1
+#            @synchronize()
         return
 
     updateBar: ->

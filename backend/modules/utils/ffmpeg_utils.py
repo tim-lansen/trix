@@ -127,7 +127,7 @@ def ffmpeg_cropdetect(url, video_track: MediaFile.VideoTrack, cd_black=0.08, cd_
     return {'w': cdwc, 'h': cdhc, 'x': cdxc, 'y': cdyc, 'sar': sar, 'aspect': sar * float(cdwc)/float(cdhc)}
 
 
-def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None):
+def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None, program_name=None):
     # First, call cropdetect
     dur = None
     if len(mediafile.videoTracks):
@@ -291,7 +291,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     program_out = pts_time
 
     # Create asset
-    asset: Asset = Asset()
+    asset: Asset = Asset(programName=mediafile.source.path)
     # Add main source
     asset.mediaFiles.append(mediafile.guid)
     # Add trans source(s)
@@ -536,7 +536,7 @@ def ffmpeg_eas(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None
     program_out = pts_time
 
     # Create asset
-    asset = Asset()
+    asset = Asset(programName=mediafile.source.path)
     # Add main source
     asset.mediaFiles.append(mediafile.guid)
     # Add trans source(s)
@@ -760,7 +760,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
     program_out = pts_time
 
     # Create asset
-    asset = Asset()
+    asset = Asset(programName=mediafile.source.path)
     # Add main video track and auto-detected params
     if len(vout_arch):
         if len(blacks):
@@ -826,7 +826,7 @@ def mediafile_asset_for_ingest(url):
     #, dir_archive: TrixConfig.Storage.Server.Path, dir_transit: TrixConfig.Storage.Server.Path, dir_preview: TrixConfig.Storage.Server.Path):
     # Create mediafile and asset
     mediafile: MediaFile = MediaFile()
-    asset: Asset = Asset(name='Asset for {}'.format(mediafile.name))
+    asset: Asset = Asset(programName=url, name='Asset for {}'.format(mediafile.name))
     asset.mediaFiles.append(mediafile.guid)
 
     combined_info(mediafile, url)

@@ -16,10 +16,17 @@ class LiveCrop
         # liveCrop front array
         @liveCrop = [
             0
-            960
+            @canW
             0
-            540
+            @canH
         ]
+#        @cropLines = [
+#            4 + @minX
+#            4 + @maxX
+#            4 + @minY
+#            4 + @maxY
+#        ]
+#        @snap = 4
         return
 
     setVideoSrcDimensions: (width, height) ->
@@ -54,6 +61,12 @@ class LiveCrop
             0
             height
         ]
+#        @cropLines = [
+#            4 + @minX
+#            4 + @maxX
+#            4 + @minY
+#            4 + @maxY
+#        ]
         return
 
     setVideoSrcCrop: (x1, x2, y1, y2) ->
@@ -63,6 +76,12 @@ class LiveCrop
             y1
             y2
         ]
+#        @cropLines = [
+#            4 + @minX + parseInt(x1 * @scaleX)
+#            4 + @minX + parseInt(x2 * @scaleX)
+#            4 + @minY + parseInt(y1 * @scaleY)
+#            4 + @minY + parseInt(y2 * @scaleY)
+#        ]
         return
 
     snapLiveCrop: (val) ->
@@ -82,12 +101,6 @@ class LiveCrop
         return
 
     updateCropString: ->
-#        crop = [
-#            parseInt((@liveCrop[1] - (@liveCrop[0]))/@scaleX)
-#            parseInt((@liveCrop[3] - (@liveCrop[2]))/@scaleY)
-#            parseInt(@liveCrop[0]/@scaleX)
-#            parseInt(@liveCrop[2]/@scaleY)
-#        ]
         crop = [
             @liveCrop[1] - (@liveCrop[0])
             @liveCrop[3] - (@liveCrop[2])
@@ -109,6 +122,15 @@ class LiveCrop
         return
 
     updateLiveCropX: (v, r) ->
+        if isNaN(v)
+            return
+#        if v > @cropLines[r]
+#            v += @snap
+#        else if v < @cropLines[r]
+#            v -= @snap
+#        else
+#            return
+#        @cropLines[r] = v
         x = v - 4
         if x < @minX
             x = @minX
@@ -119,6 +141,8 @@ class LiveCrop
         x + 4
 
     updateLiveCropY: (v, r) ->
+        if isNaN(v)
+            return
         y = v - 4
         if y < @minY
             y = @minY
@@ -138,5 +162,9 @@ class LiveCrop
         document.getElementById('crop-y1').style.top = v + 'px'
         v = 4 + @minY + @liveCrop[3] * @scaleY
         document.getElementById('crop-y2').style.top = v + 'px'
+#        document.getElementById('crop-x1').style.left = @cropLines[0] + 'px'
+#        document.getElementById('crop-x2').style.left = @cropLines[1] + 'px'
+#        document.getElementById('crop-y1').style.left = @cropLines[2] + 'px'
+#        document.getElementById('crop-y2').style.left = @cropLines[3] + 'px'
         return
 

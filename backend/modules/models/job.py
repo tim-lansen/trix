@@ -250,7 +250,7 @@ class Job(Record):
     def __init__(self, name=None, guid=None):
         super().__init__(name, guid)
         self.type = None
-        self.info = Job.Info()
+        self.info: Job.Info = Job.Info()
         self.fails = 0
         self.offers = 0
         self.status = self.Status.NEW

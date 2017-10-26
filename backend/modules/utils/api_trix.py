@@ -126,12 +126,9 @@ class ApiTrix(ApiClassBase):
                     # New asset from interaction result
                     asset: Asset = Asset()
                     asset.update_json(args[0]['asset'])
-                    print(repr(asset.guid))
-                    # asset.guid = Asset
                     Logger.log('{}\n'.format(asset.dumps(indent=2)))
+                    # exit(1)
                     JobUtils.CreateJob.asset_to_mediafile(asset)
-
-
                     return True
 
         class asset:

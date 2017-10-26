@@ -20,7 +20,6 @@ class InteractionInternal
             vs.program_out = @player.timeEnd
             livecrop.updateCropDetect(vs.cropdetect)
 
-
     audioRemoveUnbindAll: ->
         for stream, i in @asset.audioStreams
             rmid = 'audio-out-remove-' + zpad(i, 2)

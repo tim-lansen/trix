@@ -4,6 +4,7 @@
 
 import re
 import uuid
+import math
 from .log_console import Logger, tracer
 
 
@@ -191,6 +192,18 @@ class Rational:
             self._n = num
             self._d = den
             self._calc()
+
+    def set(self, r):
+        self._n = r._n
+        self._d = r._d
+        self._s = r._s
+        self._calc()
+
+    def set2int(self, r):
+        self._n = math.floor(0.5 + r._v)
+        self._d = 1
+        self._s = r._s
+        self._calc()
 
     def __str__(self):
         return '{n}{s}{d}'.format(n=self._n, s=self._s, d=self._d)

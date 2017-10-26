@@ -39,9 +39,11 @@
     #current-time.timecode 00:00:00.000
 
     br
+    button#interaction_player_decreaseDelay1s &LeftTeeArrow; -1s
     button#interaction_player_decreaseDelay &LeftTeeArrow; -50ms
     button#interaction_player_addSyncPoint &#9885;
     button#interaction_player_increaseDelay +50ms &map;
+    button#interaction_player_increaseDelay1s +1s &map;
 
     #audio-sync2.sync_point No sync point #2
     #audio-sync1.sync_point No sync point #1
@@ -139,7 +141,7 @@
                                     option(value="stereo") Stereo
                         tr.propose.row0
                             td.propose.col0 Video crop
-                            td#pro-video-crop.propose.col1 0:0:1920:1080
+                            td#pro-video-crop.propose.col1.clickable 0:0:1920:1080
                         tr.propose.row1
                             td.propose.col0 Audio language
                             td.propose.col1
@@ -235,9 +237,9 @@
                                             div(style="position: relative; top: 0; left: 0; z-index: 1;")
                                                 span Quadro (side) (12 13 14 15)
                                                 span.audio-out-btnDelete &times;
-                        tr.dst.row1 
+                        tr.dst.row1
                             td#interaction-submit.submit.clickable(colspan="2") Submit
-                        tr.dst.row1 
+                        tr.dst.row1
                             td#interaction-cancel.submit.clickable(colspan="2") Cancel
-                        tr.dst.row1 
+                        tr.dst.row1
                             td#interactions-unlock.submit.clickable(colspan="2") Unlock All

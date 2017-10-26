@@ -202,11 +202,10 @@ class InteractionsPage
         return
 
     updateAssetOut: ->
-        asset = @interaction_internal.asset
+        # asset = @interaction_internal.asset
         # @interaction_internal.asset must be the same as @interactions[@interaction_selected].assetOut
         # Update crop dimensions
         @interaction_internal.update_asset(@liveCrop)
-        # Calculate in/out for every audio stream?
         return
 
     disableSelect: ->
@@ -221,6 +220,7 @@ class InteractionsPage
         if !@interaction_initialized
             @interaction_initialized = true
             $('#interaction-refresh').bind('click', @interactionsRefreshClick.bind(@))
+            $('#pro-video-crop').bind('click', @restoreCropdetectClick.bind(@))
             # Populate layouts
             html = ''
             for layout, i in AudioMan.audioLayouts
@@ -458,8 +458,12 @@ class InteractionsPage
             # Clone assetIn to assetOut
             inter.assetOut = JSON.parse(JSON.stringify(inter.assetIn))
             inter.assetOut.mediaFiles = []
+            inter.assetOut.mediaFilesExtra = []
             for mf in inter.assetIn.mediaFiles
                 inter.assetOut.mediaFiles.push(mf.guid)
+            if Object.prototype.toString.call(inter.assetIn.mediaFilesExtra) == '[object Array]'
+                for mf in inter.assetIn.mediaFilesExtra
+                    inter.assetOut.mediaFilesExtra.push(mf.guid)
         document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
         @interactionLoad()
         return
@@ -532,6 +536,8 @@ class InteractionsPage
             $('#interaction_player_cueProgramOut').unbind 'click'
             $('#interaction_player_decreaseDelay').unbind 'click'
             $('#interaction_player_increaseDelay').unbind 'click'
+            $('#interaction_player_decreaseDelay1s').unbind 'click'
+            $('#interaction_player_increaseDelay1s').unbind 'click'
             $('#interaction_player_addSyncPoint').unbind 'click'
 
             $('#pro-audio-layout-pull').unbind 'click'
@@ -726,6 +732,8 @@ class InteractionsPage
         $('#interaction_player_cueProgramOut').bind 'click', g_InteractionPlayer.cueProgramOut.bind(g_InteractionPlayer)
         $('#interaction_player_decreaseDelay').bind 'click', g_InteractionPlayer.decreaseDelay.bind(g_InteractionPlayer)
         $('#interaction_player_increaseDelay').bind 'click', g_InteractionPlayer.increaseDelay.bind(g_InteractionPlayer)
+        $('#interaction_player_decreaseDelay1s').bind 'click', g_InteractionPlayer.decreaseDelay1s.bind(g_InteractionPlayer)
+        $('#interaction_player_increaseDelay1s').bind 'click', g_InteractionPlayer.increaseDelay1s.bind(g_InteractionPlayer)
         $('#interaction_player_addSyncPoint').bind 'click', g_InteractionPlayer.addSyncPoint.bind(g_InteractionPlayer)
 
         $('#pro-audio-layout-pull').bind('click', @audioMan.audioLayoutPullChannels)
@@ -737,6 +745,16 @@ class InteractionsPage
         @interactionShowInfo()
 
         console.log 'interactionCreatePlayer done'
+        return
+
+    restoreCropdetectClick: () ->
+        if @interaction_selected == null
+            return
+        inter = @interactions[@interaction_selected]
+        vCrop = inter.assetIn.videoStreams[0].cropdetect
+        @liveCrop.setVideoSrcCrop vCrop.x, vCrop.x + vCrop.w, vCrop.y, vCrop.y + vCrop.h
+        @liveCrop.updateCropString()
+        @liveCrop.positionCropLines()
         return
 
     proposeSelectMovie: (index) ->

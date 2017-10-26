@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
 
+import os
 from typing import List
+from modules.utils.types import Rational
 from modules.models.record import *
 
 
@@ -94,7 +96,6 @@ class Asset(Record):
             """
             Automatic cropdetect
             """
-
             def __init__(self):
                 super().__init__()
                 self.w = None
@@ -105,11 +106,29 @@ class Asset(Record):
                 self.aspect = None
 
             def filter_string(self):
+                if self.w is None or self.h is None or self.x is None or self.y is None:
+                    return None
+                if self.w < 0:
+                    self.w = -self.w
+                    self.x -= self.w
+                if self.h < 0:
+                    self.h = -self.h
+                    self.y -= self.h
                 return 'crop=w={}:h={}:x={}:y={}'.format(self.w, self.h, self.x, self.y)
+
+        class FpsOriginal(Rational):
+            def __init__(self, *args):
+                super().__init__(*args)
+
+        class FpsEncode(Rational):
+            def __init__(self, *args):
+                super().__init__(*args)
 
         def __init__(self):
             super().__init__(Stream.Type.VIDEO, Asset.VideoStream.Layout.NORMAL)
             self.cropdetect = self.Cropdetect()
+            self.fpsOriginal: self.FpsOriginal = self.FpsOriginal()
+            self.fpsEncode: self.FpsEncode = self.FpsEncode()
 
     class AudioStream(Stream):
         class Layout:
@@ -180,7 +199,7 @@ class Asset(Record):
         def __init__(self, v=None):
             super().__init__(v)
 
-    def __init__(self, name=None, guid=0):
+    def __init__(self, programName='', name=None, guid=0):
         super().__init__(name=name, guid=guid)
         # List of source media files (GUIDs)
         self.mediaFiles: List[Asset.MediaFile] = []
@@ -193,6 +212,19 @@ class Asset(Record):
         self.proxyId = None
         # UID of target program (movie id, series, whatever...)
         self.programId = None
+        # Name of program (not exact, but mandatory)
+        self.programName = programName
+        if os.path.sep in programName:
+            self.program_name_by_path(programName)
+
+    def __str__(self):
+        return self.dumps(indent=2)
+
+    def program_name_by_path(self, path: str):
+        x = path.rsplit(os.path.sep, 2)
+        if len(x) > 1:
+            x = x[1:]
+        self.programName = ': '.join(x).rsplit('.', 1)[0]
 
     def full_instance(self):
         self.guid.set(None)
@@ -211,7 +243,8 @@ class Asset(Record):
             ["audioStreams", "json"],
             ["subStreams", "json"],
             ["proxyId", "uuid"],
-            ["programId", "uuid"]
+            ["programId", "uuid"],
+            ["programName", "name"]
         ],
         "fields_extra": [],
         "creation": [

@@ -129,12 +129,13 @@ class ExecuteInternal:
             :return:
             """
 
-            reencode = True
+            reencode = False
 
             asset: Asset = Exchange.object_decode(params[0])
+            Logger.log('{}\n'.format(asset))
             vstr: Asset.VideoStream = asset.videoStreams[0]
             media_files_dict = {}
-            for mf in asset.mediaFiles:
+            for mf in asset.mediaFiles + asset.mediaFilesExtra:
                 media_files_dict[str(mf.guid)] = mf
 
             # TODO take into account the rate conversion
@@ -154,9 +155,15 @@ class ExecuteInternal:
                 if len(mf.videoTracks):
                     mf_video = mf
                     break
+            pre_archive_id = str(mf_video.videoTracks[0].extract)
+            if pre_archive_id in media_files_dict:
+                mf_video = media_files_dict[pre_archive_id]
             video_src = mf_video.source.path
-            program_in = asset.videoStreams[0].program_in
-            program_out = asset.videoStreams[0].program_out
+            video_stream = asset.videoStreams[0]
+            scale_time_fps = video_stream.fpsOriginal.val() / video_stream.fpsEncode.val()
+            tempo_fps = video_stream.fpsEncode.val() / video_stream.fpsOriginal.val()
+            program_in = scale_time_fps * video_stream.program_in
+            program_out = scale_time_fps * video_stream.program_out
             if program_in is None or program_in < 0.2:
                 program_in = 0.0
             elif not reencode:
@@ -176,6 +183,7 @@ class ExecuteInternal:
                 if pin is None:
                     pin = tp
                 program_in = pin
+                video_stream.program_in = program_in * tempo_fps
             if program_out is None or abs(mf_video.format.duration - program_out) < 0.2:
                 program_out = mf_video.format.duration
             elif not reencode:
@@ -192,25 +200,42 @@ class ExecuteInternal:
                 if pout is None:
                     pout = tp
                 program_out = pout
+                video_stream.program_out = program_out * tempo_fps
 
             program_dur = program_out - program_in
             trimmed_video_file = '{}/video.mp4'.format(tmpdir)
             if reencode:
-                if vstr.cropdetect.w is None:
-                    command = 'ffmpeg -y -loglevel error -stats -ss {start} -i {src} -map v:0 -t {dur} -c:v libx264 -b:v 6000k {dst}'.format(
-                        start=program_in,
+                # if vstr.cropdetect.w is None:
+                if program_in > 5:
+                    ss0 = int(program_in - 3.0)
+                    ss1 = program_in - ss0
+                    command = 'ffmpeg -y -loglevel error -stats -ss {ss0} -i {src} -ss {ss1:.6f} -map v:0 -t {dur} -c:v libx264 -b:v 6000k {dst}'.format(
+                        ss0=ss0, ss1=ss1,
+                        dur=program_dur,
+                        src=video_src,
+                        dst=trimmed_video_file,
+                    )
+                elif program_in > 0.0:
+                    command = 'ffmpeg -y -loglevel error -stats -i {src} -ss {ss1:.6f} -map v:0 -t {dur} -c:v libx264 -b:v 6000k {dst}'.format(
+                        ss1=program_in,
                         dur=program_dur,
                         src=video_src,
                         dst=trimmed_video_file,
                     )
                 else:
-                    command = 'ffmpeg -y -loglevel error -stats -ss {start} -i {src} -map v:0 -t {dur} -c:v libx264 -b:v 6000k -vf {vf} {dst}'.format(
-                        start=program_in,
+                    command = 'ffmpeg -y -loglevel error -stats -i {src} -map v:0 -t {dur} -c:v libx264 -b:v 6000k {dst}'.format(
                         dur=program_dur,
                         src=video_src,
                         dst=trimmed_video_file,
-                        vf=vstr.cropdetect.filter_string()
                     )
+                # else:
+                #     command = 'ffmpeg -y -loglevel error -stats -ss {start} -i {src} -map v:0 -t {dur} -c:v libx264 -b:v 6000k -vf {vf} {dst}'.format(
+                #         start=program_in,
+                #         dur=program_dur,
+                #         src=video_src,
+                #         dst=trimmed_video_file,
+                #         vf=vstr.cropdetect.filter_string()
+                #     )
                 Logger.info('asset_to_mediafile: video\n')
                 Logger.warning('{}\n'.format(command))
                 proc = Popen(command.split(' '))
@@ -250,6 +275,28 @@ class ExecuteInternal:
                 output = '{}/{}.mp4'.format(tmpdir, str(uuid.uuid4()))
                 audio_files.append(output)
                 command = 'ffmpeg -y -loglevel error -stats'
+                # Calculate start, duration and rate
+                if audio_stream.sync.delay1 is None:
+                    audio_in = video_stream.program_in
+                    audio_out = video_stream.program_out
+                    sync_tempo_encoded = tempo_fps
+                elif audio_stream.sync.delay2 is None:
+                    audio_in = video_stream.program_in + audio_stream.sync.delay1
+                    audio_out = video_stream.program_out + audio_stream.sync.delay1
+                    sync_tempo_encoded = tempo_fps
+                else:
+                    a1 = audio_stream.sync.offset1
+                    a2 = audio_stream.sync.offset2
+                    v1 = a1 + audio_stream.sync.delay1
+                    v2 = a2 + audio_stream.sync.delay2
+
+                    sync_tempo_original = (a2 - a1) / (v2 - v1)
+                    audio_in = a2 - (v2 - video_stream.program_in) * sync_tempo_original
+                    audio_out = a1 + (video_stream.program_out - v1) * sync_tempo_original
+                    sync_tempo_encoded = sync_tempo_original * tempo_fps
+
+                audio_dur = audio_out - audio_in
+
                 # Filter source media files
                 source_mediafiles_streams = [mfindex(ch.src_stream_index) + [ch.src_channel_index] for ch in audio_stream.channels]
                 smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
@@ -276,13 +323,13 @@ class ExecuteInternal:
                         # TODO optimize extracted tracks usage
                         if mf.audioTracks[0].extract is None:
                             join_inputs += len(mf.audioTracks)
-                            command += ' -ss {start} -i {src}'.format(start=program_in, src=mf.source.path)
+                            command += ' -ss {start} -i {src}'.format(start=audio_in, src=mf.source.path)
                         else:
                             for at in mf.audioTracks:
                                 mfe: MediaFile = media_files_dict[str(at.extract)]
                                 join_inputs += 1
-                                command += ' -ss {start} -i {src}'.format(start=program_in, src=mfe.source.path)
-                command += ' -t {:.3f}'.format(program_dur)
+                                command += ' -ss {start} -i {src}'.format(start=audio_in, src=mfe.source.path)
+                command += ' -t {:.3f}'.format(audio_dur)
                 # Compose filter, example:
                 # join=inputs=2:channel_layout=5.1:map=0.0-FL|0.1-FR|1.2-FC|1.3-LFE|1.1-BL|0.5-BR
                 layout = Asset.AudioStream.Layout.LAYMAP[audio_stream.layout]
@@ -293,6 +340,8 @@ class ExecuteInternal:
                     layout=audio_stream.layout,
                     laymap=layout_map
                 )
+                if abs(sync_tempo_encoded - 1.0) > 0.00001:
+                    command += ',atempo={:.8f}'.format(sync_tempo_encoded)
                 bitrate = 96 * len(audio_stream.channels)
                 command += ' -c:a aac -strict -2 -b:a {br}k -metadata:s:a:0 language={lang} {dst}'.format(
                     br=bitrate,
