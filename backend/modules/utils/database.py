@@ -373,13 +373,36 @@ class DBInterface:
                 request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
                     relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
                     fields=','.join(fields),
-                    values=','.join([
-                        "ARRAY[{}]::uuid[]".format(','.join(["'{}'".format(_)
-                                                             for _ in rd[f]]))
-                                                                if type(rd[f]) is list and len(rd[f]) > 0 and isinstance(rd[f][0], Guid)
-                            else "'{}'".format(str(rd[f])) for f in fields
-                    ])
-                    # values=','.join(["'[1]'" if type(rd[f]) is list else "'{}'".format(str(rd[f])) for f in fields])
+                    values=','.join([rec.db_value(f) for f in fields])
+                )
+                # Register node
+                result = request_db(cur, request)
+            cur.close()
+        return result
+
+    @staticmethod
+    def update_record(rec: Record, field_set: set, user=USER):
+        result = False
+        conn = DBInterface.connect(user)
+        if conn is not None:
+            cur = conn.cursor()
+            request = 'SELECT localtimestamp;'
+            if request_db(cur, request):
+                rows = cur.fetchall()
+                rec.ctime = str(rows[0][0])
+                rec.mtime = str(rows[0][0])
+                if rec.guid is None:
+                    rec.guid = Guid(0)
+                # Select table and fields
+                rd = rec.__dict__
+                table_name = rec.__class__.__name__
+                tdata = TRIX_CONFIG.dBase.tables[table_name]
+                fields = [f[0] for f in tdata['fields'] if
+                          rd[f[0]] is not None and not (type(rd[f[0]]) is list and len(rd[f[0]]) == 0)]
+                # Build request
+                request = "UPDATE {relname} SET {setup};".format(
+                    relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
+                    setup=','.join(['{}={}'.format(f, rec.db_value(f)) for f in fields])
                 )
                 # Register node
                 result = request_db(cur, request)
@@ -480,12 +503,13 @@ class DBInterface:
 
         @staticmethod
         def update_videoStreams(asset: Asset):
-            vstrs = ','.join([_.dumps() for _ in asset.videoStreams])  # Asset.jsoner_list_to_json(asset.videoStreams)
-            request = "UPDATE trix_assets SET videoStreams = '[{vs}]'::json WHERE guid='{id}';".format(
-                vs=vstrs,
-                id=asset.guid
-            )
-            return DBInterface.request_db(request)
+            return DBInterface.update_record(asset, {'videoStreams'})
+            # vstrs = ','.join([_.dumps() for _ in asset.videoStreams])  # Asset.jsoner_list_to_json(asset.videoStreams)
+            # request = "UPDATE trix_assets SET videoStreams = ARRAY[{vs}]::json WHERE guid='{id}';".format(
+            #     vs=vstrs,
+            #     id=asset.guid
+            # )
+            # return DBInterface.request_db(request)
 
         @staticmethod
         def delete(uid):
@@ -512,6 +536,16 @@ class DBInterface:
             mf = MediaFile(guid=None)
             mf.update_str(mediaFile)
             return DBInterface.register_record(mf, user=DBInterface.Machine.USER)
+
+        @staticmethod
+        def update_videoTrack(mf: MediaFile, index):
+            request = "UPDATE {table} SET videoTracks[{index}]='{vtrack}' WHERE guid='{guid}'".format(
+                table=TRIX_CONFIG.dBase.tables['MediaFile']['relname'],
+                index=index,
+                vtrack=mf.videoTracks[index].dumps(),
+                guid=mf.guid
+            )
+            return DBInterface.request_db(request)
 
     class Machine:
         USER = 'node'

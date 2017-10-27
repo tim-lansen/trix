@@ -62,6 +62,7 @@ class ExecuteInternal:
             mf: MediaFile = MediaFile()
             mf.update_str(params[0])
             combined_info(mf, params[1])
+            Logger.critical('{}\n'.format(mf.dumps(indent=2)))
             out_final.put([mf])
 
     class create_mediafile_and_asset:

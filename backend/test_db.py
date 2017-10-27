@@ -2,7 +2,7 @@
 
 from modules.utils.database import DBInterface
 from modules.models.asset import Asset
-from modules.utils.types import Guid
+from modules.utils.log_console import Logger
 
 
 if __name__ == '__main__':
@@ -20,6 +20,7 @@ if __name__ == '__main__':
     asset.guid.new()
     asset.name = ''
     asset.mediaFiles = [Asset.MediaFile(0), Asset.MediaFile(0), Asset.MediaFile(0)]
+    Logger.warning('{}\n'.format(asset.dumps(indent=2)))
     DBInterface.Asset.set(asset)
     asset = DBInterface.Asset.get(asset.guid)
     print(asset.dumps(indent=2))

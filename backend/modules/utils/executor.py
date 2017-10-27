@@ -59,13 +59,15 @@ class JobExecutor:
         def final_set(self, step, chain, proc, obj):
             hash = self._hash(step, chain, proc)
             if hash in self.fmap:
-                # Logger.log('final_set: {}\n'.format(obj))
+                Logger.critical('final_set: {} => {}\n'.format(hash, obj))
                 self.fmap[hash] = obj
+            else:
+                Logger.critical('final_set: no hash {} in fmap\n'.format(hash))
 
         def final_get(self, step, chain, proc):
             hash = self._hash(step, chain, proc)
             obj = self.fmap[hash] if hash in self.fmap else None
-            # Logger.warning('final_get: {}\n'.format(obj))
+            Logger.warning('final_get: fmap[{}] = {}\n'.format(hash, obj))
             return obj
 
         def reset(self, finals_count=0):

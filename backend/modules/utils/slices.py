@@ -11,15 +11,6 @@ from .combined_info import combined_info, combined_info_mediafile
 from .jsoner import JSONer
 
 
-class Slice(JSONer):
-    def __init__(self):
-        super().__init__()
-        self.length = 0
-        self.pattern_offset = 0
-        self.time = 0
-        self.crc = []
-
-
 def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=48, first_slice_duration=180, overlap_time=15, start_frame=0, pattern_length=8):
     pattern_search_distance = start_frame + 5 * pattern_length
     vt = mf.videoTracks[vti]
@@ -67,6 +58,7 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
             slices.append(slic)
         if draft_time + overlap_time + dur > duration:
             dur1 = duration - draft_time - overlap_time
+    # vt.slices = [MediaFile.VideoTrack.Slice(_) for _ in slices]
     return slices
 
 
@@ -75,5 +67,5 @@ def test():
     from .ffmpeg_utils import FFMPEG_UTILS_TEST_FILE_AVS
     from pprint import pprint
     mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AVS)
-    slices = create_slices(mf)
+    slices = [MediaFile.VideoTrack.Slice(_) for _ in create_slices(mf)]
     pprint(slices)

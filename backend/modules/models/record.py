@@ -7,12 +7,32 @@ from modules.utils.types import Guid
 
 # Database record template
 class Record(JSONer):
+    # ELEMENT_TYPES = {
+    #     'guid': 'uuid'
+    # }
+
+
     def __init__(self, name=None, guid=None):
         super().__init__()
         self.guid = Guid(guid)
         self.name = name
         self.ctime = None
         self.mtime = None
+
+    def db_value(self, key):
+        val = self.__dict__[key]
+        if type(val) is list:
+            vtype = 'name[]'
+            for f in self.TABLE_SETUP['fields']:
+                if f[0] == key:
+                    vtype = f[1]
+            string = "ARRAY[{values}]::{type}".format(
+                values=','.join(["'{}'".format(_) for _ in val]),
+                type=vtype
+            )
+        else:
+            string = "'{}'".format(str(val))
+        return string
 
     TABLE_SETUP = {
         "fields": [

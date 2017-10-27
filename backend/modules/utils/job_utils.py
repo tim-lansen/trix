@@ -626,8 +626,8 @@ class JobUtils:
             #     'collector_id': collector_id          # Collectors aggregate results from slices
             # }
 
-            def strslice(_s):
-                return 'pattern_offset={};length={};crc={}'.format(_s['pattern_offset'], _s['length'], ','.join([str(_) for _ in _s['crc']]))
+            # def strslice(_s: MediaFile.VideoTrack.Slice):
+            #     return 'pattern_offset={};length={};crc={}'.format(_s.pattern_offset, _s.length, ','.join([str(_) for _ in _s.crc]))
 
             mf: MediaFile = MediaFile()
             # archive: MediaFile = MediaFile(guid=trig['archive_id'])
@@ -649,6 +649,9 @@ class JobUtils:
 
             vt: MediaFile.VideoTrack = mf.videoTracks[vti]
             pvt: MediaFile.VideoTrack = preview.videoTracks[0]
+
+            vt.slices = [MediaFile.VideoTrack.Slice(_) for _ in slices]
+            DBInterface.MediaFile.update_videoTrack(mf, vti)
 
             # Get transform setup
             # fmap = JobUtils.PIX_FMT_MAP_X265['default'] if vt.pix_fmt not in JobUtils.PIX_FMT_MAP_X265 else JobUtils.PIX_FMT_MAP_X265[vt.pix_fmt]
@@ -700,7 +703,7 @@ class JobUtils:
             job_archive_concat.groupIds.append(group_id)
             job_archive_concat.info.paths.append(adir.net_path)
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
-            job_archive_concat.emitted.handler = JobUtils.ResultHandlers.ips_p03_slices_concat.__name__
+            # job_archive_concat.emitted.handler = JobUtils.ResultHandlers.ips_p03_slices_concat.__name__
             # Add result to archive concat job
             # result: Job.Emitted.Result = Job.Emitted.Result()
             # job_archive_concat.emitted.results.append(result)
@@ -723,8 +726,8 @@ class JobUtils:
             segment_list_preview = ''
             segment_list_archive = ''
             jobs = []
-            pslic = None
-            for idx, slic in enumerate(slices + [None]):
+            pslic: MediaFile.VideoTrack.Slice = None
+            for idx, slic in enumerate(vt.slices + [None]):
                 segment_path_preview = os.path.join(cdir.net_path, 'prv_{:03d}.h264'.format(idx))
                 segment_path_archive = os.path.join(cdir.net_path, 'arch_{:03d}.hevc'.format(idx))
                 segment_list_preview += 'file {}\n'.format(segment_path_preview)
@@ -738,23 +741,23 @@ class JobUtils:
                 # slice_duration = 0.0
 
                 if slic is None:
-                    slice_start = pslic['time'] + pslic['pattern_offset'] / vt.fps.val()
+                    slice_start = pslic.time + pslic.pattern_offset / vt.fps.val()
                     slice_duration = vt.duration - slice_start
                     slice_frames = int(slice_duration *  vt.fps.val())
-                    dur = vt.duration - pslic['time'] + 1
-                    proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=strslice(pslic))
+                    dur = vt.duration - pslic.time + 1
+                    proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed())
                 elif pslic is None:
                     slice_start = 0.0
                     slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val()
                     slice_frames = int(slice_duration * vt.fps.val())
                     dur = slic['time'] + (overlap + slic['pattern_offset']) / vt.fps.val()
-                    proc1 = '{trim} trim --pout {pout}'.format(trim=JobUtils.TRIMMER, pout=strslice(slic))
+                    proc1 = '{trim} trim --pout {pout}'.format(trim=JobUtils.TRIMMER, pout=slic.embed())
                 else:
                     slice_start = pslic['time'] + pslic['pattern_offset'] / vt.fps.val()
                     slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val() - slice_start
                     slice_frames = int(slice_duration * vt.fps.val())
                     dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic['pattern_offset']) / vt.fps.val()
-                    proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=strslice(pslic), pout=strslice(slic))
+                    proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed(), pout=slic.embed())
                 if pslic is None:
                     proc0 = 'ffmpeg -y -loglevel error -stats -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(i=mf.source.path, ti=vti, fps=vt.fps.dump_alt(), t=dur)
                 else:
@@ -919,8 +922,11 @@ class JobUtils:
         class mediafile:
             @staticmethod
             def handler(emit: Job.Emitted, idx: int):
+                Logger.info('{}\n'.format(emit.dumps()))
                 r = emit.results[idx]
                 mf: MediaFile = r.data
+                Logger.error('{}\n{}\n'.format(mf.dumps(indent=2), mf.__dict__.keys()))
+                # exit(1)
                 DBInterface.MediaFile.set(mf)
 
         class ips_p02_mediafiles:

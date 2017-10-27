@@ -224,6 +224,20 @@ class MediaFile(Record):
             def __init__(self, *args):
                 super().__init__(*args)
 
+        class Slice(JSONer):
+            def __init__(self, setup=None):
+                super().__init__()
+                self.length = 0
+                self.pattern_offset = 0
+                self.time = 0
+                self.crc = []
+                self.size = 0
+                if setup:
+                    self.update_json(setup)
+
+            def embed(self):
+                return 'pattern_offset={};length={};crc={}'.format(self.pattern_offset, self.length, ','.join([str(_) for _ in self.crc]))
+
         def __init__(self):
             super().__init__()
             # Auto-captured info
@@ -258,6 +272,8 @@ class MediaFile(Record):
             self.previews: List[str] = []
             # ID of mediafile that consists of archived video track
             self.extract = None
+
+            self.slices: List(self.Slice) = []
 
         @staticmethod
         def fit_video(src, dst, dw: int, dh: int, size_round=2):
@@ -470,9 +486,9 @@ class MediaFile(Record):
             ["assets", "uuid[]"],
             ["source", "json NOT NULL"],
             ["format", "json"],
-            ["videoTracks", "json"],
-            ["audioTracks", "json"],
-            ["subTracks", "json"]
+            ["videoTracks", "json[]"],
+            ["audioTracks", "json[]"],
+            ["subTracks", "json[]"]
         ],
         "fields_extra": [],
         "creation": [

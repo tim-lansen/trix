@@ -239,9 +239,9 @@ class Asset(Record):
         "fields": [
             ["mediaFiles", "uuid[]"],
             ["mediaFilesExtra", "uuid[]"],
-            ["videoStreams", "json"],
-            ["audioStreams", "json"],
-            ["subStreams", "json"],
+            ["videoStreams", "json[]"],
+            ["audioStreams", "json[]"],
+            ["subStreams", "json[]"],
             ["proxyId", "uuid"],
             ["programId", "uuid"],
             ["programName", "name"]
