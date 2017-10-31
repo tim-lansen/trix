@@ -49,7 +49,7 @@ def resolve_job_aliases(job: Job):
 
 # Testing Job class initialization and alias resolving
 def test():
-    job = Job()
+    job = Job('Test job', 0, 0)
     initial = '''
 {
   "guid": "3631f021-8dd0-4197-a29d-27fc3180a242",

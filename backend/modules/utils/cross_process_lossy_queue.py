@@ -22,9 +22,18 @@ class CPLQueue:
         r = Exchange.object_decode(self.q.get(block=block, timeout=timeout))
         return r
 
-    def flush(self):
-        r = None
-        while self.q.qsize() > 0:
-            r = self.q.get()
-        r = Exchange.object_decode(r)
+    def flush(self, block=False, timeout=None):
+        r = CPLQueue.dig(self.q, block=block, timeout=timeout)
+        if r is not None:
+            r = Exchange.object_decode(r)
         return r
+
+    @staticmethod
+    def dig(q: multiprocessing.Queue, block=True, timeout=None):
+        msg = None
+        try:
+            while True:
+                msg = q.get(block=block, timeout=timeout)
+        except:
+            pass
+        return msg

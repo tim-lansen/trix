@@ -44,6 +44,7 @@ typedef enum {
 }OPERATION;
 
 bool g_Log2console = true;
+bool g_Jitter = true;
 
 
 void clog(_IO_FILE *std, const char *format, ...)
@@ -214,6 +215,7 @@ int trim(char* manifest_in, char* manifest_out)
         clog(stderr, "Scan: read frame #%d\r", frame_read);
         if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
             goto FALLOUT2;
+        scanner.dif_frame();
         scanner.crc_frame();
     }
     clog(stderr, "\n=== In pattern found at %d ===\n", frame_read - pattern_in.get_pattern_length());
@@ -236,6 +238,7 @@ int trim(char* manifest_in, char* manifest_out)
         clog(stderr, "Stab: read frame #%d\r", frame_read);
         if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
             goto FALLOUT2;
+        scanner.dif_frame();
         scanner.crc_frame();
         stab--;
     }
@@ -251,18 +254,70 @@ int trim(char* manifest_in, char* manifest_out)
     if (feeding_frame_number != frame_read - ff2)
         clog(stderr, "**************************  feeding frame %d\n", feeding_frame_number);
 
-    // Starting Read-N-Feed
-    clog(stderr, "\n=== Read-N-Feed %d ===\n", feeding_frame_number);
-    for (;;)
-    {
-        if(ff2 && scanner == pattern_out)
-            break;
-        if (!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
-            goto FALLOUT2;
-        if (!read_from_pipe(scanner.m_frame_buffer, frame_read))
-            goto FALLOUT2;
-        scanner.crc_frame();
-        passed_frames++;
+    if(g_Jitter) {
+
+        int jitter_count = 2;
+        int pass_frames[] = {100, 500};
+        int frame_dup = -1;
+        bool frame_skip = false;
+
+        // Starting Read-N-Feed
+        clog(stderr, "\n=== Read-N-Feed %d ===\n", feeding_frame_number);
+        for(;;) {
+            if(ff2 && scanner == pattern_out)
+                break;
+            if(feeding_frame_number == frame_dup) {
+                clog(stderr, "=== Duplicating frame %d ===\n", feeding_frame_number);
+                frame_dup = -1;
+                if(!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
+                    goto FALLOUT2;
+                feeding_frame_number--;
+            }
+            if(!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
+                goto FALLOUT2;
+            if(frame_skip) {
+                clog(stderr, "=== Skipping frame %d ===\n", feeding_frame_number);
+                frame_skip = false;
+                frame_read--;
+                if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
+                    goto FALLOUT2;
+            }
+            if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
+                goto FALLOUT2;
+            if(jitter_count) {
+                scanner.dif_frame();
+                if(pass_frames[jitter_count & 1]) {
+                    pass_frames[jitter_count & 1]--;
+                } else {
+                    if(scanner.is_scene()) {
+                        if(jitter_count % 2 == 0) {
+                            // Duplicate frame
+                            frame_dup = feeding_frame_number + ff2;
+                        } else {
+                            // Skip frame
+                            frame_skip = true;
+                        }
+                        jitter_count--;
+                    }
+                }
+
+            }
+            scanner.crc_frame();
+            passed_frames++;
+        }
+    } else {
+        // Starting Read-N-Feed
+        clog(stderr, "\n=== Read-N-Feed %d ===\n", feeding_frame_number);
+        for(;;) {
+            if(ff2 && scanner == pattern_out)
+                break;
+            if(!write_to_pipe(scanner.m_frame_buffer, feeding_frame_number))
+                goto FALLOUT2;
+            if(!read_from_pipe(scanner.m_frame_buffer, frame_read))
+                goto FALLOUT2;
+            scanner.crc_frame();
+            passed_frames++;
+        }
     }
     clog(stderr, "=== Out-pattern found at #%d ===\n", frame_read - pattern_out.get_pattern_length());
 #if PASS_TAIL
@@ -371,6 +426,9 @@ int parse_params_run(int argc, char **argv)
                 return -1;
             }
             pout = argv[++i];
+        }
+        else if(!strcmp("--nojitter", argv[i])) {
+            g_Jitter = false;
         }
         else if (!(strcmp("-s", argv[i]) && strcmp("--size", argv[i])))
         {

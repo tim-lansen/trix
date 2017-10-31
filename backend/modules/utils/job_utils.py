@@ -9,7 +9,7 @@ import copy
 import math
 from pprint import pformat
 from typing import List
-from modules.models.job import Job
+from modules.models.job import Job, Task
 from modules.models.asset import Asset, Stream
 from modules.models.mediafile import MediaFile
 from modules.models.interaction import Interaction
@@ -50,7 +50,7 @@ def merge_assets(assets):
     sii = 0
     Logger.log('merge_assets:\n\n')
     for a in assets:
-        Logger.warning('{}\n\n'.format(pformat(a)))
+        Logger.info('{}\n\n'.format(pformat(a)))
 
         vss = _advance_streams(Asset.VideoStream, a['videoStreams'], vii)
         vii += len(vss)
@@ -59,7 +59,7 @@ def merge_assets(assets):
         sss = _advance_streams(Asset.SubStream, a['subStreams'], sii)
         sii += len(sss)
 
-        Logger.warning('vss: {}\nass: {}\n sss: {}\n\n'.format(vss, ass, sss))
+        Logger.log('vss: {}\nass: {}\n sss: {}\n\n'.format(vss, ass, sss))
 
         asset.videoStreams += vss
         asset.audioStreams += ass
@@ -171,7 +171,7 @@ class JobUtils:
             # Store common path to aliases as base
             base = os.path.commonpath((os.path.dirname(_) for _ in paths))
             # Create job
-            job: Job = Job(name='Combined Info(s)', guid=0)
+            job: Job = Job(name='Combined Info(s)', guid=0, task_id=0)
             job.type = Job.Type.PROBE
             job.info.names = names
             job.info.aliases['base'] = base
@@ -205,8 +205,8 @@ class JobUtils:
             return str(job.guid)
 
         @staticmethod
-        def _cpeas(path, asset_guid):
-            job: Job = Job(name='CPEAS: {}'.format(os.path.basename(path)), guid=0)
+        def _cpeas(path, asset_guid, task_id=0):
+            job: Job = Job('CPEAS: {}'.format(os.path.basename(path)), 0, task_id)
             job.type = Job.Type.CPEAS
             step: Job.Info.Step = Job.Info.Step()
             step.name = 'Create proxy, extract audio and subtitles'
@@ -221,8 +221,8 @@ class JobUtils:
             return job
 
         @staticmethod
-        def _eascs(path, asset_guid):
-            job: Job = Job(name='EAS: {}'.format(os.path.basename(path)), guid=0)
+        def _eascs(path, asset_guid, task_id):
+            job: Job = Job('EAS: {}'.format(os.path.basename(path)), 0, task_id)
             job.type = Job.Type.EAS
             step: Job.Info.Step = Job.Info.Step()
             step.name = 'Create proxy, extract audio and subtitles'
@@ -243,8 +243,10 @@ class JobUtils:
             :param path: path to source directory
             :return:
             """
+            # Create task
+            task: Task = Task()
             # Create final dummy job (trigger)
-            agg: Job = Job(name='Ingest: aggregate assets', guid=0)
+            agg: Job = Job('Ingest: aggregate assets', 0, task.guid)
             agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
             agg.dependsOnGroupId.new()
             group_id = agg.dependsOnGroupId
@@ -261,7 +263,7 @@ class JobUtils:
             for inp in inputs:
                 ass = str(uuid.uuid4())
                 assets.append(ass)
-                job = JobUtils.CreateJob._cpeas(inp, ass)
+                job = JobUtils.CreateJob._cpeas(inp, ass, task.guid)
                 # TODO: add non-auto-commit connection to DBInterface, and register all jobs in single transaction
                 job.status = Job.Status.INACTIVE
                 # Add job to group
@@ -303,13 +305,16 @@ class JobUtils:
             if len(paths) == 0:
                 Logger.error('Cannot find file(s) in {}\n'.format(path))
                 return 0
+            # Create task
+            task: Task = Task()
             # Store common path to aliases as base
             base = os.path.commonpath((os.path.dirname(_) for _ in paths))
             # Create job
-            job: Job = Job(name='MediaFiles and Assets for ingest', guid=0)
+            job: Job = Job(name='MediaFiles and Assets for ingest', guid=0, task_id=task.guid)
             job.type = Job.Type.PROBE
             job.info.names = names
             job.info.aliases['base'] = base
+            task.jobs.append(job.guid)
             step: Job.Info.Step = Job.Info.Step()
             step.name = 'MediaFiles and Assets for ingest'
             job.info.steps.append(step)
@@ -319,7 +324,7 @@ class JobUtils:
                 job.info.aliases[srcn] = p.replace(base, '${base}', 1)
                 chain = Job.Info.Step.Chain()
                 chain.procs = [
-                    ['ExecuteInternal.create_mediafile_and_asset', '${{{}}}'.format(srcn)]
+                    ['ExecuteInternal.create_mediafile_and_asset', '${{{}}}'.format(srcn), str(task.guid)]
                 ]
                 chain.result = 0
                 step.chains.append(chain)
@@ -330,6 +335,7 @@ class JobUtils:
 
             DBInterface.Job.register(job)
             Logger.log('{}\n'.format(job.dumps(indent=2)))
+            DBInterface.Task.register(task)
             return 1
 
         @staticmethod
@@ -341,15 +347,16 @@ class JobUtils:
             """
             # param object from ffmpeg_utils.mediafile_asset_for_ingest
             # {
+            #     'task': task_id,
             #     'asset': asset,
             #     'mediafile': mediafile,
             # }
             # Create group id to trigger final aggregative job
             group_id = Job.DependsOnGroupId(value=0)
-
             asset_ids = []
+            task_id = None
             for param in params:
-                # paths = set([])
+                task_id = param['task']
                 asset: Asset = param['asset']
                 mediafile: MediaFile = param['mediafile']
                 asset_ids.append(str(asset.guid))
@@ -393,7 +400,7 @@ class JobUtils:
                     previews.append(preview)
 
                     # A job to capture slices
-                    job: Job = Job(name='split.v{}'.format(ti), guid=0)
+                    job: Job = Job(name='split.v{}'.format(ti), guid=0, task_id=task_id)
                     job.type = Job.Type.SLICES_CREATE
                     job.groupIds.append(group_id)
                     job.info.paths = [
@@ -418,6 +425,7 @@ class JobUtils:
                     result: Job.Emitted.Result = Job.Emitted.Result()
                     result.source.step = -1
                     result.data = {
+                        'task': task_id,
                         'src': mf_dumps,
                         'vti': ti,
                         'group_id': str(group_id),
@@ -501,8 +509,9 @@ class JobUtils:
                         outputs.append('-map 0:a:{ti} -c:a copy {path}'.format(ti=ti, path=audio.source.path))
                         transits.append(audio)
                         asset.mediaFilesExtra.append(audio.guid)
-                    audio_filter = None if ti else '[0:a:0]silencedetect,pan=mono|c0=c0[ap_00_00]'
-                    # audio_filter = '[0:a:{ti}]silencedetect,pan=mono|c0=c0[ap_{ti:02d}_00]'.format(ti=ti)
+                    # Use silencedetect filter only for first track
+                    # Using astats filter to measure audio levels because it's summary easier to capture than for ebur128
+                    audio_filter = '[0:a:{ti}]astats,{sd}pan=mono|c0=c0[ap_{ti:02d}_00]'.format(ti=ti, sd='' if ti else 'silencedetect,')
                     for ci in range(a.channels):
                         preview_name = '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, ti, ci)
                         audio_preview: MediaFile = MediaFile(name='preview-audio')
@@ -557,8 +566,9 @@ class JobUtils:
                     chain.progress.top = mediafile.format.duration
                     step: Job.Info.Step = Job.Info.Step()
                     step.chains.append(chain)
-                    job: Job = Job('PEAS({})'.format(mediafile.name), 0)
+                    job: Job = Job('PEAS({})'.format(mediafile.name), 0, task_id)
                     job.type = Job.Type.PEAS
+                    job.priority = Job.Priority.NORMAL
                     job.groupIds.append(group_id)
                     job.info.steps.append(step)
                     job.info.paths = [
@@ -599,7 +609,7 @@ class JobUtils:
                     'assets': asset_ids
                 }
                 # Create final aggregative job (trigger)
-                agg: Job = Job(name='Ingest sliced: aggregate assets', guid=0)
+                agg: Job = Job('Ingest sliced: aggregate assets', 0, task_id)
                 agg.type = Job.Type.INGEST_AGGREGATE | Job.Type.TRIGGER
                 agg.emitted.results.append(result)
                 agg.emitted.handler = JobUtils.EmittedHandlers.ips_p04_merge_assets.__name__
@@ -615,6 +625,7 @@ class JobUtils:
             # using captured slices
             # Logger.log('{}\n{}\n'.format(pformat(slices), pformat(trig)))
             # trig = {
+            #     'task': task_id,
             #     'src': mf_dumps,
             #     'vti': ti,
             #     'group_id': str(group_id),
@@ -628,7 +639,7 @@ class JobUtils:
 
             # def strslice(_s: MediaFile.VideoTrack.Slice):
             #     return 'pattern_offset={};length={};crc={}'.format(_s.pattern_offset, _s.length, ','.join([str(_) for _ in _s.crc]))
-
+            task_id = trig['task']
             mf: MediaFile = MediaFile()
             # archive: MediaFile = MediaFile(guid=trig['archive_id'])
             preview: MediaFile = MediaFile()
@@ -694,11 +705,11 @@ class JobUtils:
             tmpl3 += ' --output {output} {input}'
 
             # 1 Create 2 concat jobs: for preview and for archive
-            job_preview_concat: Job = Job(name='preview_concat', guid=0)
+            job_preview_concat: Job = Job(name='preview_concat', guid=0, task_id=task_id)
             job_preview_concat.type = Job.Type.SLICES_CONCAT
             job_preview_concat.groupIds.append(group_id)
             job_preview_concat.dependsOnGroupId.new()
-            job_archive_concat: Job = Job(name='archive_concat', guid=0)
+            job_archive_concat: Job = Job(name='archive_concat', guid=0, task_id=task_id)
             job_archive_concat.type = Job.Type.SLICES_CONCAT
             job_archive_concat.groupIds.append(group_id)
             job_archive_concat.info.paths.append(adir.net_path)
@@ -732,7 +743,7 @@ class JobUtils:
                 segment_path_archive = os.path.join(cdir.net_path, 'arch_{:03d}.hevc'.format(idx))
                 segment_list_preview += 'file {}\n'.format(segment_path_preview)
                 segment_list_archive += 'file {}\n'.format(segment_path_archive)
-                job_preview_archive_slice: Job = Job(name='encode_slice_{:03d}'.format(idx), guid=0)
+                job_preview_archive_slice: Job = Job(name='encode_slice_{:03d}'.format(idx), guid=0, task_id=task_id)
                 job_preview_archive_slice.type = Job.Type.ENCODE_VIDEO
                 job_preview_archive_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
 
@@ -859,7 +870,7 @@ class JobUtils:
             # Compose result that update archive media file
             result = Job.Emitted.Result()
             result.handler = JobUtils.ResultHandlers.mediafile.__name__
-            result.source.step = len(job_archive_concat.info.steps) #1
+            result.source.step = len(job_archive_concat.info.steps)
             job_archive_concat.emitted.results.append(result)
 
             step: Job.Info.Step = Job.Info.Step()
@@ -879,36 +890,36 @@ class JobUtils:
         def mediafile_by_asset(asset: Asset):
             pass
 
-        @staticmethod
-        def asset_to_mediafile(asset: Asset):
-            # Sample code that creates a set of jobs to compile single mediafile using asset data
-            media_files = []
-
-            for idx, guid in enumerate(asset.mediaFiles):
-                mf: MediaFile = DBInterface.MediaFile.get(guid)
-                media_files.append(mf)
-            asset.mediaFiles = media_files
-            if type(asset.mediaFilesExtra) is list:
-                media_files_extra = []
-                for idx, guid in enumerate(asset.mediaFilesExtra):
-                    mf: MediaFile = DBInterface.MediaFile.get(guid)
-                    media_files_extra.append(mf)
-                asset.mediaFilesExtra = media_files_extra
-
-            job: Job = Job(name='asset to mediafile', guid=0)
-            job.type = Job.Type.ENCODE_VIDEO | Job.Type.ENCODE_AUDIO
-            step: Job.Info.Step = Job.Info.Step()
-            step.name = 'Create media file using asset'
-            job.info.steps.append(step)
-            chain = Job.Info.Step.Chain()
-            Logger.log('{}\n'.format(asset))
-            chain.procs = [['ExecuteInternal.asset_to_mediafile', Exchange.object_encode(asset)]]
-            step.chains.append(chain)
-            # Compose result
-            job.emitted.results.append(Job.Emitted.Result())
-            job.emitted.handler = JobUtils.EmittedHandlers.asset_to_mediafile.__name__
-
-            DBInterface.Job.register(job)
+        # @staticmethod
+        # def asset_to_mediafile(asset: Asset):
+        #     # Sample code that creates a set of jobs to compile single mediafile using asset data
+        #     media_files = []
+        #
+        #     for idx, guid in enumerate(asset.mediaFiles):
+        #         mf: MediaFile = DBInterface.MediaFile.get(guid)
+        #         media_files.append(mf)
+        #     asset.mediaFiles = media_files
+        #     if type(asset.mediaFilesExtra) is list:
+        #         media_files_extra = []
+        #         for idx, guid in enumerate(asset.mediaFilesExtra):
+        #             mf: MediaFile = DBInterface.MediaFile.get(guid)
+        #             media_files_extra.append(mf)
+        #         asset.mediaFilesExtra = media_files_extra
+        #
+        #     job: Job = Job(name='asset to mediafile', guid=0)
+        #     job.type = Job.Type.ENCODE_VIDEO | Job.Type.ENCODE_AUDIO
+        #     step: Job.Info.Step = Job.Info.Step()
+        #     step.name = 'Create media file using asset'
+        #     job.info.steps.append(step)
+        #     chain = Job.Info.Step.Chain()
+        #     Logger.log('{}\n'.format(asset))
+        #     chain.procs = [['ExecuteInternal.asset_to_mediafile', Exchange.object_encode(asset)]]
+        #     step.chains.append(chain)
+        #     # Compose result
+        #     job.emitted.results.append(Job.Emitted.Result())
+        #     job.emitted.handler = JobUtils.EmittedHandlers.asset_to_mediafile.__name__
+        #
+        #     DBInterface.Job.register(job)
 
     class ResultHandlers:
 
@@ -938,8 +949,9 @@ class JobUtils:
 
         class ips_p03_slices_concat:
             @staticmethod
+            @tracer
             def handler(emit: Job.Emitted, idx: int):
-                Logger.warning('{}\n'.format(emit))
+                pass
 
         class ips_p03_assets:
             @staticmethod
@@ -1107,49 +1119,47 @@ class JobUtils:
         class mediafiles_and_assets:
             @staticmethod
             def handler(emit: Job.Emitted):
-                Logger.warning('{}\n'.format(emit.dumps(indent=2)))
+                # Logger.warning('{}\n'.format(emit.dumps(indent=2)))
                 params = [_.data for _ in emit.results]
                 JobUtils.CreateJob._ips_p02_mediafiles_and_assets(params)
 
-        class asset_to_mediafile:
-            @staticmethod
-            def handler(emit: Job.Emitted):
-                mf: MediaFile = Exchange.object_decode(emit.results[0].data)
-                # Logger.warning('{}\n'.format(emit.dumps(indent=2)))
-                Logger.error('{}\n'.format(mf.dumps(indent=2)))
-                exit(1)
+        # class asset_to_mediafile:
+        #     @staticmethod
+        #     def handler(emit: Job.Emitted):
+        #         mf: MediaFile = Exchange.object_decode(emit.results[0].data)
+        #         Logger.error('{}\n'.format(mf.dumps(indent=2)))
+        #         exit(1)
 
         class ips_p03_slices:
             @staticmethod
             def handler(emit: Job.Emitted):
                 slices = emit.results[0].data
                 trig = emit.results[1].data
-                Logger.warning('{}\n'.format(emit.dumps(indent=2)))
                 JobUtils.CreateJob._ips_p03_slices(slices, trig)
 
         class ips_p03_audio_info:
             # TODO: we should bind captured silencedetect info to master asset/file
             @staticmethod
             def handler(emit: Job.Emitted):
-                Logger.warning('ips_p03_audio_info:\n{}\n'.format(emit.dumps(indent=2)))
+                # emit.results[0] = audio scan info: silencedetect, levels, etc
+                # emit.results[1] = {'asset': asset_id}
                 try:
-                    sd = emit.results[0]['data']['silencedetect']
+                    sd = emit.results[0]['data']['silencedetect'] if 'silencedetect' in emit.results[0]['data'] else []
+                    # astats =
                     asset_id = emit.results[-1]['data']['asset']
                     asset: Asset = DBInterface.Asset.get(asset_id)
                     if asset.audioStreams and len(asset.audioStreams):
                         collector: Collector = Collector(name='Audio info collector', guid=asset.audioStreams[0]['collector'])
-                        collector.collected = [json.dumps(_) for _ in sd]
+                        collector.audioResults.silencedetect = [json.dumps(_) for _ in sd]
                         DBInterface.Collector.set(collector)
-                    # r[0].data = audio scan info: silencedetect, levels, etc
-                    # r[1].data = {'asset': asset_id}
-                    # pass\
                 except Exception as e:
                     Logger.warning('ips_p03_audio_info: no silencedetect in results\n{}\n'.format(e))
+                Logger.critical('{}\n'.format(emit.dumps(indent=2)))
+                exit(1)
 
         class ips_p04_merge_assets:
             @staticmethod
             def handler(emit: Job.Emitted):
-                Logger.warning('ips_p04_merge_assets:\n{}\n'.format(emit.dumps(indent=2)))
                 asset_ids = emit.results[0].data['assets']
                 # Read assets
                 assets = DBInterface.Asset.records(asset_ids)
@@ -1161,11 +1171,10 @@ class JobUtils:
                         vstr: Asset.VideoStream = asset.videoStreams[0]
                         # This collector contains blackdetect data captured from slices
                         collector_v: Collector = DBInterface.Collector.get(vstr.collector)
-                        Logger.warning('\n{}\n'.format(collector_v.dumps(indent=2)))
                         # Merge sliced blacks
                         blacks = []
                         silences = []
-                        for ctd in collector_v.collected:
+                        for ctd in collector_v.sliceResults:
                             rec = json.loads(ctd)
                             if 'blackdetect' in rec:
                                 for bd in rec['blackdetect']:
@@ -1188,8 +1197,7 @@ class JobUtils:
                             astr = asset.audioStreams[0]
                             collector_a: Collector = DBInterface.Collector.get(astr.collector)
                             Logger.error('\n{}\n'.format(collector_a.dumps(indent=2)))
-                            # std = json.loads(collector_a.collected[0])
-                            for ctd in collector_a.collected:
+                            for ctd in collector_a.audioResults.silencedetect:
                                 rec = json.loads(ctd)
                                 if 'silence_start' in rec:
                                     silences.append([float(rec['silence_start']), -1])
@@ -1460,14 +1468,10 @@ class JobUtils:
                 r1: Job.Emitted.Result = emit.results[1]
                 Logger.info('{}\n'.format(r0))
                 Logger.info('{}\n'.format(r1))
-
-                # collector: Collector = Collector(guid=r1.data['collector_id'])
                 sr: Collector.SliceResult = Collector.SliceResult()
-
                 sr.update_json(r0.data)
                 sr.update_json(r1.data['slice'])
                 Logger.warning('{}\n'.format(sr))
-                # Logger.warning('{}\n'.format(emit))
                 DBInterface.Collector.append_slice_result(r1.data['collector_id'], sr)
 
     @staticmethod

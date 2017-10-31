@@ -4,7 +4,7 @@
 # from .record import Record
 from .asset import Asset
 from .interaction import Interaction
-from .job import Job
+from .job import Job, Task
 from .collector import Collector
 from .machine import Machine
 from .mediachunk import MediaChunk

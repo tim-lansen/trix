@@ -62,7 +62,7 @@ class ExecuteInternal:
             mf: MediaFile = MediaFile()
             mf.update_str(params[0])
             combined_info(mf, params[1])
-            Logger.critical('{}\n'.format(mf.dumps(indent=2)))
+            Logger.critical('{}\n...\n'.format(mf.dumps(indent=2)[:250]))
             out_final.put([mf])
 
     class create_mediafile_and_asset:
@@ -70,7 +70,7 @@ class ExecuteInternal:
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
             Get combined info, create mediafile and asset
-            :param params:            ['<url>']
+            :param params:            ['<url>', '<task id>']
             :param out_progress:      progress output queue
             :param out_final:         final output queue
             :param chain_error_event: error event
@@ -80,6 +80,8 @@ class ExecuteInternal:
             # tdir = Storage.storage_path('transit', None)
             # pdir = Storage.storage_path('preview', None)
             res = mediafile_asset_for_ingest(params[0])
+            if type(res) is dict:
+                res['task'] = params[1]
             out_final.put([res])
 
     class create_slices:
@@ -312,8 +314,8 @@ class ExecuteInternal:
                         if source_mediafiles_streams[idx][0] >= off[0]:
                             source_mediafiles_streams[idx][0] -= off[1]
                 # Debug
-                Logger.warning('\n{}\n'.format(audio_stream))
-                Logger.error('{}\n'.format(source_mediafiles_streams))
+                # Logger.warning('\n{}\n'.format(audio_stream))
+                # Logger.error('{}\n'.format(source_mediafiles_streams))
                 # Collect source files
                 join_inputs = 0
                 joined = set([])
@@ -420,7 +422,8 @@ def execute_chain(chain: Job.Info.Step.Chain,
                   out_result: CPLQueue,
                   chain_enter_event: Event,
                   chain_error_event: Event,
-                  chain_finish_event: Event):
+                  chain_finish_event: Event,
+                  output_is_read: Event):
     chain_enter_event.set()
     if chain_error_event.is_set():
         Logger.error('Error event is already set\n')
@@ -476,20 +479,23 @@ def execute_chain(chain: Job.Info.Step.Chain,
             # Skip finished process
             if p is None:
                 continue
+            s = stderr_handles[i]
+            try:
+                part = feeds.sub(b'\n', os.read(s, 65536)).decode()
+                text[i] += part
+                line = part.strip().rsplit('\n', 1)[-1]
+                if i == chain.progress.capture and len(line):
+                    cap = progress_parser(line)
+                    if cap:
+                        if 'time' in cap:
+                            out_progress.put(cap)
+                # if i == 0:
+                #     Logger.warning('{}\n'.format(part))
+            except OSError as e:
+                pass
+
             if p.poll() is None:
                 all_completed = False
-                s = stderr_handles[i]
-                try:
-                    part = feeds.sub(b'\n', os.read(s, 65536)).decode()
-                    text[i] += part
-                    line = part.strip().rsplit('\n', 1)[-1]
-                    if i == chain.progress.capture and len(line):
-                        cap = progress_parser(line)
-                        if cap:
-                            if 'time' in cap:
-                                out_progress.put(cap)
-                except OSError as e:
-                    pass
             else:
                 # Check retcode
                 rc = p.returncode
@@ -506,6 +512,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
     out_result.put(text)
     Logger.log('Chain finished\n')
     chain_finish_event.set()
+    output_is_read.wait(timeout=5)
     # for i, t in enumerate(text):
     #     sys.stderr.write('\x1b[0;1;{0}m{1}\n\x1b[0m'.format(29 + i, t))
     # print('Execute chain finished')
@@ -553,8 +560,8 @@ def test():
         for j, q in enumerate(test_output):
             c = q.flush()
             if c and j == test_chain.progress.capture:
-                p = parser(c)
-                Logger.log('{}\n'.format(p))
+                parsed = parser(c)
+                Logger.log('{}\n'.format(parsed))
             time.sleep(0.1)
 
     Logger.critical('Done\n')

@@ -8,15 +8,14 @@ from .record import *
 
 # Result is what Task or Job emits on completion
 
-class Task(JSONer):
+class Task(Record):
     class Type:
         PROXY = 1
         ARCHIVE = 2
         PRODUCTION = 3
 
     def __init__(self, task_info=None):
-        super().__init__()
-        self.guid = Guid()
+        super().__init__(name='', guid=0)
         self.jobs = None
         self.priority = None
         self.depends = None
@@ -43,6 +42,21 @@ class Task(JSONer):
     #         pipe.hset(job_id, 'phase', 'cue')
     #     pipe.execute()
     #     job_cue_signal(self.redis, self.guid)
+
+    # Table description
+    TABLE_SETUP = {
+        "relname": "trix_tasks",
+        "fields": [
+            ["jobs", "uuid[]"],
+            ["priority", "integer"],
+            ["depends", "uuid"]
+        ],
+        "fields_extra": [],
+        "creation": [
+            "GRANT INSERT, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {node};",
+            "GRANT INSERT, DELETE, SELECT, UPDATE, TRIGGER ON TABLE public.{relname} TO {backend};"
+        ]
+    }
 
 
 class Job(Record):
@@ -196,6 +210,15 @@ class Job(Record):
         FAILED = 6
         CANCELED = 7
 
+    class Priority:
+        OOPS = 1
+        NEED_IT_YESTERDAY = 2
+        URGENT = 3
+        WHY_NOT = 4
+        NORMAL = 5
+        DEFAULT = 6
+        IDLE = 7
+
     class Emitted(JSONer):
         class Result(JSONer):
             class Source(JSONer):
@@ -247,14 +270,19 @@ class Job(Record):
         def __init__(self, value=None):
             super().__init__(value=value)
 
-    def __init__(self, name=None, guid=None):
+    class Task(Guid):
+        def __init__(self, guid):
+            super().__init__(value=guid)
+
+    def __init__(self, name='', guid=0, task_id=0):
         super().__init__(name, guid)
+        self.task: self.Task = self.Task(task_id)
         self.type = None
         self.info: Job.Info = Job.Info()
         self.fails = 0
         self.offers = 0
         self.status = self.Status.NEW
-        self.priority = 0
+        self.priority = Job.Priority.DEFAULT
         # float: Overall job progress, 0.0 at start, 1.0 at end
         self.progress = 0.0
         # List of groups that this job belongs to
@@ -275,6 +303,7 @@ class Job(Record):
         # groupId: uid of group, it's being assigned when creating a group dependent job
         # depends: uid of group of jobs that must be finished before this job is started
         "fields": [
+            ["task", "uuid NOT NULL"],
             ["type", "integer NOT NULL"],
             ["info", "json NOT NULL"],
             ["fails", "integer NOT NULL"],
@@ -296,7 +325,7 @@ class Job(Record):
 
 
 def test() -> Job:
-    job: Job = Job()
+    job: Job = Job('Test job: downmix', 0, 0)
     job_obj = {
         "guid": str(uuid.uuid4()),
         "name": "Test job: downmix",

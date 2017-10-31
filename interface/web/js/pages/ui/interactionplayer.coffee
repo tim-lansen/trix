@@ -48,7 +48,6 @@ class InteractionPlayer
         @timeBend = 1.0
         @timeOffset = 0.0
         @updateDelay()
-#        @update_counter = 10
         @sync_counter = 1
         @updateInterval = setInterval((->
             @updateTime()
@@ -63,9 +62,9 @@ class InteractionPlayer
 
     play: ->
         console.log('player.play()')
-        @video.play()
         @audio_inter[@LI].node.connect @interaction_channelMerger, 0, 0
         @audio_inter[@RI].node.connect @interaction_channelMerger, 0, 1
+        @video.play()
         @audio_inter[@LI].audio.play()
         @audio_inter[@RI].audio.play()
         @audio_inter[@RI].audio.currentTime = @audio_inter[@LI].audio.currentTime

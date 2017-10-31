@@ -26,6 +26,7 @@ from .parsers import PARSERS, parse_text, timecode_to_float
 from .execute_chain import execute_chain
 from .cross_process_lossy_queue import CPLQueue
 from .job_utils import JobUtils
+from .exchange import Exchange
 
 from modules.models.mediafile import MediaFile
 from .combined_info import combined_info
@@ -34,15 +35,15 @@ from .combined_info import combined_info
 class JobExecutor:
     class Execution:
 
-        def __init__(self):
-            self.job: Job = None
+        def __init__(self, job=None, finals=24):
+            self.job: Job = job
             self.progress_output = CPLQueue(5)
             # This queue is used to pass results of internal procedures from execute_chain
             # Note that this king of job may have only 1 step with 1 single-proc chain
             # self.final = CPLQueue(2)
-            self.finals: List[CPLQueue] = []
+            self.finals = [CPLQueue(2) for _ in range(finals)]
             self.fmap = {}
-            self.fmap_out = Queue()
+            self.fmap_out = CPLQueue(1)
             self.error = Event()
             self.finish = Event()
             self.running = Event()
@@ -52,39 +53,44 @@ class JobExecutor:
         def _hash(si, ci, pi):
             return '{:02d}.{:02d}.{:02d}'.format(si, ci, pi)
 
-        def final_register(self, step, chain, proc):
+        def final_register(self, step, chain, proc, fmap):
             hash = self._hash(step, chain, proc)
             self.fmap[hash] = None
+            fmap[hash] = None
 
-        def final_set(self, step, chain, proc, obj):
+        def final_set(self, step, chain, proc, obj, fmap=None):
             hash = self._hash(step, chain, proc)
             if hash in self.fmap:
-                Logger.critical('final_set: {} => {}\n'.format(hash, obj))
-                self.fmap[hash] = obj
+                Logger.info('final_set: {} => {}\n...\n'.format(hash, str(obj)[:250]))
+                if fmap:
+                    fmap[hash] = obj
+                else:
+                    self.fmap[hash] = obj
             else:
                 Logger.critical('final_set: no hash {} in fmap\n'.format(hash))
 
         def final_get(self, step, chain, proc):
             hash = self._hash(step, chain, proc)
             obj = self.fmap[hash] if hash in self.fmap else None
-            Logger.warning('final_get: fmap[{}] = {}\n'.format(hash, obj))
+            Logger.log('final_get: fmap[{}] = {}\n...\n'.format(hash, str(obj)[:250]))
             return obj
 
-        def reset(self, finals_count=0):
+        def reset(self):
             self.progress_output.flush()
             for f in self.finals:
                 f.flush()
-            if len(self.finals) < finals_count:
-                self.finals += [CPLQueue(2) for _ in range(finals_count - len(self.finals))]
+            # if len(self.finals) < finals_count:
+            #     self.finals += [CPLQueue(2) for _ in range(finals_count - len(self.finals))]
             self.fmap.clear()
             self.error.clear()
             self.finish.clear()
             self.running.clear()
             self.force_exit.clear()
-            # self.job = None
+            self.job = None
+            self.fmap_out.flush()
 
     def __init__(self):
-        self.exec = JobExecutor.Execution()
+        self.exec: JobExecutor.Execution = JobExecutor.Execution()
         self.process: Process = None
         self._last_captured_progress = 0.0
 
@@ -97,11 +103,12 @@ class JobExecutor:
         #     return
         chains_enter = Event()
         chains_error = Event()
+        fmap = {}
         try:
             Logger.info("Starting job {}\n".format(ex.job.name))
             # Register finals
             for r in ex.job.emitted.results:
-                ex.final_register(r.source.step, r.source.chain, r.source.proc)
+                ex.final_register(r.source.step, r.source.chain, r.source.proc, fmap)
             # Prepare paths
             for path in ex.job.info.paths:
                 if os.path.isfile(path):
@@ -116,8 +123,9 @@ class JobExecutor:
                     os.mkfifo(pipe)
                 step_queues = [CPLQueue(5) for _ in step.chains]
                 # monitors: List[Job.Info.Step.Chain.Progress] = []
-                threads: List[Process] = []
-                finished: List[Event] = []
+                # threads: List[Process] = []
+                # finished: List[Event] = []
+                runs = []
 
                 # Initialize and start step's chains execution, each chain in own thread
                 for ci, chain in enumerate(step.chains):
@@ -125,21 +133,32 @@ class JobExecutor:
                     # if len(threads):
                     #     time.sleep(1.0)
                     chain_finished = Event()
-                    finished.append(chain_finished)
+                    output_read = Event()
+
+                    # finished.append(chain_finished)
                     q_fin = ex.finals[ci]
                     # queues = [CPLQueue(5) for _ in chain.procs]
                     # EDIT: capture only proc set as progress
                     q_pro = step_queues[ci]
-                    t = Process(target=execute_chain, args=(chain, q_pro, q_fin, chains_enter, chains_error, chain_finished))
+                    t = Process(target=execute_chain, args=(chain, q_pro, q_fin, chains_enter, chains_error, chain_finished, output_read))
+
                     t.start()
-                    threads.append(t)
+                    runs.append({
+                        'process': t,
+                        'finished': chain_finished,
+                        'output_read': output_read
+                    })
+                    # threads.append(t)
                     chains_enter.wait()
                     chains_enter.clear()
 
                 # Wait step to finish
                 while True:
-                    alive = [t.is_alive() for t in threads]
-                    finid = [_.is_set() for _ in finished]
+                    # alive = [t.is_alive() for t in threads]
+                    # finid = [_.is_set() for _ in finished]
+                    alive = [_['process'].is_alive() for _ in runs]
+                    finid = [_['finished'].is_set() for _ in runs]
+
                     if chains_error.is_set() or alive.count(True) == 0 or finid.count(False) == 0:
                         break
                     # Compile info from chains
@@ -157,7 +176,7 @@ class JobExecutor:
                     ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, job_progress))
                     time.sleep(0.5)
 
-                Logger.warning('_process: exit loop\n')
+                Logger.info('_process: exit loop\n')
                 # Step is finished, cleaning up
                 for chain in step.chains:
                     chain.progress.pos = 1.0
@@ -172,12 +191,22 @@ class JobExecutor:
                 for ci in range(len(step.chains)):
                     q_fin = ex.finals[ci]
                     try:
-                        cap = q_fin.get(timeout=5)
+                        cap = q_fin.get(timeout=2)
                         for pi, text in enumerate(cap):
-                            ex.final_set(ai, ci, pi, text)
+                            ex.final_set(ai, ci, pi, text, fmap)
                     except Exception as e:
-                        Logger.critical('{}\n'.format(e))
-                        Logger.traceback()
+                        Logger.warning('Collecting finals: timeout in step {} chain {}\n'.format(ai, ci))
+                        # Logger.traceback()
+                    runs[ci]['output_read'].set()
+                for _ in range(5):
+                    alive = [_['process'].is_alive() for _ in runs]
+                    if alive.count(True) == 0:
+                        break
+                    time.sleep(1.0)
+                for ci, r in enumerate(runs):
+                    if r['process'].is_alive():
+                        Logger.critical("Terminating chain {}, step {}\n".format(ci, ai))
+                        r['process'].terminate()
                 Logger.info("Step {} finished\n".format(ai))
                 ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, (ai + 1.0)/len(ex.job.info.steps)))
             Logger.log("Job finished\n")
@@ -186,9 +215,9 @@ class JobExecutor:
             Logger.traceback()
             Logger.warning('{}\n'.format(ex.job.dumps()))
             ex.error.set()
+        Logger.log('Put fmap: {}\n...\n'.format(str(fmap)[:250]))
+        ex.fmap_out.put(fmap)
         ex.running.clear()
-        # Logger.log('{}\n'.format(ex.fmap))
-        ex.fmap_out.put(ex.fmap)
         # Set finish event only if no error
         if ex.error.is_set():
             Logger.error('JobExecutor._process finished with error\n')
@@ -208,18 +237,24 @@ class JobExecutor:
             Logger.info("Trigger job results\n")
             JobUtils.process_results(self.exec.job)
             return len(self.exec.job.emitted.results)
-        self.exec.fmap.clear()
-        try:
-            self.exec.fmap = self.exec.fmap_out.get()
-        except Exception as e:
-            Logger.critical('{}\n'.format(e))
-            Logger.traceback()
+        # self.exec.fmap.clear()
+        # fmap = None
+        # while True:
+        #     try:
+        #         fmap = self.exec.fmap_out.get(timeout=3.0)
+        #         Logger.info('Get fmap: {}\n...\n'.format(str(fmap)[:250]))
+        #     except Exception as e:
+        #         Logger.critical('Failed to get fmap {}\n'.format(e))
+        #         # Logger.traceback()
+        #         break
+        self.exec.fmap = self.exec.fmap_out.flush()
         rc = 0
         for idx, result in enumerate(self.exec.job.emitted.results):
             # result.source may be None is case of pre-defined data
             # Logger.critical('Result #{}: {} => '.format(idx, result))
             if result.source.step >= 0:
                 text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
+                Logger.warning('{}\n'.format(text))
                 if result.source.parser is None:
                     result.data = text
                 else:
@@ -228,6 +263,7 @@ class JobExecutor:
             # Logger.info('{}\n'.format(result.dumps(indent=2)))
             rc += 1
         JobUtils.process_results(self.exec.job)
+        self.exec.reset()
         return rc
 
     def working(self):
@@ -249,7 +285,6 @@ class JobExecutor:
             self.process = None
 
         self.exec.job = job
-        self.exec.reset(job.info.max_parallel_chains())
 
         # If job is trigger type, do not start it
         if job.type & Job.Type.TRIGGER:
@@ -282,7 +317,7 @@ class JobExecutor:
 
 
 def test():
-    job: Job = Job()
+    job: Job = Job('Test job: downmix', 0, 0)
     job.update_json({
         "guid": str(uuid.uuid4()),
         "name": "Test job: downmix",
@@ -354,7 +389,7 @@ def test():
         # Listen to individual channel, timeout-blocking when finishing
         if job_executor.exec.error.is_set():
             Logger.critical('job {} failed\n'.format(job.guid))
-            job_executor.exec.reset()
+            # job_executor.exec.reset()
             break
         if job_executor.exec.finish.is_set():
             Logger.info('job {} finished\n'.format(job.guid))
@@ -369,7 +404,7 @@ def test():
 
 
 def test_combined_info():
-    job: Job = Job()
+    job: Job = Job('Get combined info', 0, 0)
     job.update_json({
         "guid": str(uuid.uuid4()),
         "name": "Get combined info",
@@ -421,7 +456,7 @@ def test_combined_info():
         # Listen to individual channel, timeout-blocking when finishing
         if job_executor.exec.error.is_set():
             Logger.critical('job {} failed\n'.format(job.guid))
-            job_executor.exec.reset()
+            # job_executor.exec.reset()
             break
         if job_executor.exec.finish.is_set():
             Logger.info('job {} finished\n'.format(job.guid))

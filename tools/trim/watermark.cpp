@@ -3,11 +3,6 @@
 
 #include "watermark.h"
 
-#ifdef WINDOWS
-HANDLE stdIn = GetStdHandle(STD_INPUT_HANDLE), stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-#else
-int stdIn = 0, stdOut = 1;
-#endif
 
 enum Direction
 {

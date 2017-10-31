@@ -277,6 +277,22 @@ void CRCPattern::dif_frame()
 }
 
 
+bool CRCPattern::is_scene()
+{
+    if(m_frame <= m_frame_buffer.m_capacity)
+        return false;
+    u_int64_t d0 = dif[(m_frame - m_pattern_length) % m_frame_buffer.m_capacity];
+    d0 -= d0 >> 2;
+    for(int i = m_frame - m_pattern_length + 1; i < m_frame - m_pattern_length + m_scenedetect_length; ++i) {
+        u_int64_t dx = dif[i % m_frame_buffer.m_capacity];
+        if(dx > d0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
 void CRCPattern::crc_frame()
 {
     // Calculate CRCs for given frame number
@@ -291,6 +307,7 @@ void CRCPattern::crc_frame()
 #endif
     m_frame++;
 }
+
 
 bool CRCPattern::data_lock()
 {

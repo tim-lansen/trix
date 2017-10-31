@@ -108,6 +108,7 @@ public:
     int data_write_out(char* manifest_file);
     void dif_frame();
     void crc_frame();
+    bool is_scene();
     unsigned int get_frame_crc(u_int i)
     {
         return crc[i];

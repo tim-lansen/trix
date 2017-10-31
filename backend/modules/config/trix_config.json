@@ -25,6 +25,7 @@
       "MediaFile": {},
       "MediaChunk": {},
       "Job": {},
+      "Task": {},
       "Node": {},
       "Collector": {},
       "Machine": {},

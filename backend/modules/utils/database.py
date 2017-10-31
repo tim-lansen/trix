@@ -18,7 +18,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from .log_console import Logger, tracer
 from .types import Guid
 from modules.config import TRIX_CONFIG
-from modules.models import Asset, Interaction, Job, MediaChunk, MediaFile, Machine, Node, Record, Collector
+from modules.models import Asset, Interaction, Job, Task, MediaChunk, MediaFile, Machine, Node, Record, Collector
 
 
 # Establish a connection to db using args
@@ -533,7 +533,7 @@ class DBInterface:
 
         @staticmethod
         def set_str(mediaFile: str):
-            mf = MediaFile(guid=None)
+            mf: MediaFile = MediaFile(guid=None)
             mf.update_str(mediaFile)
             return DBInterface.register_record(mf, user=DBInterface.Machine.USER)
 
@@ -541,7 +541,7 @@ class DBInterface:
         def update_videoTrack(mf: MediaFile, index):
             request = "UPDATE {table} SET videoTracks[{index}]='{vtrack}' WHERE guid='{guid}'".format(
                 table=TRIX_CONFIG.dBase.tables['MediaFile']['relname'],
-                index=index,
+                index=index + 1,
                 vtrack=mf.videoTracks[index].dumps(),
                 guid=mf.guid
             )
@@ -719,6 +719,21 @@ class DBInterface:
         def set_status(uid, status):
             return DBInterface.Job.set_fields(uid, {'status': status})
 
+    class Task:
+        USER = 'node'
+
+        @staticmethod
+        def get(uid) -> Task:
+            return DBInterface.get_record_to_class('Task', uid)
+
+        @staticmethod
+        def register(task: Task):
+            return DBInterface.register_record(task, user=DBInterface.Task.USER)
+
+        @staticmethod
+        def delete(uid):
+            return DBInterface.delete_records('Task', [uid])
+
     class Collector:
         USER = 'node'
 
@@ -728,13 +743,13 @@ class DBInterface:
 
         @staticmethod
         def set(collector: Collector):
-            request = "INSERT INTO trix_collector (guid,name,ctime,mtime,collected) VALUES ('{guid}','{name}',localtimestamp,localtimestamp,ARRAY[{var}]::text[]);".format(
-                guid=str(collector.guid),
-                name=collector.name,
-                var=','.join(["'{}'".format(_) for _ in collector.collected])
-            )
-            return DBInterface.request_db(request)
-            # return DBInterface.register_record(collector, user=DBInterface.Collector.USER)
+            # request = "INSERT INTO trix_collector (guid,name,ctime,mtime,collected) VALUES ('{guid}','{name}',localtimestamp,localtimestamp,ARRAY[{var}]::text[]);".format(
+            #     guid=str(collector.guid),
+            #     name=collector.name,
+            #     var=','.join(["'{}'".format(_) for _ in collector.collected])
+            # )
+            # return DBInterface.request_db(request)
+            return DBInterface.register_record(collector, user=DBInterface.Collector.USER)
 
         @staticmethod
         def register(collector_name: str, collector_id: str):
@@ -744,7 +759,7 @@ class DBInterface:
         # Temporary use text mode
         @staticmethod
         def append_slice_result(collector_id: str, slice_result: Collector.SliceResult):
-            request = "UPDATE trix_collector SET collected = collected || '{sr}'::text WHERE guid='{id}';".format(
+            request = "UPDATE trix_collector SET sliceResults = sliceResults || '{sr}'::text WHERE guid='{id}';".format(
                 sr=slice_result.dumps(),
                 id=collector_id
             )
