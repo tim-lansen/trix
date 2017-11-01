@@ -196,7 +196,6 @@ class JobExecutor:
                             ex.final_set(ai, ci, pi, text, fmap)
                     except Exception as e:
                         Logger.warning('Collecting finals: timeout in step {} chain {}\n'.format(ai, ci))
-                        # Logger.traceback()
                     runs[ci]['output_read'].set()
                 for _ in range(5):
                     alive = [_['process'].is_alive() for _ in runs]
@@ -254,7 +253,7 @@ class JobExecutor:
             # Logger.critical('Result #{}: {} => '.format(idx, result))
             if result.source.step >= 0:
                 text = self.exec.final_get(result.source.step, result.source.chain, result.source.proc)
-                Logger.warning('{}\n'.format(text))
+                # Logger.warning('{}\n'.format(text))
                 if result.source.parser is None:
                     result.data = text
                 else:

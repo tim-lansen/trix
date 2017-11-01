@@ -16,7 +16,7 @@ from modules.models.interaction import Interaction
 from modules.utils.database import DBInterface
 from .log_console import Logger, tracer
 from .storage import Storage
-from .parsers import Parsers
+from .parsers import astats_to_model, Parsers
 from .types import Guid, Rational
 from modules.models.collector import Collector
 from .exchange import Exchange
@@ -1143,19 +1143,23 @@ class JobUtils:
             def handler(emit: Job.Emitted):
                 # emit.results[0] = audio scan info: silencedetect, levels, etc
                 # emit.results[1] = {'asset': asset_id}
-                try:
-                    sd = emit.results[0]['data']['silencedetect'] if 'silencedetect' in emit.results[0]['data'] else []
-                    # astats =
-                    asset_id = emit.results[-1]['data']['asset']
-                    asset: Asset = DBInterface.Asset.get(asset_id)
-                    if asset.audioStreams and len(asset.audioStreams):
-                        collector: Collector = Collector(name='Audio info collector', guid=asset.audioStreams[0]['collector'])
-                        collector.audioResults.silencedetect = [json.dumps(_) for _ in sd]
+
+                sd = emit.results[0]['data']['silencedetect'] if 'silencedetect' in emit.results[0]['data'] else []
+                astats = astats_to_model(emit.results[0]['data']['astats']) if 'astats' in emit.results[0]['data'] else []
+
+                asset_id = emit.results[-1]['data']['asset']
+                asset: Asset = DBInterface.Asset.get(asset_id)
+                if asset.audioStreams and len(asset.audioStreams):
+                    if len(asset.audioStreams) != len(astats):
+                        Logger.error('astats and audioStreams count differs!\n')
+                    for i, astr in enumerate(asset.audioStreams):
+                        cguid = astr['collector']
+                        collector: Collector = Collector(name='Audio info #{}'.format(i), guid=cguid)
+                        if i == 0:
+                            collector.audioResults.silencedetect = [json.dumps(_) for _ in sd]
+                        collector.audioResults.astats = astats[i]
                         DBInterface.Collector.set(collector)
-                except Exception as e:
-                    Logger.warning('ips_p03_audio_info: no silencedetect in results\n{}\n'.format(e))
-                Logger.critical('{}\n'.format(emit.dumps(indent=2)))
-                exit(1)
+                # exit(1)
 
         class ips_p04_merge_assets:
             @staticmethod
@@ -1463,6 +1467,7 @@ class JobUtils:
                 #     'collector_id': trig['collector_id']
                 # }
                 r0: Job.Emitted.Result = emit.results[0]
+                # showinfo is filter with index
                 if 'showinfo' in r0.data:
                     r0.data.pop('showinfo')
                 r1: Job.Emitted.Result = emit.results[1]

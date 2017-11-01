@@ -16,6 +16,9 @@ HANDLE stdIn = GetStdHandle(STD_INPUT_HANDLE), stdOut = GetStdHandle(STD_OUTPUT_
 int stdIn = 0, stdOut = 1;
 #endif
 
+#include "watermark.h"
+
+Watermark *gp_Watermark = 0;
 
 int g_PipeBufferSize = 0;
 AVPixelFormat g_PixelFormat = AV_PIX_FMT_NONE;
@@ -44,7 +47,8 @@ typedef enum {
 }OPERATION;
 
 bool g_Log2console = true;
-bool g_Jitter = true;
+bool g_Jitter = false;
+
 
 
 void clog(_IO_FILE *std, const char *format, ...)
@@ -396,6 +400,7 @@ int parse_params_run(int argc, char **argv)
 
     char *pin = 0;
     char *pout = 0;
+    char *watermark = 0;
     char *output = NULL;
 
     for (int i = 2; i < argc; i++)
@@ -427,8 +432,14 @@ int parse_params_run(int argc, char **argv)
             }
             pout = argv[++i];
         }
-        else if(!strcmp("--nojitter", argv[i])) {
-            g_Jitter = false;
+        else if (!strcmp("--watermark", argv[i])) {
+            if(watermark) {
+                clog(stderr, "ERROR: Duplicated option (%s)\n\n%s", argv[i], Usage_String);
+                return -1;
+            }
+            watermark = argv[++i];
+        } else if(!strcmp("--jitter", argv[i])) {
+            g_Jitter = true;
         }
         else if (!(strcmp("-s", argv[i]) && strcmp("--size", argv[i])))
         {

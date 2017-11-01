@@ -27,7 +27,7 @@ class Collector(Record):
             self.silencedetect = []
             # Astats is captured for every audio track
             #
-            self.astats = []
+            self.astats = {}
 
     def __init__(self, name='', guid=None):
         super().__init__(name=name, guid=guid)
@@ -40,7 +40,7 @@ class Collector(Record):
         "relname": "trix_collector",
         "fields": [
             ["sliceResults", "text[]"],
-            ["audioResults", "text[]"]
+            ["audioResults", "json"]
         ],
         "fields_extra": [],
         "creation": [

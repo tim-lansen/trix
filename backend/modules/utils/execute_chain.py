@@ -548,7 +548,7 @@ def test():
     test_chain_enter.clear()
 
     def dummy_parser(c):
-        Logger.warning('{}\n'.format(c))
+        Logger.warning('DUMMY PARSER: {}\n'.format(str(c)[:250]))
         return None
 
     parser = dummy_parser if test_chain.progress.parser is None or test_chain.progress.parser not in PARSERS else PARSERS[test_chain.progress.parser]

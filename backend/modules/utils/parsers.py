@@ -46,7 +46,7 @@ class Parsers:
     # Brackets selector
     PTR = re.compile(r'\[[^@^\[\]]+\]')
     # Extract name
-    PATTERN_PARSE_NAME = re.compile(r'^\[(?:Parsed_)?(\w+?)(?:_\d)? @ .+\] ')
+    PATTERN_PARSE_NAME = re.compile(r'^\[(?:Parsed_)?(\w+?)(?:_(\d+))? @ .+\] ')
     # Extract info
     PATTERN_PARSE_FILTER = re.compile(r'\s+([\w\s]+?[\w]+?)\s*[:=]\s*(-?[,:\.\w\[\]\(\)]+)')
     # For example
@@ -70,52 +70,59 @@ class Parsers:
         # Extract name
         capture = Parsers.PATTERN_PARSE_NAME.findall(line)
         if len(capture) == 1:
-            filter_name = capture[0]
+            cap = capture[0]
+            filter_name = cap[0]
+            filter_index = None if len(cap[1]) == 0 else int(cap[1])
             # Transform '... xxx:[aaa bbb ccc] ...' => '... xxx:[aaa,bbb,ccc] ...'
             lt = Parsers.PTR.sub(lambda m: Parsers.PSP.sub(',', m.group()), Parsers.FIX.sub(']', line))
             # Capture info
             capture = Parsers.PATTERN_PARSE_FILTER.findall(lt)
             if len(capture) > 0:
-                return filter_name, capture
-        return None, None
+                return filter_name, filter_index, capture
+        return None, None, None
 
     @staticmethod
     def parse_auto(line):
         """
         Auto-select handler
         :param line: a string to parse
-        :return: tuple (<handler>, <handler output>)
+        :return: tuple (<filter>, <filter index>, <filter output>)
         """
         if type(line) is bytes:
             line = line.decode()
         if line.startswith('frame=') or line.startswith('size='):
             fc = Parsers.ffmpeg_progress(line)
             if fc:
-                return 'progress', fc
-            return None, None
-        fn, fc = Parsers.parse_line(line.strip())
-        if fn:
+                return 'progress', fc, None
+            return None, None, None
+        fn, fi, fc = Parsers.parse_line(line.strip())
+        if fn is not None:
             if fn in PARSERS_VECTORS:
-                return fn, PARSERS_VECTORS[fn](fc)
+                return fn, fi, PARSERS_VECTORS[fn](fc)
             else:
-                return fn, dict(fc)
-        return None, None
+                return fn, fi, dict(fc)
+        return None, None, None
 
     @staticmethod
     def ffmpeg_auto_text(text):
         parsed = {}
         for line in split_iter(text, '\n'):
-            fn, fc = Parsers.parse_line(line.strip())
-            if fn:
+            fn, fi, fc = Parsers.parse_line(line.strip())
+            if fn is not None:
                 if fn not in parsed:
-                    parsed[fn] = []
-                parsed[fn].append(dict(fc))
+                    parsed[fn] = [] if fi is None else {}
+                if fi is None:
+                    parsed[fn].append(dict(fc))
+                else:
+                    if fi not in parsed[fn]:
+                        parsed[fn][fi] = []
+                    parsed[fn][fi].append(dict(fc))
         return parsed
 
     @staticmethod
     def ffmpeg_cropdetect(cap):
         if type(cap) is str:
-            fn, cap = Parsers.parse_line(cap)
+            fn, fi, cap = Parsers.parse_line(cap)
             if fn != 'cropdetect':
                 return None
         cap = dict(cap)
@@ -180,4 +187,24 @@ def parse_text(text, parser):
             if p:
                 res.append(p)
     return res
+
+
+def astats_to_model(ast):
+    # ast is a captured stream
+    obj = []
+    for idx in ast:
+        channel = None
+        track = {}
+        for rec in ast[idx]:
+            key = list(rec.keys())[0]
+            if key == 'Channel':
+                channel = rec[key]
+                track[channel] = {}
+                continue
+            if key in track[channel]:
+                channel = 'all'
+                track[channel] = {}
+            track[channel][key] = rec[key]
+        obj.append(track)
+    return obj
 
