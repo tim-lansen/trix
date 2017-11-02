@@ -508,13 +508,14 @@ int parse_params_run(int argc, char **argv)
     }*/
 
     // Check params
-    if (!(width && height))
+    if (!(width && height && g_PixelFormat != AV_PIX_FMT_NONE))
     {
         fprintf(stderr, "ERROR: Zero frame size\n");
         exit(-1);
     }
     if(!output)
         g_Log2console = false;
+
     // Get pipe buffer size and calculate frame size
 #ifdef WINDOWS
     g_PipeBufferSize = 0x8000;
@@ -528,6 +529,10 @@ int parse_params_run(int argc, char **argv)
     clog(stderr, "Frame size (align=%d): %d (0x%X)\n", round, frame_size, frame_size);
     FrameBuffer::init_frame_size(frame_size);
     
+    if(watermark) {
+        gp_Watermark = new Watermark(width, height, g_PixelFormat, watermark, strlen(watermark));
+    }
+
     if (op == op_scan)
     {
         return scan(frame_start, pattern_length, scene_size, output);
@@ -540,6 +545,7 @@ int parse_params_run(int argc, char **argv)
     {
         result = test(pin);
     }
+    delete gp_Watermark;
     return result;
 }
 

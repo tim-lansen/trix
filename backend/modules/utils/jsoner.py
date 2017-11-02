@@ -220,7 +220,10 @@ class JSONer:
                         # Create new objects, initialize and store to list
                         for v in val:
                             obj = subclass()
-                            obj.update_json(v)
+                            if type(v) is str:
+                                obj.update_str(v)
+                            else:
+                                obj.update_json(v)
                             self.__dict__[name].append(obj)
                         return
                     if is_root:
@@ -277,6 +280,7 @@ class JSONer:
                     self._update_member(k, val)
                 except Exception as e:
                     Logger.error('Failed to update member {} with {}\nError: {}\n'.format(k, val, e))
+                    Logger.traceback()
                     # if type(val) is dict:
                     #     self.__dict__[k] = val
                     # exit(1)

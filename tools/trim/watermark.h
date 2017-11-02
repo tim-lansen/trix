@@ -23,7 +23,7 @@ private:
 class Watermark
 {
 public:
-    Watermark(uint32_t width, uint32_t height, AVPixelFormat fmt, uint8_t *msg, uint32_t msg_size);
+    Watermark(uint32_t width, uint32_t height, AVPixelFormat fmt, void *msg, uint32_t msg_size);
     Watermark::~Watermark();
     void apply(void *dst)
     {

@@ -1179,10 +1179,11 @@ class JobUtils:
                         blacks = []
                         silences = []
                         for ctd in collector_v.sliceResults:
-                            rec = json.loads(ctd)
-                            if 'blackdetect' in rec:
-                                for bd in rec['blackdetect']:
-                                    blacks.append([[rec['start'] + float(bd['black_start']), -1], [rec['start'] + float(bd['black_end']), 1]])
+                            # rec = json.loads(ctd)
+                            # if 'blackdetect' in rec:
+                            if ctd.blackdetect:
+                                for bd in ctd.blackdetect:
+                                    blacks.append([[ctd.start + float(bd['black_start']), -1], [ctd.start + float(bd['black_end']), 1]])
                         blacks.sort()
                         # Merge overlapped blackdetects
                         blacks_filtered = []

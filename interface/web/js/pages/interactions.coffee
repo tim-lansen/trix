@@ -560,10 +560,13 @@ class InteractionsPage
         # Map media files
         mf_map = {}
         mfex_map = {}
+#        coll_map = {}
         for mf in inter.assetIn.mediaFiles
             mf_map[mf.guid] = mf
         for mf in inter.assetIn.mediaFilesExtra
             mfex_map[mf.guid] = mf
+#        for coll in inter.assetIn.collectors
+#            coll_map[coll.guid] = coll
 
         # Compile channel map, copy preview urls
         # Abs channel index to track:channel map

@@ -5,6 +5,13 @@
 
 #include "watermark.h"
 
+void clog(_IO_FILE *std, const char *format, ...);
+
+std::unordered_map<uint8_t, char> g_MapFormToB64symbol;
+//std::vector<uint8_t> g_Forms;
+std::unordered_map<char, uint8_t> g_MapB64symbolToForm;
+
+const char *g_Base64symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/[]()<>?.";
 
 enum Direction
 {
@@ -31,19 +38,36 @@ void generate_overlay_8bit(uint8_t *plane, uint32_t width, uint32_t height, uint
 }
 
 
-// Generate map (for decode) and vector (for encode)
-void generate_map(std::unordered_map <uint8_t, uint8_t> &m, std::vector<uint8_t> &v)
+// Generate map for decode, and vector (for encode)
+void generate_forms()
 {
-    m.clear();
-    v.clear();
+    size_t symbols_count = strlen(g_Base64symbols);
     uint8_t code = 0;
     for(uint8_t i0 = 0; i0 < 6; ++i0) {
         for(uint8_t i1 = i0 + 1; i1 < 7; ++i1) {
             for(uint8_t i2 = i1 + 1; i2 < 8; ++i2) {
                 // form is a designation of 3-directional blot
                 uint8_t form = (1 << i0) | (1 << i1) | (1 << i2);
-                m[form] = v.size();
-                v.push_back(form);
+                char b64symbol = g_Base64symbols[g_MapB64symbolToForm.size()];
+                g_MapB64symbolToForm[b64symbol] = form;
+                g_MapFormToB64symbol[form] = b64symbol;
+                if(g_MapB64symbolToForm.size() >= symbols_count)
+                    return;
+            }
+        }
+    }
+    for(uint8_t i0 = 0; i0 < 5; ++i0) {
+        for(uint8_t i1 = i0 + 1; i1 < 6; ++i1) {
+            for(uint8_t i2 = i1 + 1; i2 < 7; ++i2) {
+                for(uint8_t i3 = i2 + 1; i3 < 8; ++i3) {
+                    // now form is a designation of 4-directional blot
+                    uint8_t form = (1 << i0) | (1 << i1) | (1 << i2) | (1 << i3);
+                    char b64symbol = g_Base64symbols[g_MapB64symbolToForm.size()];
+                    g_MapB64symbolToForm[b64symbol] = form;
+                    g_MapFormToB64symbol[form] = b64symbol;
+                    if(g_MapB64symbolToForm.size() >= symbols_count)
+                        return;
+                }
             }
         }
     }
@@ -106,7 +130,7 @@ Overlay::~Overlay()
 }
 
 
-Watermark::Watermark(uint32_t width, uint32_t height, AVPixelFormat fmt, uint8_t *msg, uint32_t msg_size)
+Watermark::Watermark(uint32_t width, uint32_t height, AVPixelFormat fmt, void *msg, uint32_t msg_size)
 {
     mp_overlay = new Overlay(width, height, fmt, 2);
     mp_message = (uint8_t*)malloc(4 * msg_size);
@@ -114,6 +138,8 @@ Watermark::Watermark(uint32_t width, uint32_t height, AVPixelFormat fmt, uint8_t
     m_message_size = msg_size;
     memcpy(mp_message, msg, msg_size);
     m_encoded_message_size = encode_message(mp_encoded_message, mp_message, msg_size);
+    generate_forms();
+    clog(stderr, "Generated %d forms\n", g_MapB64symbolToForm.size());
 }
 
 Watermark::~Watermark()

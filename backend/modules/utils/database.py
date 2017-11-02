@@ -752,6 +752,14 @@ class DBInterface:
             return DBInterface.register_record(collector, user=DBInterface.Collector.USER)
 
         @staticmethod
+        def records(uids):
+            fields = TRIX_CONFIG.dBase.fields('Collector')
+            condition = ["guid=ANY('{{{}}}'::uuid[])".format(','.join(uids))]
+            return DBInterface.get_records('Collector',
+                                           fields=fields,
+                                           cond=condition)
+
+        @staticmethod
         def register(collector_name: str, collector_id: str):
             collector: Collector = Collector(name=collector_name, guid=collector_id)
             return DBInterface.register_record(collector, user=DBInterface.Collector.USER)

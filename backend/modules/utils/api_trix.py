@@ -166,7 +166,8 @@ class ApiTrix(ApiClassBase):
                 @staticmethod
                 def handler(*args):
                     params = args[0]
-                    asset = DBInterface.Asset.get_dict(params['guid'])
+                    asset: Asset = DBInterface.Asset.get_dict(params['guid'])
+                    # Collect mediafiles
                     media_files = []
                     media_files_extra = []
                     for guid in asset['mediaFiles']:
@@ -180,6 +181,23 @@ class ApiTrix(ApiClassBase):
                             media_files_extra.append(json.loads(mf.dumps()))
                     asset['mediaFiles'] = media_files
                     asset['mediaFilesExtra'] = media_files_extra
+                    # Collect collectors, add them to the asset
+                    collectors = []
+
+                    if 'videoStreams' in asset and type(asset['videoStreams']) is list:
+                        collectors += DBInterface.Collector.records([_['collector'] for _ in asset['videoStreams'] if 'collector' in _])
+                    if 'audioStreams' in asset and type(asset['audioStreams']) is list:
+                        collectors += DBInterface.Collector.records([_['collector'] for _ in asset['audioStreams'] if 'collector' in _])
+                    if 'subStreams' in asset and type(asset['subStreams']) is list:
+                        collectors += DBInterface.Collector.records([_['collector'] for _ in asset['subStreams'] if 'collector' in _])
+                    cmap = {}
+                    for c in collectors:
+                        cmap[str(c.guid)] = c
+                    mfex_map = {}
+                    for mfex in media_files_extra:
+                        mfex_map[str(mfex.guid)] = mfex
+                    xxxxxxxx
+                    # Copy audio scan info from collectors to mediafile's tracks
                     return asset
 
             class set(meth):
