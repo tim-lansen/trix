@@ -376,6 +376,8 @@ class MediaFile(Record):
             # ID of mediafile that consists of extracted audio track
             self.extract = None
 
+            self.audioResults = None
+
     class SubTrack(JSONer):
         class Tags(JSONer):
             def __init__(self):

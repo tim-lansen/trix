@@ -196,8 +196,26 @@ class ApiTrix(ApiClassBase):
                     mfex_map = {}
                     for mfex in media_files_extra:
                         mfex_map[str(mfex.guid)] = mfex
-                    xxxxxxxx
+
+                    def mfindex(atindex):
+                        for _i, _mf in enumerate(asset['mediaFiles']):
+                            if atindex < len(_mf['audioTracks']):
+                                return _i, atindex
+                            atindex -= len(_mf['audioTracks'])
+                        return None, None
+
                     # Copy audio scan info from collectors to mediafile's tracks
+                    mf_changed = set([])
+                    if 'audioStreams' in asset and type(asset['audioStreams']) is list:
+                        for asi, astr in enumerate(asset['audioStreams']):
+                            astr_index = astr['channels'][0]['src_stream_index']
+                            mf_index, tr_index = mfindex(astr_index)
+                            if mf_index is not None:
+                                mf = media_files[mf_index]
+                                coll = cmap[astr['collector']['audioResults']]
+                                mf['audioTracks'][tr_index]['audioResults'] = coll
+                                mf_changed.add(mf['guid'])
+
                     return asset
 
             class set(meth):
