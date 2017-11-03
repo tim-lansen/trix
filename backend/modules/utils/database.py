@@ -74,7 +74,6 @@ def request_db_return_dl(cur, tdata, fields, condition):
     else:
         rows = cur.fetchall()
         for row in rows:
-            # TODO: handle ARRAY '{val, val, val}'
             result.append(dict(zip(fields, row)))
     return result
 
@@ -444,23 +443,34 @@ class DBInterface:
         def get(uid):
             return DBInterface.get_record_to_class('Interaction', uid)
 
-        # Lock the interaction and return it if success
+        # Lock the interaction
         @staticmethod
-        def get_lock(uid):
+        def lock(uid):
             conn = DBInterface.connect()
             cur = conn.cursor()
             # First, try to lock an interaction
-            table_name = TRIX_CONFIG.dBase.tables['Interaction']
+            table_name = TRIX_CONFIG.dBase.tables['Interaction']['relname']
             new_status = Interaction.Status.LOCK
             req = "UPDATE {tname} SET status={status} WHERE guid='{guid}' AND status<>{status};".format(
                 tname=table_name,
                 status=new_status,
                 guid=uid
             )
-            if request_db(cur, req):
-                if cur.rowcount == 1:
-                    return DBInterface.get_record(table_name, uid)
-            return None
+            return request_db(cur, req)
+
+        @staticmethod
+        def unlock(uid):
+            conn = DBInterface.connect()
+            cur = conn.cursor()
+            # First, try to lock an interaction
+            table_name = TRIX_CONFIG.dBase.tables['Interaction']['relname']
+            new_status = Interaction.Status.FREE
+            req = "UPDATE {tname} SET status={status} WHERE guid='{guid}' AND status<>{status};".format(
+                tname=table_name,
+                status=new_status,
+                guid=uid
+            )
+            return request_db(cur, req)
 
         # @staticmethod
         # def get_all_sorted():

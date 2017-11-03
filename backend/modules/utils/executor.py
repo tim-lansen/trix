@@ -113,9 +113,9 @@ class JobExecutor:
             for path in ex.job.info.paths:
                 if os.path.isfile(path):
                     os.remove(path)
-                elif os.path.isdir(path):
-                    shutil.rmtree(path, ignore_errors=True)
-                os.makedirs(path)
+                # elif os.path.isdir(path):
+                #     shutil.rmtree(path, ignore_errors=True)
+                os.makedirs(path, exist_ok=True)
             for ai, step in enumerate(ex.job.info.steps):
                 Logger.info("Step #{}\n".format(ai))
                 # Prepare pipes

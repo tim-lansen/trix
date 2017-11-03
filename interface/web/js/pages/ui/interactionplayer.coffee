@@ -33,6 +33,8 @@ class InteractionPlayer
         @SI = undefined
         $('#' + @audio_inter[@LI]['html-id']).addClass 'left'
         $('#' + @audio_inter[@RI]['html-id']).addClass 'right'
+        document.getElementById('pro-audio-info-left').innerHTML = @audio_inter[@LI].astats_channel.format()
+        document.getElementById('pro-audio-info-right').innerHTML = @audio_inter[@RI].astats_channel.format()
         @timeline_pb = document.getElementById('timeline-pb')
         @timeline_back = document.getElementById('timeline-back')
         @bars = []
@@ -52,11 +54,11 @@ class InteractionPlayer
         @updateInterval = setInterval((->
             @updateTime()
             return
-        ).bind(this), 80)
+        ).bind(this), 200)
         @syncInterval = setInterval((->
             @synchronize()
             return
-        ).bind(this), 751)
+        ).bind(this), 1751)
         @timeline_back.addEventListener 'click', @seek.bind(this), false
         return
 
@@ -248,6 +250,8 @@ class InteractionPlayer
             @audio_inter[@RI].audio.currentTime = @video.currentTime - delay
         $('#' + @audio_inter[@LI]['html-id']).addClass 'left'
         $('#' + @audio_inter[@RI]['html-id']).addClass 'right'
+        document.getElementById('pro-audio-info-left').innerHTML = @audio_inter[@LI].astats_channel.format()
+        document.getElementById('pro-audio-info-right').innerHTML = @audio_inter[@RI].astats_channel.format()
         return
 
     _deactivateProSubAdd: ->

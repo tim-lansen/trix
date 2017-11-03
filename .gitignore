@@ -14,7 +14,7 @@
 *.HEX
 *.SDI
 *.LST
-node_modules/*
+interface/web/node_modules/*
 tools/include/*
 bin/
 obj/

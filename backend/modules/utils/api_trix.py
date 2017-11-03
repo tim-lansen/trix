@@ -15,6 +15,7 @@ import threading
 from pprint import pformat
 from modules.websocket_server import ApiClassBase, ApiClientClassBase, WebsocketServer
 from modules.models.asset import Asset, Stream
+from modules.models.collector import Collector
 from modules.models.mediafile import MediaFile
 from modules.utils.job_utils import JobUtils
 import traceback
@@ -102,11 +103,15 @@ class ApiTrix(ApiClassBase):
                 return client.authorize_by_main_service()
 
         class interaction:
-            class getLock(meth):
+            class lock(meth):
                 @staticmethod
                 def handler(*args):
-                    interaction = DBInterface.Interaction.get_lock(args[0]['guid'])
-                    return interaction
+                    return DBInterface.Interaction.lock(args[0]['guid'])
+
+            class unlock(meth):
+                @staticmethod
+                def handler(*args):
+                    return DBInterface.Interaction.unlock(args[0]['guid'])
 
             class getList(meth):
                 @staticmethod
@@ -192,10 +197,13 @@ class ApiTrix(ApiClassBase):
                         collectors += DBInterface.Collector.records([_['collector'] for _ in asset['subStreams'] if 'collector' in _])
                     cmap = {}
                     for c in collectors:
-                        cmap[str(c.guid)] = c
+                        cc: Collector = Collector()
+                        cc.update_json(c)
+                        cmap[str(cc.guid)] = json.loads(cc.dumps())
+                    Logger.log('{}\n'.format(cmap))
                     mfex_map = {}
                     for mfex in media_files_extra:
-                        mfex_map[str(mfex.guid)] = mfex
+                        mfex_map[mfex['guid']] = mfex
 
                     def mfindex(atindex):
                         for _i, _mf in enumerate(asset['mediaFiles']):
@@ -212,8 +220,8 @@ class ApiTrix(ApiClassBase):
                             mf_index, tr_index = mfindex(astr_index)
                             if mf_index is not None:
                                 mf = media_files[mf_index]
-                                coll = cmap[astr['collector']['audioResults']]
-                                mf['audioTracks'][tr_index]['audioResults'] = coll
+                                coll = cmap[astr['collector']]
+                                mf['audioTracks'][tr_index]['astats'] = coll['audioResults']['astats']
                                 mf_changed.add(mf['guid'])
 
                     return asset

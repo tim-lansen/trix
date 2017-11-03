@@ -137,6 +137,17 @@ class AudioMan
                 document.getElementById(id).value = i++
         return
 
+class Astats
+    constructor: (ast) ->
+        @astats = ast
+
+    format: ->
+        if @astats != null
+            res = 'Peak: ' + parseFloat(@astats['Peak level dB']).toFixed(2) + 'dB'
+            res += '  RMS: ' + parseFloat(@astats['RMS peak dB']).toFixed(2)+'dB / '+parseFloat(@astats['RMS level dB']).toFixed(2) + 'dB'
+        else
+            res = 'No audio stats'
+        return res
 
 class InteractionsPage
     @hash: 'interactions'
@@ -418,13 +429,35 @@ class InteractionsPage
         if @interaction_selected == inter_id
             console.log 'already selected'
             return
+        if @interactions[inter_id].status != 1
+            console.log 'selected interaction status is ' + @interactions[inter_id].status
+            return
         # Reset selection
         if @interaction_selected != null
             # TODO: delete @interaction_internal, player, etc.
-            @interaction_internal.update_asset(@liveCrop)
-            inter = @interactions[@interaction_selected]
-            # inter.assetOut = @interaction_internal.asset    # ???
             document.getElementById(@interaction_selected).className = 'interaction row row' + inter.index % 2
+            @interaction_internal.update_asset(@liveCrop)
+            @interactions[@interaction_selected].status = 1
+#            inter = @interactions[@interaction_selected]
+            @app.ws_api_trix.request({
+                'method': 'interaction.unlock'
+                'params': 'guid': @interaction_selected
+            }, (answer) ->
+                    console.log(answer)
+                    return
+            )
+        @app.ws_api_trix.request({
+            'method': 'interaction.lock'
+            'params': 'guid': inter_id
+        },  ((answer) ->
+                answer.inter_id = inter_id
+                @interaction_select_s2(answer)
+            ).bind(@)
+        )
+
+    interaction_select_s2: (answer) ->
+        console.log(answer)
+        inter_id = answer.inter_id
         @interaction_selected = inter_id
         inter = @interactions[inter_id]
         if typeof(inter.assetIn) == 'string'
@@ -628,6 +661,9 @@ class InteractionsPage
                 channel_layout = track.channel_layout
                 id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2)
                 html_t = '<td id="' + id + '" rowspan="' + channels + '" class="src row' + ti % 2 + ' col1">audio</td>'
+                ast = track['astats']
+                console.log 'astats: '
+                console.log ast
                 for ci in [0...track.channels]
                     id = 'src-' + padz(mi, 2) + '-t' + padz(ti, 2) + '-c' + padz(ci, 2)
                     # Create playable audio
@@ -647,6 +683,13 @@ class InteractionsPage
                         'sync2': null
                         'track': ti
                         'channel': ci
+                    if ast == undefined
+                        ae.astats_channel = new Astats(null)
+                        ae.astats_all = new Astats(null)
+                    else
+                        ae.astats_channel = new Astats(ast[ci+1])
+                        ae.astats_all = new Astats(ast.all)
+
                     # if 'start_time' of info[mi][ttype][ti]
                     #     st = parseFloat(+info[mi][ttype][ti].start_time)
                     #     if !isNaN(st)
