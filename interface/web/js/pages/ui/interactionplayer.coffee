@@ -1,6 +1,5 @@
 #'use strict'
 #$ = require('jquery')
-#Timeline = require('./Timeline')
 
 class InteractionPlayer
     constructor: (video_object, video_elements, audio_elements, sub_elements, interaction_channelMerger, program_in, program_out) ->
@@ -9,17 +8,18 @@ class InteractionPlayer
         @audio_inter = audio_elements
         @subtitles = sub_elements
         @interaction_channelMerger = interaction_channelMerger
-        @timeStart = program_in
-        @timeEnd = program_out
-        @duration = program_out - program_in
+        @program_in = program_in
+        @program_out = program_out
+#        @program_dur = program_out - program_in
+        @total_dur = program_out - program_in
         $(@video).one 'loadedmetadata', ((elm) ->
             console.log('InteractionPlayer.video loaded')
             console.log(elm.target)
-            @duration = elm.currentTarget.duration
-            if @timeEnd > @duration
-                @timeEnd = @duration
-            if @timeStart >= @timeEnd
-                @timeStart = 0.0
+            @total_dur = elm.currentTarget.duration
+            if @program_out > @total_dur
+                @program_out = @total_dur
+            if @program_in >= @program_out
+                @program_in = 0.0
             @updateBar()
 
             for sub in @subtitles
@@ -38,7 +38,6 @@ class InteractionPlayer
         @timeline_pb = document.getElementById('timeline-pb')
         @timeline_back = document.getElementById('timeline-back')
         @bars = []
-        # Program in/out data to use Timeline.update()
 
         @id = 'program-selection-bar'
         @doc_currentTime = document.getElementById('current-time')
@@ -127,9 +126,9 @@ class InteractionPlayer
     setProgramIn: ->
         currentTime = @video.currentTime
         duration = @video.duration
-        @timeStart = currentTime
-        if @timeEnd < currentTime
-            @timeEnd = duration
+        @program_in = currentTime
+        if @program_out < currentTime
+            @program_out = duration
         @updateBar()
         return
 
@@ -137,44 +136,52 @@ class InteractionPlayer
 
     setProgramOut: ->
         currentTime = @video.currentTime
-        @timeEnd = currentTime
-        if @timeStart > currentTime
-            @timeStart = 0.0
+        @program_out = currentTime
+        if @program_in > currentTime
+            @program_in = 0.0
         @updateBar()
         return
 
     # Seek to start of program
 
     cueProgramIn: ->
-        @_jumpToTime @timeStart
+        @_jumpToTime @program_in
         return
 
     cueOffset: (offset) ->
         new_time = @audio_inter[@LI].audio.currentTime + offset
         if new_time < 0
             new_time = 0.0
-        else if new_time > @duration
-            new_time = duration
+        else if new_time > @total_dur
+            new_time = @total_dur
         @_jumpToTime new_time
         return
 
     # Seek to end of program
 
     cueProgramOut: ->
-        @_jumpToTime @timeEnd
+        @_jumpToTime @program_out
         return
 
-    cueLeft: ->
-        debugger
-        time = @audio_inter[@LI].audio.currentTime
-        # Collect all cues to array
-        arr = [@timeStart, @timeEnd, @duration]
+    _cues: ->
+        arr = [0.0, @program_in, @program_out, @total_dur]
         aint = @audio_inter[@LI]
         if aint.sync1 != null
-            arr.push(aint.sync1[0])
+            arr.push(@_vtr(aint.sync1[0]))
             if aint.sync2 != null
-                arr.push(aint.sync2[0])
-        arr = arr.sort((a, b) ->
+                arr.push(@_vtr(aint.sync2[0]))
+        return arr
+
+    cueLeft: ->
+        time = @_vtr(@audio_inter[@LI].audio.currentTime)
+        # Collect all cues to array
+#        arr = [@program_in, @program_out, @total_dur]
+#        aint = @audio_inter[@LI]
+#        if aint.sync1 != null
+#            arr.push(@_vtr(aint.sync1[0]))
+#            if aint.sync2 != null
+#                arr.push(@_vtr(aint.sync2[0]))
+        arr = @_cues().sort((a, b) ->
             return a - b
         )
         pt = 0.0
@@ -187,19 +194,18 @@ class InteractionPlayer
         return
 
     cueRight: ->
-        debugger
-        time = @audio_inter[@LI].audio.currentTime
+        time = @_vtr(@audio_inter[@LI].audio.currentTime)
         # Collect all cues to array
-        arr = [@timeEnd, @timeStart, 0.0]
-        aint = @audio_inter[@LI]
-        if aint.sync1 != null
-            arr.push(aint.sync1[0])
-            if aint.sync2 != null
-                arr.push(aint.sync2[0])
-        arr = arr.sort((a, b) ->
+#        arr = [@program_out, @program_in, 0.0]
+#        aint = @audio_inter[@LI]
+#        if aint.sync1 != null
+#            arr.push(@_vtr(aint.sync1[0]))
+#            if aint.sync2 != null
+#                arr.push(@_vtr(aint.sync2[0]))
+        arr = @_cues().sort((a, b) ->
             return b - a
         )
-        pt = @duration
+        pt = @total_dur
         for t in arr
             if time + 0.1 - t > 0
                 time = pt
@@ -318,7 +324,7 @@ class InteractionPlayer
         if sync == null or sync == undefined
             elm.style.display = 'none'
             return 'No sync point'
-        elm.style.left = (100.0 * sync[0]/@duration) + '%'
+        elm.style.left = (100.0 * @_vtr(sync[0])/@total_dur) + '%'
         elm.style.display = 'block'
         return Timecode.timecode(sync[0])+' ('+sync[1].toFixed(2)+')'
 
@@ -354,13 +360,15 @@ class InteractionPlayer
 
     addSyncPoint: ->
         aint = @audio_inter[@LI]
-        audioCurrentTime = aint.audio.currentTime
+        act = aint.audio.currentTime
         delay = 0.001 * aint.delay_ms
-        if aint.sync1 == null or audioCurrentTime <= aint.sync1[0]
-            aint.sync1 = [audioCurrentTime, delay]
+        if aint.sync1 == null or act <= aint.sync1[0]
+            aint.sync1 = [act, delay]
             aint.sync2 = null
+            @timeBend = 1.0
+            @timeOffset = delay
         else
-            aint.sync2 = [audioCurrentTime, delay]
+            aint.sync2 = [act, delay]
             ta1 = aint.sync1[0]
             ta2 = aint.sync2[0]
             tv1 = ta1 + aint.sync1[1]
@@ -370,42 +378,41 @@ class InteractionPlayer
         # Calculate program in/out
         @updateDelay()
 
+    _vtr: (act) ->
+        if @audio_inter[@LI].sync2 == null
+            return act + (@audio_inter[@LI].delay_ms / 1000.0)
+        return @timeOffset + @timeBend*act
+
+    _atr: (vct) ->
+        if @audio_inter[@LI].sync2 == null
+            return vct - (@audio_inter[@LI].delay_ms / 1000.0)
+        return (vct - @timeOffset) / @timeBend
+
     synchronize: ->
         if @audioSwitchingInProgress
             @audioSwitchingInProgress = false
             return
-        videoCurrentTime = @video.currentTime
-        audioCurrentTime = @audio_inter[@LI].audio.currentTime
-        if @audio_inter[@LI].sync2 == null
-            videoCalcTime = audioCurrentTime + (@audio_inter[@LI].delay_ms / 1000.0)
-        else
-            videoCalcTime = @timeOffset + @timeBend*audioCurrentTime
-        delta = videoCurrentTime - videoCalcTime
         @sync_counter -= 1
         if @sync_counter < 1
             @sync_counter = 1
+            vct = @video.currentTime
+            act = @audio_inter[@LI].audio.currentTime
+            vtr = @_vtr(act)
+            delta = vct - vtr
             if @video.readyState > 0 and Math.abs(delta) > 0.09
-                @video.currentTime = videoCalcTime
+                @video.currentTime = vtr
                 @sync_counter = 5
         return
 
     updateTime: ->
-#        @update_counter -= 1
-#        if @update_counter < 1
         vct = @video.currentTime
-        delay_ms = parseInt(1000.0 * (vct - @audio_inter[@LI].audio.currentTime))
         @doc_currentTime.innerHTML = Timecode.timecode(vct)
-        #+ ' (' + delay_ms + 'ms)'
-        @timeline_pb.style.width = 100 * @video.currentTime / @video.duration + '%'
-#            @update_counter = 3
-#        @sync_counter -= 1
-#        if @sync_counter < 1
-#            @synchronize()
+        @timeline_pb.style.width = 100 * vct / @total_dur + '%'
         return
 
     updateBar: ->
-        x = 100 * @timeStart / @duration
-        w = 100 * (@timeEnd - (@timeStart)) / @duration
+        x = 100 * @program_in / @total_dur
+        w = 100 * (@program_out - (@program_in)) / @total_dur
         el = document.getElementById(@id)
         el.style.left = x + '%'
         el.style.width = w + '%'
@@ -413,7 +420,7 @@ class InteractionPlayer
 
     _jumpToTime: (time) ->
         seekTimeV = time
-        seekTimeA = seekTimeV - (@audio_inter[@LI].delay_ms / 1000.0)
+        seekTimeA = @_atr(seekTimeV)
         @_setCurrentTime seekTimeV, seekTimeA
         return
 
