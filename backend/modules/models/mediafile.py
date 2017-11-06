@@ -238,6 +238,12 @@ class MediaFile(Record):
             def embed(self):
                 return 'pattern_offset={};length={};crc={}'.format(self.pattern_offset, self.length, ','.join([str(_) for _ in self.crc]))
 
+        class Segment(JSONer):
+            def __init__(self):
+                super().__init__()
+                self.size = 0
+                self.path = None
+
         def __init__(self):
             super().__init__()
             # Auto-captured info
@@ -271,9 +277,10 @@ class MediaFile(Record):
             # single ID in case of mono input, two IDs for stereo, etc.
             self.previews: List[str] = []
             # ID of mediafile that consists of archived video track
-            self.extract = None
+            self.archive = None
 
             self.slices: List(self.Slice) = []
+            self.segments: List(self.Segment) = []
 
         @staticmethod
         def fit_video(src, dst, dw: int, dh: int, size_round=2):

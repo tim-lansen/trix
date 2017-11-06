@@ -377,20 +377,12 @@ class JobUtils:
                     vst.fpsOriginal.set(v.fps)
                     vst.fpsEncode.set2int(v.fps)
                     preview: MediaFile = v.ref_add()
-                    # vt = copy.deepcopy(v)
+
                     archive_id = str(uuid.uuid4())
-                    # archive: MediaFile = MediaFile(name='Archive: {}'.format(mediafile.name))
-                    # archive_name = '{}.v{:02d}.archive.mp4'.format(archive.guid, ti)
-                    # preview_name = '{}.v{:02d}.preview.mp4'.format(archive.guid, ti)
                     archive_name = '{}.v{:02d}.archive.mp4'.format(archive_id, ti)
                     preview_name = '{}.v{:02d}.preview.mp4'.format(mediafile.guid, ti)
 
-                    # archive.master.guid = mediafile.guid.guid
-                    # archive.source.path = os.path.join(adir.net_path, archive_name)
-                    # archive.videoTracks.append(vt)
-                    # archives.append(archive)
-                    # v.extract = archive.guid
-                    v.extract = archive_id
+                    v.archive = archive_id
                     asset.mediaFilesExtra.append(Guid(value=archive_id))
 
                     preview.master.guid = mediafile.guid.guid
@@ -637,8 +629,6 @@ class JobUtils:
             #     'collector_id': collector_id          # Collectors aggregate results from slices
             # }
 
-            # def strslice(_s: MediaFile.VideoTrack.Slice):
-            #     return 'pattern_offset={};length={};crc={}'.format(_s.pattern_offset, _s.length, ','.join([str(_) for _ in _s.crc]))
             task_id = trig['task']
             mf: MediaFile = MediaFile()
             # archive: MediaFile = MediaFile(guid=trig['archive_id'])
@@ -647,13 +637,11 @@ class JobUtils:
             mf.update_str(trig['src'])
             vti = trig['vti']
             group_id = Guid(trig['group_id'])
-            # archive.update_str(trig['archive'])
 
             preview.update_str(trig['preview'])
             cropdetect.update_str(trig['cropdetect'])
 
             cdir = Storage.storage_path('cache', str(mf.guid))
-            # pdir = Storage.storage_path('preview', str(mf.guid))
             adir = Storage.storage_path('archive', str(mf.guid))
 
             archive_path = os.path.join(adir.net_path, trig['archive_name'])
@@ -887,13 +875,241 @@ class JobUtils:
             DBInterface.Job.register(job_archive_concat)
 
         @staticmethod
-        def mediafile_by_asset(asset: Asset):
-            pass
+        @tracer
+        def process_slices_create_preview(slices, trig):
+            #
+            # Create compile job and set of encode jobs for single videoTrack
+            # using captured slices
+            # Logger.log('{}\n{}\n'.format(pformat(slices), pformat(trig)))
+            # trig = {
+            #     'task': task_id,
+            #     'src': mf_dumps,
+            #     'vti': ti,
+            #     'group_id': str(group_id),
+            #     # 'archive': archive.dumps(),
+            #     'archive_id': archive_id,
+            #     'archive_name': archive_name,
+            #     'preview': preview.dumps(),
+            #     'cropdetect': vst.cropdetect.dumps(),
+            #     'collector_id': collector_id          # Collectors aggregate results from slices
+            # }
 
-        # @staticmethod
-        # def asset_to_mediafile(asset: Asset):
-        #     # Sample code that creates a set of jobs to compile single mediafile using asset data
-        #     media_files = []
+            task_id = trig['task']
+            mf: MediaFile = MediaFile()
+            mf.update_str(trig['src'])
+
+            vti = trig['vti']
+            group_id = Guid(trig['group_id'])
+
+            preview: MediaFile = MediaFile()
+            preview.update_str(trig['preview'])
+
+            cropdetect: Asset.VideoStream.Cropdetect = Asset.VideoStream.Cropdetect()
+            cropdetect.update_str(trig['cropdetect'])
+
+            cdir = Storage.storage_path('cache', str(mf.guid))
+
+            vt: MediaFile.VideoTrack = mf.videoTracks[vti]
+            pvt: MediaFile.VideoTrack = preview.videoTracks[0]
+
+            vt.slices = [MediaFile.VideoTrack.Slice(_) for _ in slices]
+            DBInterface.MediaFile.update_videoTrack(mf, vti)
+
+
+            # 1 Create concat job for preview
+            job_preview_concat: Job = Job(name='preview_concat', guid=0, task_id=task_id)
+            job_preview_concat.type = Job.Type.SLICES_CONCAT
+            job_preview_concat.groupIds.append(group_id)
+            job_preview_concat.dependsOnGroupId.new()
+
+            # 2 Create N encode jobs
+
+            tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps, pf=vt.pix_fmt)
+            tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
+            tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 3 -refs 2 -b:v 600k '
+
+            overlap = 50
+            segment_list_preview = ''
+            jobs = []
+            pslic: MediaFile.VideoTrack.Slice = None
+            for idx, slic in enumerate(vt.slices + [None]):
+                segment_path_preview = os.path.join(cdir.net_path, 'prv_{:03d}.h264'.format(idx))
+                segment_list_preview += 'file {}\n'.format(segment_path_preview)
+                job_preview_slice: Job = Job(name='preview_slice_{:03d}'.format(idx), guid=0, task_id=task_id)
+                job_preview_slice.type = Job.Type.ENCODE_VIDEO
+                job_preview_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
+
+                # slice_start = 0.0
+                # slice_frames = 0
+                # slice_duration = 0.0
+
+                if slic is None:
+                    slice_start = pslic.time + pslic.pattern_offset / vt.fps.val()
+                    slice_duration = vt.duration - slice_start
+                    slice_frames = int(slice_duration * vt.fps.val())
+                    dur = vt.duration - pslic.time + 1
+                    proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed())
+                elif pslic is None:
+                    slice_start = 0.0
+                    slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val()
+                    slice_frames = int(slice_duration * vt.fps.val())
+                    dur = slic['time'] + (overlap + slic['pattern_offset']) / vt.fps.val()
+                    proc1 = '{trim} trim --pout {pout}'.format(trim=JobUtils.TRIMMER, pout=slic.embed())
+                else:
+                    slice_start = pslic['time'] + pslic['pattern_offset'] / vt.fps.val()
+                    slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val() - slice_start
+                    slice_frames = int(slice_duration * vt.fps.val())
+                    dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic['pattern_offset']) / vt.fps.val()
+                    proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed(), pout=slic.embed())
+                if pslic is None:
+                    proc0 = 'ffmpeg -y -loglevel error -stats -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(i=mf.source.path, ti=vti,
+                                                                                                                  fps=vt.fps.dump_alt(), t=dur)
+                else:
+                    proc0 = 'ffmpeg -y -loglevel error -stats -ss {ss} -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(ss=pslic['time'], i=mf.source.path,
+                                                                                                                           ti=vti, fps=vt.fps.dump_alt(), t=dur)
+                proc0 += ' -c:v rawvideo -f rawvideo -'
+                proc1 += ' -s {} {} -p {}'.format(vt.width, vt.height, vt.pix_fmt)
+                proc2 = tmpl2 + segment_path_preview
+
+                chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                chain.procs = [
+                    proc0.split(' '),
+                    proc1.split(' '),
+                    proc2.split(' ')
+                ]
+                chain.return_codes = [
+                    None,
+                    None,
+                    [0]
+                ]
+                chain.progress.capture = 0
+                chain.progress.parser = 'ffmpeg_progress'
+                chain.progress.top = dur
+
+                step: Job.Info.Step = Job.Info.Step()
+                step.chains.append(chain)
+
+                job_preview_slice.info.steps.append(step)
+
+                # First result is a ffmpeg's stderr parsed
+                result: Job.Emitted.Result = Job.Emitted.Result()
+                result.source.proc = 2
+                result.source.parser = 'ffmpeg_auto_text'
+                job_preview_slice.emitted.results.append(result)
+                # Second is a helper - it supplies slice's start time and duration, points to results collector
+                result = Job.Emitted.Result()
+                result.source.step = -1
+                result.data = {
+                    'slice': {
+                        'start': slice_start,
+                        'frames': slice_frames,
+                        'duration': slice_duration
+                    },
+                    'collector_id': trig['collector_id']
+                }
+                job_preview_slice.emitted.results.append(result)
+                # Single handler for 2 results
+                job_preview_slice.emitted.handler = JobUtils.EmittedHandlers.slice.__name__
+
+                jobs.append(job_preview_slice)
+
+                pslic = slic
+
+            # Write concat files
+            concat_preview = os.path.join(cdir.net_path, 'preview.list')
+            os.makedirs(cdir.net_path, exist_ok=True)
+            with open(concat_preview, 'w') as f:
+                f.write(segment_list_preview)
+
+            # Concat commands
+            cprv = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
+
+            ##################################################
+            chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+            chain.procs = [cprv.split(' ')]
+            chain.return_codes = [[0]]
+            chain.progress.capture = 0
+            chain.progress.parser = 'ffmpeg_progress'
+
+            step: Job.Info.Step = Job.Info.Step()
+            step.chains.append(chain)
+            job_preview_concat.info.steps.append(step)
+            ##################################################
+
+            Logger.info('Concat preview command: {}\n'.format(cprv))
+
+            # Register jobs
+            for job in jobs:
+                DBInterface.Job.register(job)
+
+            DBInterface.Job.register(job_preview_concat)
+
+        @staticmethod
+        def create_archive_with_asset(asset: Asset):
+            # Here we have an asset delivered from interface
+            Logger.error('{}\n'.format(asset.dumps(indent=2)))
+
+            media_files = []
+            mfex_map = {}
+            for guid in asset.mediaFiles:
+                mf = DBInterface.MediaFile.get(guid)
+                media_files.append(mf)
+            for guid in asset['mediaFilesExtra']:
+                mf = DBInterface.MediaFile.get(guid)
+                mfex_map[str(mf.guid)] = mf
+
+            def audio_mfindex(atindex):
+                for _i, _mf in enumerate(media_files):
+                    if atindex < len(_mf.audioTracks):
+                        return _i, atindex
+                    atindex -= len(_mf.audioTracks)
+                return None, None
+            def video_mfindex(vtindex):
+                for _i, _mf in enumerate(media_files):
+                    if vtindex < len(_mf.videoTracks):
+                        return _i, vtindex
+                    vtindex -= len(_mf.videoTracks)
+                return None, None
+
+            GAP = 20.0
+
+            for vstr in asset.videoStreams:
+                mf_index, tr_index = video_mfindex(vstr.channels[0].src_stream_index)
+                mf: MediaFile = media_files[mf_index]
+                vt: MediaFile.VideoTrack = mf.videoTracks[tr_index]
+                cdir = Storage.storage_path('cache', str(vt.archive))
+                adir = Storage.storage_path('archive', str(vt.archive))
+                archive_path = os.path.join(adir.net_path, '{}.archive.mp4'.format(mf.guid))
+
+                first_slice = 0
+                last_slice = len(vt.slices) - 1
+                vt.slices.append(None)
+                for i in range(len(vt.slices)):
+                    slic: MediaFile.VideoTrack.Slice = vt.slices[i]
+                    if slic is None or slic.time > vstr.program_out - GAP:
+                        last_slice = i
+                        vt.slices[i] = None
+                        break
+                    if slic.time < vstr.program_in + GAP:
+                        first_slice = i
+
+                pslic = None
+                for i in range(first_slice, last_slice):
+                    slic: MediaFile.VideoTrack.Slice = vt.slices[i]
+
+            # Copy audio scan info from collectors to mediafile's tracks
+            mf_changed = set([])
+            if 'audioStreams' in asset and type(asset['audioStreams']) is list:
+                for asi, astr in enumerate(asset['audioStreams']):
+                    astr_index = astr['channels'][0]['src_stream_index']
+                    mf_index, tr_index = mfindex(astr_index)
+                    if mf_index is not None:
+                        mf = media_files[mf_index]
+                        coll = cmap[astr['collector']]
+                        mf['audioTracks'][tr_index]['astats'] = coll['audioResults']['astats']
+                        mf_changed.add(mf['guid'])
+            # exit(1)
+            # media_files = []
         #
         #     for idx, guid in enumerate(asset.mediaFiles):
         #         mf: MediaFile = DBInterface.MediaFile.get(guid)
@@ -1135,7 +1351,8 @@ class JobUtils:
             def handler(emit: Job.Emitted):
                 slices = emit.results[0].data
                 trig = emit.results[1].data
-                JobUtils.CreateJob._ips_p03_slices(slices, trig)
+                # JobUtils.CreateJob._ips_p03_slices(slices, trig)
+                JobUtils.CreateJob.process_slices_create_preview(slices, trig)
 
         class ips_p03_audio_info:
             # TODO: we should bind captured silencedetect info to master asset/file
@@ -1479,6 +1696,16 @@ class JobUtils:
                 sr.update_json(r1.data['slice'])
                 Logger.warning('{}\n'.format(sr))
                 DBInterface.Collector.append_slice_result(r1.data['collector_id'], sr)
+
+        class mediafile_and_segments:
+            @staticmethod
+            def handler(emit: Job.Emitted):
+                Logger.info('{}\n'.format(emit.dumps()))
+                r0 = emit.results[0]
+                mf: MediaFile = r0.data
+                Logger.error('{}\n{}\n'.format(mf.dumps(indent=2), mf.__dict__.keys()))
+                # Scan segments and append sizes to videoTrack[0]
+                DBInterface.MediaFile.set(mf)
 
     @staticmethod
     def process_results(job: Job):

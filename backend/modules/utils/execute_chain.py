@@ -158,7 +158,7 @@ class ExecuteInternal:
                 if len(mf.videoTracks):
                     mf_video = mf
                     break
-            pre_archive_id = str(mf_video.videoTracks[0].extract)
+            pre_archive_id = str(mf_video.videoTracks[0].archive)
             if pre_archive_id in media_files_dict:
                 mf_video = media_files_dict[pre_archive_id]
             video_src = mf_video.source.path
