@@ -199,7 +199,11 @@ class Asset(Record):
         def __init__(self, v=None):
             super().__init__(v)
 
-    def __init__(self, programName='', name=None, guid=0):
+    class TaskId(Guid):
+        def __init__(self, v=None):
+            super().__init__(v)
+
+    def __init__(self, program_name='', name=None, guid=0, task_id=None):
         super().__init__(name=name, guid=guid)
         # List of source media files (GUIDs)
         self.mediaFiles: List[Asset.MediaFile] = []
@@ -208,14 +212,16 @@ class Asset(Record):
         self.videoStreams: List[Asset.VideoStream] = []
         self.audioStreams: List[Asset.AudioStream] = []
         self.subStreams: List[Asset.SubStream] = []
+        # UID of related task
+        self.taskId: Asset.TaskId = Asset.TaskId(task_id)
         # UID of proxy asset
         self.proxyId = None
         # UID of target program (movie id, series, whatever...)
         self.programId = None
         # Name of program (not exact, but mandatory)
-        self.programName = programName
-        if os.path.sep in programName:
-            self.program_name_by_path(programName)
+        self.programName = program_name
+        if os.path.sep in program_name:
+            self.program_name_by_path(program_name)
 
     def __str__(self):
         return self.dumps(indent=2)
@@ -242,6 +248,7 @@ class Asset(Record):
             ["videoStreams", "json[]"],
             ["audioStreams", "json[]"],
             ["subStreams", "json[]"],
+            ["taskId", "uuid"],
             ["proxyId", "uuid"],
             ["programId", "uuid"],
             ["programName", "name"]

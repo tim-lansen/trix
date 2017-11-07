@@ -37,14 +37,14 @@ from .storage import Storage
 from .exchange import Exchange
 
 
-def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
-    tdir = Storage.storage_path('transit', str(mf.guid))
-    pdir = Storage.storage_path('preview', str(mf.guid))
-    data = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
-    data['asset'].name = 'auto'
-    data['asset'].guid.set(ass)
-    # Logger.critical('{}\n'.format(data))
-    out_final.put([data])
+# def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
+#     tdir = Storage.storage_path('transit', str(mf.guid))
+#     pdir = Storage.storage_path('preview', str(mf.guid))
+#     data = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
+#     data['asset'].name = 'auto'
+#     data['asset'].guid.set(ass)
+#     # Logger.critical('{}\n'.format(data))
+#     out_final.put([data])
 
 
 class ExecuteInternal:
@@ -79,9 +79,10 @@ class ExecuteInternal:
             # adir = Storage.storage_path('archive', None)
             # tdir = Storage.storage_path('transit', None)
             # pdir = Storage.storage_path('preview', None)
-            res = mediafile_asset_for_ingest(params[0])
-            if type(res) is dict:
-                res['task'] = params[1]
+            res = mediafile_asset_for_ingest(params[0], params[1])
+            # if type(res) is dict:
+            #     # res['task'] = params[1]
+            #     res['asset'].taskId.set()
             out_final.put([res])
 
     class create_slices:
@@ -112,14 +113,23 @@ class ExecuteInternal:
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
             Prepare media for ingest
-            :param params:            ['<url>', '<asset guid>']
+            :param params:            ['<url>', '<asset guid>', '<task guid>']
             :param out_progress:      progress output queue
             :param out_final:         final output queue
             :param chain_error_event: error event
             :return:
             """
             mf = combined_info_mediafile(params[0])
-            _icpeas(mf, params[1], out_progress, out_final)
+            # _icpeas(mf, params[1], out_progress, out_final)
+            asset_guid = params[1]
+            task_guid = params[2]
+            tdir = Storage.storage_path('transit', str(mf.guid))
+            pdir = Storage.storage_path('preview', str(mf.guid))
+            data = ffmpeg_create_preview_extract_audio_subtitles(mf, tdir, pdir, out_progress)
+            data['asset'].name = 'auto'
+            data['asset'].guid.set(asset_guid)
+            data['asset'].taskId.set(task_guid)
+            out_final.put([data])
 
     class asset_to_mediafile:
         @staticmethod

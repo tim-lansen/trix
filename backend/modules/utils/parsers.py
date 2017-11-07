@@ -48,7 +48,7 @@ class Parsers:
     # Extract name
     PATTERN_PARSE_NAME = re.compile(r'^\[(?:Parsed_)?(\w+?)(?:_(\d+))? @ .+\] ')
     # Extract info
-    PATTERN_PARSE_FILTER = re.compile(r'\s+([\w\s]+?[\w]+?)\s*[:=]\s*(-?[,:\.\w\[\]\(\)]+)')
+    PATTERN_PARSE_FILTER = re.compile(r'\s+([\w\s]*?[\w]+?)\s*[:=]\s*(-?[,:\./\w\[\]\(\)]+)')
     # For example
     #   "[Parsed_cropdetect_0 @ 000000000500d520] x1:0 x2:1919 t:12.513 crop=1920:1040:0:0 plane_checksum:[5DE5F53F 6479EEE4 8FAB2589] stdev:[23.7 10.5 4.6]"
     # 1. extract name: PATTERN_PARSE_NAME.findall(line)

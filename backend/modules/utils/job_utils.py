@@ -44,7 +44,7 @@ def merge_assets(assets):
                 _ass.append(_cs)
         return _ass
 
-    asset: Asset = Asset(programName=', '.join([_.programName for _ in assets]))
+    asset: Asset = Asset(program_name=', '.join([_.programName for _ in assets]))
     vii = 0
     aii = 0
     sii = 0
@@ -125,20 +125,56 @@ class JobUtils:
         'default':     {'t': 'yuv422p12le', 'd': 12, 'csp': 'i422', 'P': 'main422-12', 'x265': 'x265.12', 'bs': 0.3}
     }
     PIX_FMT_MAP_X264 = {
-        'yuv420p':     {                    'd': 8, 'csp': 'i420', 'P': 'main',     'x264': 'x264.08', 'bs': 0.15},  # Bitrate scale = depth * csp / 640
-        'yuv422p':     {                    'd': 8, 'csp': 'i422',                  'x264': 'x264.08', 'bs': 0.2},  # No standard profile for 8-bit 422
-        'yuv420p10le': {                    'd': 10, 'csp': 'i420', 'P': 'high10',  'x264': 'x264.10', 'bs': 0.1875},
-        'yuv422p10le': {                    'd': 10, 'csp': 'i422', 'P': 'high422', 'x264': 'x264.10', 'bs': 0.25},
-        'yuv420p10be': {'t': 'yuv420p10le', 'd': 10, 'csp': 'i420', 'P': 'high10',  'x264': 'x264.10', 'bs': 0.1875},
-        'yuv422p10be': {'t': 'yuv422p10le', 'd': 10, 'csp': 'i422', 'P': 'high422', 'x264': 'x264.10', 'bs': 0.25},
-        'default':     {'t': 'yuv422p10le', 'd': 10, 'csp': 'i422', 'P': 'high422', 'x264': 'x264.10', 'bs': 0.3}
+        'yuv420p':     {                    'd': 8, 'csp': 'i420', 'P': 'main',     'x264': 'x264.08', 'bs': 0.3},  # Bitrate scale = depth * csp / 640
+        'yuv422p':     {                    'd': 8, 'csp': 'i422',                  'x264': 'x264.08', 'bs': 0.4},  # No standard profile for 8-bit 422
+        'yuv420p10le': {                    'd': 10, 'csp': 'i420', 'P': 'high10',  'x264': 'x264.10', 'bs': 0.375},
+        'yuv422p10le': {                    'd': 10, 'csp': 'i422', 'P': 'high422', 'x264': 'x264.10', 'bs': 0.5},
+        'yuv420p10be': {'t': 'yuv420p10le', 'd': 10, 'csp': 'i420', 'P': 'high10',  'x264': 'x264.10', 'bs': 0.375},
+        'yuv422p10be': {'t': 'yuv422p10le', 'd': 10, 'csp': 'i422', 'P': 'high422', 'x264': 'x264.10', 'bs': 0.5},
+        'default':     {'t': 'yuv422p10le', 'd': 10, 'csp': 'i422', 'P': 'high422', 'x264': 'x264.10', 'bs': 0.6}
     }
 
     @staticmethod
-    def calc_bitrate_x265_kbps(fmap, w, h, fps):
-        br = 400 + int(0.001 * w * h * fps * fmap['bs'])
-        br -= br % 10
-        return br
+    def template_ffmpeg_x264_archive(vt: MediaFile.VideoTrack, crop: Asset.VideoStream.Cropdetect):
+        fmap = JobUtils.PIX_FMT_MAP_X264['default'] if vt.pix_fmt not in JobUtils.PIX_FMT_MAP_X264 else JobUtils.PIX_FMT_MAP_X264[vt.pix_fmt]
+
+        # Archive file fps, width & height
+        fps = Rational()
+        fps.set2int(vt.fps)
+        w = vt.width
+        h = vt.height
+        video_filters = []
+        if 't' in fmap:
+            video_filters.append('format={}'.format(fmap['t']))
+        cdfs = crop.filter_string()
+        if cdfs:
+            if crop.w < vt.width or crop.h < vt.height:
+                video_filters.append(cdfs)
+                w = crop.w
+                h = crop.h
+
+        tmpl_ffmpeg = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(
+            w=vt.width, h=vt.height,
+            fps=vt.fps,
+            pf=vt.pix_fmt
+        )
+        if len(video_filters):
+            tmpl_ffmpeg += ' -vf {}'.format(','.join(video_filters))
+        tmpl_ffmpeg += ' -c:v rawvideo -f rawvideo -'
+
+        bitrate = 400 + int(0.001 * w * h * fps.val() * fmap['bs'])
+        bitrate -= bitrate % 10
+
+        tmpl_x264 = '{x264} --input-depth {d} --input-csp {csp}'.format(**fmap)
+        tmpl_x264 += ' --input-res {w}x{h} --fps {fps}'.format(w=w, h=h, fps=fps)
+        if 'P' in fmap:
+            tmpl_x264 += ' --profile {}'.format(fmap['P'])
+        tmpl_x264 += ' --ref 3 --me umh --merange {}'.format(int(vt.width / 35))
+        tmpl_x264 += ' --keyint 30 --min-keyint 5 --rc-lookahead 30 --bframes 3'
+        tmpl_x264 += ' --bitrate {} --vbv-maxrate {} --vbv-bufsize {}'.format(bitrate, bitrate + (bitrate >> 1), bitrate + (bitrate >> 3))
+        tmpl_x264 += ' --output {output} -'
+
+        return tmpl_ffmpeg, tmpl_x264
 
     class CreateJob:
         @staticmethod
@@ -205,14 +241,14 @@ class JobUtils:
             return str(job.guid)
 
         @staticmethod
-        def _cpeas(path, asset_guid, task_id=0):
-            job: Job = Job('CPEAS: {}'.format(os.path.basename(path)), 0, task_id)
+        def _cpeas(path, asset_guid: str, task_guid: str):
+            job: Job = Job('CPEAS: {}'.format(os.path.basename(path)), 0, task_guid)
             job.type = Job.Type.CPEAS
             step: Job.Info.Step = Job.Info.Step()
             step.name = 'Create proxy, extract audio and subtitles'
             job.info.steps.append(step)
             chain = Job.Info.Step.Chain()
-            chain.procs = [['ExecuteInternal.create_preview_extract_audio_subtitles', path, asset_guid]]
+            chain.procs = [['ExecuteInternal.create_preview_extract_audio_subtitles', path, asset_guid, task_guid]]
             step.chains.append(chain)
             # Compose result
             result: Job.Emitted.Result = Job.Emitted.Result()
@@ -261,9 +297,9 @@ class JobUtils:
             # Create atomic jobs
             assets = []
             for inp in inputs:
-                ass = str(uuid.uuid4())
-                assets.append(ass)
-                job = JobUtils.CreateJob._cpeas(inp, ass, task.guid)
+                asset_guid = str(uuid.uuid4())
+                assets.append(asset_guid)
+                job = JobUtils.CreateJob._cpeas(inp, asset_guid, str(task.guid))
                 # TODO: add non-auto-commit connection to DBInterface, and register all jobs in single transaction
                 job.status = Job.Status.INACTIVE
                 # Add job to group
@@ -326,16 +362,16 @@ class JobUtils:
                 chain.procs = [
                     ['ExecuteInternal.create_mediafile_and_asset', '${{{}}}'.format(srcn), str(task.guid)]
                 ]
-                chain.result = 0
                 step.chains.append(chain)
                 result = Job.Emitted.Result()
                 result.source.chain = ci
                 job.emitted.results.append(result)
             job.emitted.handler = JobUtils.EmittedHandlers.mediafiles_and_assets.__name__
 
+            DBInterface.Task.register(task)
             DBInterface.Job.register(job)
             Logger.log('{}\n'.format(job.dumps(indent=2)))
-            DBInterface.Task.register(task)
+
             return 1
 
         @staticmethod
@@ -347,7 +383,6 @@ class JobUtils:
             """
             # param object from ffmpeg_utils.mediafile_asset_for_ingest
             # {
-            #     'task': task_id,
             #     'asset': asset,
             #     'mediafile': mediafile,
             # }
@@ -356,8 +391,9 @@ class JobUtils:
             asset_ids = []
             task_id = None
             for param in params:
-                task_id = param['task']
+                # task_id = param['task']
                 asset: Asset = param['asset']
+                task_id = str(asset.taskId)
                 mediafile: MediaFile = param['mediafile']
                 asset_ids.append(str(asset.guid))
 
@@ -652,45 +688,36 @@ class JobUtils:
             vt.slices = [MediaFile.VideoTrack.Slice(_) for _ in slices]
             DBInterface.MediaFile.update_videoTrack(mf, vti)
 
-            # Get transform setup
-            # fmap = JobUtils.PIX_FMT_MAP_X265['default'] if vt.pix_fmt not in JobUtils.PIX_FMT_MAP_X265 else JobUtils.PIX_FMT_MAP_X265[vt.pix_fmt]
-            #
-            # tmpl3 = '{x265} --input {{input}} --input-depth {d} --input-csp {csp}'.format(**fmap)
-            # tmpl3 += ' --input-res {w}x{h} --fps {fps}'.format(w=vt.width, h=vt.height, fps=vt.fps.val())
-            # if 'P' in fmap:
-            #     tmpl3 += ' --profile {}'.format(fmap['P'])
-            # tmpl3 += ' --allow-non-conformance --ref 3 --me umh --merange {}'.format(int(vt.width / 35))
-            # tmpl3 += ' --no-open-gop --keyint 30 --min-keyint 5 --rc-lookahead 30 --bframes 3 --force-flush 1'
-            # bitrate = JobUtils.calc_bitrate_x265_kbps(fmap, vt.width, vt.height, vt.fps.val())
-            # tmpl3 += ' --bitrate {} --vbv-maxrate {} --vbv-bufsize {}'.format(bitrate, bitrate + (bitrate >> 1), bitrate + (bitrate >> 3))
-            # tmpl3 += ' --output {output}'
-
             fmap = JobUtils.PIX_FMT_MAP_X264['default'] if vt.pix_fmt not in JobUtils.PIX_FMT_MAP_X264 else JobUtils.PIX_FMT_MAP_X264[vt.pix_fmt]
 
             # Archive file fps, width & height
             fps = Rational()
             fps.set2int(vt.fps)
-            aw = vt.width
-            ah = vt.height
-            vflts = []
-            if 't' in fmap:
-                vflts.append('format={}'.format(fmap['t']))
-            cdfs = cropdetect.filter_string()
-            if cdfs:
-                if cropdetect.w < vt.width or cropdetect.h < vt.height:
-                    vflts.append(cdfs)
-                    aw = cropdetect.w
-                    ah = cropdetect.h
+            # aw = vt.width
+            # ah = vt.height
+            # vflts = []
+            # if 't' in fmap:
+            #     vflts.append('format={}'.format(fmap['t']))
+            # cdfs = cropdetect.filter_string()
+            # if cdfs:
+            #     if cropdetect.w < vt.width or cropdetect.h < vt.height:
+            #         vflts.append(cdfs)
+            #         aw = cropdetect.w
+            #         ah = cropdetect.h
+            #
+            # tmpl3 = '{x264} --input-depth {d} --input-csp {csp}'.format(**fmap)
+            # tmpl3 += ' --input-res {w}x{h} --fps {fps}'.format(w=aw, h=ah, fps=fps)
+            # if 'P' in fmap:
+            #     tmpl3 += ' --profile {}'.format(fmap['P'])
+            # tmpl3 += ' --ref 3 --me umh --merange {}'.format(int(vt.width / 35))
+            # tmpl3 += ' --keyint 30 --min-keyint 5 --rc-lookahead 30 --bframes 3'
+            # bitrate = JobUtils.calc_bitrate_x265_kbps(fmap, vt.width, vt.height, fps.val())
+            # tmpl3 += ' --bitrate {} --vbv-maxrate {} --vbv-bufsize {}'.format(bitrate, bitrate + (bitrate >> 1), bitrate + (bitrate >> 3))
+            # tmpl3 += ' --output {output} {input}'
 
-            tmpl3 = '{x264} --input-depth {d} --input-csp {csp}'.format(**fmap)
-            tmpl3 += ' --input-res {w}x{h} --fps {fps}'.format(w=aw, h=ah, fps=fps)
-            if 'P' in fmap:
-                tmpl3 += ' --profile {}'.format(fmap['P'])
-            tmpl3 += ' --ref 3 --me umh --merange {}'.format(int(vt.width / 35))
-            tmpl3 += ' --keyint 30 --min-keyint 5 --rc-lookahead 30 --bframes 3'
-            bitrate = JobUtils.calc_bitrate_x265_kbps(fmap, vt.width, vt.height, fps.val())
-            tmpl3 += ' --bitrate {} --vbv-maxrate {} --vbv-bufsize {}'.format(bitrate, bitrate + (bitrate >> 1), bitrate + (bitrate >> 3))
-            tmpl3 += ' --output {output} {input}'
+            tmpl2, tmpl3 = JobUtils.template_ffmpeg_x264_archive(vt, cropdetect)
+            tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
+            tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 3 -refs 2 -b:v 600k '
 
             # 1 Create 2 concat jobs: for preview and for archive
             job_preview_concat: Job = Job(name='preview_concat', guid=0, task_id=task_id)
@@ -702,24 +729,15 @@ class JobUtils:
             job_archive_concat.groupIds.append(group_id)
             job_archive_concat.info.paths.append(adir.net_path)
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
-            # job_archive_concat.emitted.handler = JobUtils.ResultHandlers.ips_p03_slices_concat.__name__
-            # Add result to archive concat job
-            # result: Job.Emitted.Result = Job.Emitted.Result()
-            # job_archive_concat.emitted.results.append(result)
-            # # Second is a helper - it references results collector
-            # result = Job.Emitted.Result()
-            # result.data = {
-            #     'collector_id': trig['collector_id']
-            # }
 
             # 2 Create Nx2 encode jobs
 
-            tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps, pf=vt.pix_fmt)
-            if len(vflts):
-                tmpl2 += ' -vf {}'.format(','.join(vflts))
-            tmpl2 += ' -c:v rawvideo -f rawvideo -'
-            tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
-            tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 3 -refs 2 -b:v 600k '
+            # tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps, pf=vt.pix_fmt)
+            # if len(vflts):
+            #     tmpl2 += ' -vf {}'.format(','.join(vflts))
+            # tmpl2 += ' -c:v rawvideo -f rawvideo -'
+            # tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
+            # tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 3 -refs 2 -b:v 600k '
 
             overlap = 50
             segment_list_preview = ''
@@ -926,7 +944,7 @@ class JobUtils:
 
             tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps, pf=vt.pix_fmt)
             tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
-            tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 3 -refs 2 -b:v 600k '
+            tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 0 -refs 2 -b:v 600k '
 
             overlap = 50
             segment_list_preview = ''
@@ -1049,14 +1067,23 @@ class JobUtils:
             # Here we have an asset delivered from interface
             Logger.error('{}\n'.format(asset.dumps(indent=2)))
 
+            # Plan jobs
+            task_id = str(asset.taskId)
+            job_assemble: Job = Job(task_id=task_id)
+            job_assemble.dependsOnGroupId.new()
+            job_assemble_audio_inputs = []
+            job_assemble_video_inputs = []
+            jobs = []
+
             media_files = []
-            mfex_map = {}
+            mf_map = {}
             for guid in asset.mediaFiles:
                 mf = DBInterface.MediaFile.get(guid)
                 media_files.append(mf)
+                mf_map[str(mf.guid)] = mf
             for guid in asset['mediaFilesExtra']:
                 mf = DBInterface.MediaFile.get(guid)
-                mfex_map[str(mf.guid)] = mf
+                mf_map[str(mf.guid)] = mf
 
             def audio_mfindex(atindex):
                 for _i, _mf in enumerate(media_files):
@@ -1071,45 +1098,231 @@ class JobUtils:
                     vtindex -= len(_mf.videoTracks)
                 return None, None
 
+            cdir = Storage.storage_path('cache', str(asset.guid))
+            adir = Storage.storage_path('archive', str(asset.guid))
+            archive_mediafile_path = os.path.join(adir.net_path, '{}.archive.mp4'.format(asset.guid))
+
+            # Create audio encoding job(s)
+            video_stream: Asset.VideoStream = asset.videoStreams[0]
+            tempo_fps = video_stream.fpsEncode.val() / video_stream.fpsOriginal.val()
+            chains = []
+            for i, audio_stream in enumerate(asset.audioStreams):
+                output = '{}/{}.mp4'.format(cdir.net_path, str(uuid.uuid4()))
+                job_assemble_audio_inputs.append(output)
+                command = 'ffmpeg -y -loglevel error -stats'
+                # Calculate start, duration and rate
+                if audio_stream.sync.delay1 is None:
+                    audio_in = video_stream.program_in
+                    audio_out = video_stream.program_out
+                    sync_tempo_encoded = tempo_fps
+                elif audio_stream.sync.delay2 is None:
+                    audio_in = video_stream.program_in + audio_stream.sync.delay1
+                    audio_out = video_stream.program_out + audio_stream.sync.delay1
+                    sync_tempo_encoded = tempo_fps
+                else:
+                    a1 = audio_stream.sync.offset1
+                    a2 = audio_stream.sync.offset2
+                    v1 = a1 + audio_stream.sync.delay1
+                    v2 = a2 + audio_stream.sync.delay2
+
+                    sync_tempo_original = (a2 - a1) / (v2 - v1)
+                    audio_in = a2 - (v2 - video_stream.program_in) * sync_tempo_original
+                    audio_out = a1 + (video_stream.program_out - v1) * sync_tempo_original
+                    sync_tempo_encoded = sync_tempo_original * tempo_fps
+
+                audio_dur = audio_out - audio_in
+
+                # Collect source media files, re-index inputs
+                source_mediafiles_streams = [audio_mfindex(ch.src_stream_index) + [ch.src_channel_index] for ch in audio_stream.channels]
+                smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
+                offsets = []
+                idx = 0
+                for mfi in smss:
+                    if mfi > idx:
+                        offsets.append([mfi, mfi - idx])
+                    idx = mfi + 1
+                for off in offsets:
+                    for idx in range(len(source_mediafiles_streams)):
+                        if source_mediafiles_streams[idx][0] >= off[0]:
+                            source_mediafiles_streams[idx][0] -= off[1]
+
+                join_inputs = 0
+                joined = set([])
+                for smfs in source_mediafiles_streams:
+                    if smfs[1] not in joined:
+                        joined.add(smfs[1])
+                        mf: MediaFile = asset.mediaFiles[smfs[1]]
+                        # TODO optimize extracted tracks usage
+                        if mf.audioTracks[0].extract is None:
+                            join_inputs += len(mf.audioTracks)
+                            command += ' -ss {start} -i {src}'.format(start=audio_in, src=mf.source.path)
+                        else:
+                            for at in mf.audioTracks:
+                                mfe: MediaFile = mf_map[str(at.extract)]
+                                join_inputs += 1
+                                command += ' -ss {start} -i {src}'.format(start=audio_in, src=mfe.source.path)
+                command += ' -t {:.3f}'.format(audio_dur)
+                # Compose filter, example:
+                # join=inputs=2:channel_layout=5.1:map=0.0-FL|0.1-FR|1.2-FC|1.3-LFE|1.1-BL|0.5-BR
+                layout = Asset.AudioStream.Layout.LAYMAP[audio_stream.layout]
+                layout_dst = layout['layout']
+                layout_map = '|'.join(['{}.{}-{}'.format(_s[2], _s[3], layout_dst[_i]) for _i, _s in
+                                       enumerate(source_mediafiles_streams)])
+                command += ' -filter_complex join=inputs={inputs}:channel_layout={layout}:map={laymap}'.format(
+                    inputs=join_inputs,
+                    layout=audio_stream.layout,
+                    laymap=layout_map
+                )
+                if abs(sync_tempo_encoded - 1.0) > 0.00001:
+                    command += ',atempo={:.8f}'.format(sync_tempo_encoded)
+                # TODO use SOX to bend audio, set volume/compression
+                bitrate = 128 * len(audio_stream.channels)
+                command += ' -c:a aac -strict -2 -b:a {br}k -metadata:s:a:0 language={lang} {dst}'.format(
+                    br=bitrate,
+                    lang=audio_stream.language,
+                    dst=output
+                )
+                Logger.info('asset_to_mediafile: audio #{}\n'.format(i))
+                Logger.warning('{}\n'.format(command))
+                # Create chain
+                chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                chain.procs = [command.split(' ')]
+                chain.return_codes = [[0]]
+                chain.progress.capture = 0
+                chain.progress.parser = 'ffmpeg_progress'
+                chains.append(chain)
+            if len(chains) > 0:
+                job: Job = Job(
+                    name='archive audio tracks',
+                    task_id=task_id,
+                    steps=Job.Info.Step(name='single', chains=chains)
+                )
+                job.groupIds.append(job_assemble.dependsOnGroupId)
+                jobs.append(job)
+
+            # Create sliced video encoding jobs
             GAP = 20.0
+            overlap = 50
+            for vsi, video_stream in enumerate(asset.videoStreams):
+                mf_index, tr_index = video_mfindex(video_stream.channels[0].src_stream_index)
+                mf_src: MediaFile = media_files[mf_index]
+                vt: MediaFile.VideoTrack = mf_src.videoTracks[tr_index]
 
-            for vstr in asset.videoStreams:
-                mf_index, tr_index = video_mfindex(vstr.channels[0].src_stream_index)
-                mf: MediaFile = media_files[mf_index]
-                vt: MediaFile.VideoTrack = mf.videoTracks[tr_index]
-                cdir = Storage.storage_path('cache', str(vt.archive))
-                adir = Storage.storage_path('archive', str(vt.archive))
-                archive_path = os.path.join(adir.net_path, '{}.archive.mp4'.format(mf.guid))
+                video_src = mf_src.source.path
+                scale_time_fps = video_stream.fpsOriginal.val() / video_stream.fpsEncode.val()
+                tempo_fps = video_stream.fpsEncode.val() / video_stream.fpsOriginal.val()
+                program_in = scale_time_fps * video_stream.program_in
+                program_out = scale_time_fps * video_stream.program_out
+                program_dur = program_out - program_in
 
+                # Get usable slices range
                 first_slice = 0
                 last_slice = len(vt.slices) - 1
                 vt.slices.append(None)
                 for i in range(len(vt.slices)):
                     slic: MediaFile.VideoTrack.Slice = vt.slices[i]
-                    if slic is None or slic.time > vstr.program_out - GAP:
+                    if slic is None or slic.time > video_stream.program_out - GAP:
                         last_slice = i
                         vt.slices[i] = None
                         break
-                    if slic.time < vstr.program_in + GAP:
+                    if slic.time < video_stream.program_in + GAP:
                         first_slice = i
 
-                pslic = None
-                for i in range(first_slice, last_slice):
-                    slic: MediaFile.VideoTrack.Slice = vt.slices[i]
+                job_archive_concat: Job = Job(name='archive_concat', task_id=task_id, job_type=Job.Type.SLICES_CONCAT)
+                job_archive_concat.info.paths.append(adir.net_path)
+                job_archive_concat.dependsOnGroupId.new()
 
-            # Copy audio scan info from collectors to mediafile's tracks
-            mf_changed = set([])
-            if 'audioStreams' in asset and type(asset['audioStreams']) is list:
-                for asi, astr in enumerate(asset['audioStreams']):
-                    astr_index = astr['channels'][0]['src_stream_index']
-                    mf_index, tr_index = mfindex(astr_index)
-                    if mf_index is not None:
-                        mf = media_files[mf_index]
-                        coll = cmap[astr['collector']]
-                        mf['audioTracks'][tr_index]['astats'] = coll['audioResults']['astats']
-                        mf_changed.add(mf['guid'])
-            # exit(1)
-            # media_files = []
+                tmpl_ffmpeg, tmpl_x264 = JobUtils.template_ffmpeg_x264_archive(vt, video_stream.cropdetect)
+
+                # Create slice encoding jobs
+                segment_list_archive = ''
+                pslic = None
+                for idx in range(first_slice, last_slice):
+                    slic: MediaFile.VideoTrack.Slice = vt.slices[idx]
+
+                    # mediafile: MediaFile = MediaFile(name='Archive')
+                    segment_path_archive = os.path.join(cdir.net_path, 'arch_{}_{:03d}.h264'.format(vsi, idx))
+                    segment_list_archive += 'file {}\n'.format(segment_path_archive)
+                    job_archive_slice: Job = Job(name='encode_slice_{}_{:03d}'.format(vsi, idx), guid=0, task_id=task_id, job_type=Job.Type.ENCODE_VIDEO)
+                    job_archive_slice.groupIds.append(job_archive_concat.dependsOnGroupId)
+
+                    if slic is None:
+                        slice_start = pslic.time + pslic.pattern_offset / vt.fps.val()
+                        slice_duration = vt.duration - slice_start
+                        slice_frames = int(slice_duration * vt.fps.val())
+                        dur = vt.duration - pslic.time + 1
+                        proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed())
+                    elif pslic is None:
+                        slice_start = 0.0
+                        slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val()
+                        slice_frames = int(slice_duration * vt.fps.val())
+                        dur = slic['time'] + (overlap + slic['pattern_offset']) / vt.fps.val()
+                        proc1 = '{trim} trim --pout {pout}'.format(trim=JobUtils.TRIMMER, pout=slic.embed())
+                    else:
+                        slice_start = pslic['time'] + pslic['pattern_offset'] / vt.fps.val()
+                        slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val() - slice_start
+                        slice_frames = int(slice_duration * vt.fps.val())
+                        dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic[
+                            'pattern_offset']) / vt.fps.val()
+                        proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed(),
+                                                                               pout=slic.embed())
+                    if pslic is None:
+                        proc0 = 'ffmpeg -y -loglevel error -stats -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(
+                            i=mf.source.path, ti=tr_index, fps=vt.fps.dump_alt(), t=dur)
+                    else:
+                        proc0 = 'ffmpeg -y -loglevel error -stats -ss {ss} -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(
+                            ss=pslic['time'], i=mf.source.path, ti=tr_index, fps=vt.fps.dump_alt(), t=dur)
+                    proc0 += ' -c:v rawvideo -f rawvideo -'
+                    proc1 += ' -s {} {} -p {}'.format(vt.width, vt.height, vt.pix_fmt)
+                    proc2 = tmpl_ffmpeg
+                    proc3 = tmpl_x264.format(output=segment_path_archive)
+                    chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                    chain.procs = [
+                        proc0.split(' '),
+                        proc1.split(' '),
+                        proc2.split(' '),
+                        proc3.split(' ')
+                    ]
+                    chain.return_codes = [
+                        None,
+                        None,
+                        [0],
+                        [0]
+                    ]
+                    chain.progress.capture = 0
+                    chain.progress.parser = 'ffmpeg_progress'
+                    chain.progress.top = dur
+
+                    step: Job.Info.Step = Job.Info.Step()
+                    step.chains.append(chain)
+
+                    job_archive_slice.info.steps.append(step)
+
+                    # First result is a ffmpeg's stderr parsed
+                    result: Job.Emitted.Result = Job.Emitted.Result()
+                    result.source.proc = 2
+                    result.source.parser = 'ffmpeg_auto_text'
+                    job_preview_archive_slice.emitted.results.append(result)
+                    # Second is a helper - it supplies slice's start time and duration, points to results collector
+                    result = Job.Emitted.Result()
+                    result.source.step = -1
+                    result.data = {
+                        'slice': {
+                            'start': slice_start,
+                            'frames': slice_frames,
+                            'duration': slice_duration
+                        },
+                        'collector_id': trig['collector_id']
+                    }
+                    job_preview_archive_slice.emitted.results.append(result)
+                    # Single handler for 2 results
+                    job_preview_archive_slice.emitted.handler = JobUtils.EmittedHandlers.slice.__name__
+
+                    jobs.append(job_preview_archive_slice)
+
+                    pslic = slic
+
+
         #
         #     for idx, guid in enumerate(asset.mediaFiles):
         #         mf: MediaFile = DBInterface.MediaFile.get(guid)

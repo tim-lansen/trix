@@ -61,6 +61,7 @@ class Task(Record):
 
 class Job(Record):
     class Type:
+        UNDEFINED    = 0x00
         # Get info about media[, partially scan it to detect in/out/padding/...]
         PROBE        = 0x01
         # Encode video
@@ -126,20 +127,20 @@ class Job(Record):
                     # Progress class: Progress object
                     self.progress = self.Progress()
 
-            def __init__(self):
+            def __init__(self, name=None, chains=list()):
                 super().__init__()
                 # (str) Step's name, example:
                 # "Convert audio stereo -> 5.1"
-                self.name = None
+                self.name = name
                 # (list(str)) List of pipe files being created to perform job step, example:
                 # ["${p_fv1}", "${p_fv2}", "${p_bv1}", "${p_bv2}", "${p_lf1}", "${p_lf2}", "${p_FLFR}", "${p_BLBR}", "${p_LFE}", "${p_FC}"]
                 self.pipes: List[str] = []
                 # (float) Step's weight in job - the complexity of step
                 self.weight = 1.0
                 # (list(Chain)) List of process chains being started in parallel by this step
-                self.chains: List[Job.Info.Step.Chain] = []
+                self.chains: List[Job.Info.Step.Chain] = chains
 
-        def __init__(self):
+        def __init__(self, steps=list()):
             super().__init__()
             # dict(str: str): Aliases that may be used in params or in other aliases, example:
             # { "tmp": "/tmp/${asset}",
@@ -152,7 +153,7 @@ class Job(Record):
             # List of directories to create,
             # or list of input files for PROBE type
             self.paths: List[str] = []
-            self.steps: List[Job.Info.Step] = []
+            self.steps: List[Job.Info.Step] = steps
             # list(MediaChunk|MediaFile): List of expected results
             # Node that executes this job should update MediaChunk or MediaFile(s) listed here
             # [
@@ -274,11 +275,11 @@ class Job(Record):
         def __init__(self, guid):
             super().__init__(value=guid)
 
-    def __init__(self, name='', guid=0, task_id=0):
+    def __init__(self, name='', guid=0, task_id=0, steps=list(), job_type=Type.UNDEFINED):
         super().__init__(name, guid)
         self.task: self.Task = self.Task(task_id)
-        self.type = None
-        self.info: Job.Info = Job.Info()
+        self.type = job_type
+        self.info: Job.Info = Job.Info(steps=steps)
         self.fails = 0
         self.offers = 0
         self.status = self.Status.NEW

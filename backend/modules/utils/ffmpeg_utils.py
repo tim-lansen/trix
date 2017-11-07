@@ -12,7 +12,6 @@ from .log_console import Logger
 from subprocess import Popen, PIPE
 from .pipe_nowait import pipe_nowait
 from .combined_info import combined_info
-from .slices import create_slices
 from typing import List
 from modules.models.mediafile import MediaFile
 from modules.models.asset import Asset, Stream
@@ -22,7 +21,7 @@ from modules.config.trix_config import TrixConfig
 if os.name == 'nt':
     DEVNULL = 'nul'
     FFMPEG_UTILS_TEST_FILE_AVS = r'D:\storage\crude\watch\test.src.avs\test_src.AVS.mkv'
-    FFMPEG_UTILS_TEST_FILE_AV = r'D:\storage\crude\watch\test.src\test_src.AV.mp4'
+    FFMPEG_UTILS_TEST_FILE_AV = r'D:\storage\crude\watch\test.src.av\test_src.AV.mp4'
     FFMPEG_UTILS_TEST_FILE_A1 = r'D:\storage\crude\watch\test.src\test_src.A1.mkv'
     FFMPEG_UTILS_TEST_FILE_A2 = r'D:\storage\crude\watch\test.src\test_src.A2.mkv'
     FFMPEG_UTILS_STORAGE_TRANSIT = r'D:\storage\_transit'
@@ -31,7 +30,7 @@ else:
     import fcntl
     DEVNULL = '/dev/null'
     FFMPEG_UTILS_TEST_FILE_AVS = '/mnt/server1_id/crude/watch/test.src.avs/test_src.AVS.mkv'
-    FFMPEG_UTILS_TEST_FILE_AV = '/mnt/server1_id/crude/watch/test.src/test_src.AV.mp4'
+    FFMPEG_UTILS_TEST_FILE_AV = '/mnt/server1_id/crude/watch/test.src.av/test_src.AV.mp4'
     FFMPEG_UTILS_STORAGE_TRANSIT = '/mnt/server1_id/crude/_transit'
     FFMPEG_UTILS_STORAGE_PREVIEW = '/mnt/server1_id/crude/_preview'
 
@@ -291,7 +290,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     program_out = pts_time
 
     # Create asset
-    asset: Asset = Asset(programName=mediafile.source.path)
+    asset: Asset = Asset(program_name=mediafile.source.path)
     # Add main source
     asset.mediaFiles.append(mediafile.guid)
     # Add trans source(s)
@@ -373,34 +372,6 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         'previews': vout_refs,
         'archives': vout_arch
     }
-
-
-def ffmpeg_cpeas_slice(mediafile: MediaFile, job_group, dir_transit, dir_preview, dir_cache, que_progress=None):
-    # First, call cropdetect
-    if len(mediafile.videoTracks):
-        # cropdetect = ffmpeg_cropdetect(mediafile.source.path, mediafile.videoTracks[0])
-        dur = mediafile.videoTracks[0].duration
-    else:
-        dur = mediafile.format.duration
-    src = mediafile.source.path
-    # vout_arch: List[MediaFile] = []
-    # vout_refs: List[MediaFile] = []
-    # vout_trans: List[MediaFile] = []
-    # advance_audio_index = 0 if len(mediafile.videoTracks) == 0 else len(mediafile.audioTracks)
-
-    filters = []
-    outputs = []
-    slices = []
-    # Enumerate video tracks, collect slices
-
-    for sti, v in enumerate(mediafile.videoTracks):
-        preview = v.ref_add()
-        preview.name = 'preview-video'
-        preview.source.path = os.path.join(dir_preview.net_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
-        preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
-        slcs = create_slices(mediafile, sti)
-        slices.append(slcs)
-    return slices
 
 
 # def ffmpeg_eas(mediafile: MediaFile, dir_transit, dir_preview, que_progress=None):
@@ -760,7 +731,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
     program_out = pts_time
 
     # Create asset
-    asset = Asset(programName=mediafile.source.path)
+    asset = Asset(program_name=mediafile.source.path)
     # Add main video track and auto-detected params
     if len(vout_arch):
         if len(blacks):
@@ -822,11 +793,11 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
 
 # Get combined info for URL, create mediafile and asset objects, fill asset with streams,
 # create transit and preview mediafile objects
-def mediafile_asset_for_ingest(url):
+def mediafile_asset_for_ingest(url, task_id):
     #, dir_archive: TrixConfig.Storage.Server.Path, dir_transit: TrixConfig.Storage.Server.Path, dir_preview: TrixConfig.Storage.Server.Path):
     # Create mediafile and asset
     mediafile: MediaFile = MediaFile()
-    asset: Asset = Asset(programName=url, name='Asset for {}'.format(mediafile.name))
+    asset: Asset = Asset(program_name=url, name='Asset for {}'.format(mediafile.name), )
     asset.mediaFiles.append(mediafile.guid)
 
     combined_info(mediafile, url)

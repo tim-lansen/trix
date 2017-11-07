@@ -3,12 +3,14 @@
 
 import time
 import json
+from pprint import pformat, pprint
 from subprocess import Popen, PIPE
 from modules.models.job import Job
 from modules.models.mediafile import MediaFile
 from .log_console import Logger, tracer
 from .combined_info import combined_info, combined_info_mediafile
-from .jsoner import JSONer
+from .ffmpeg_utils import DEVNULL
+from .parsers import Parsers
 
 
 def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=48, first_slice_duration=180, overlap_time=15, start_frame=0, pattern_length=8):
@@ -24,6 +26,7 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
     dur0 = first_slice_duration
     dur1 = (duration - first_slice_duration)/float(number_of_slices)
 
+    timebase = None
     slices = []
     for i in range(number_of_slices):
         if i == 0:
@@ -40,7 +43,7 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
         proc1.stderr.close()
         proc1.stdout.close()
         while proc2.poll() is None:
-            time.sleep(1)
+            time.sleep(0.1)
         trout = proc2.stderr.read().decode()
         slic = {'time': draft_time}
         for line in trout.split(';'):
@@ -51,11 +54,34 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
                     slic[kv[0]] = int(kv[1])
                 else:
                     slic[kv[0]] = [int(_) for _ in vv]
-        if 'crc' not in slic:
-            Logger.warning('Unable to create slice at {}\n'.format(draft_time))
-        else:
-            Logger.info('{}\n'.format(slic))
+        if 'crc' in slic:
+            command = 'ffmpeg -y -ss {start:.3f} -i {input} -copyts -r {fps} -vf showinfo -map v:{vti} -vframes {frames} -c:v rawvideo -f null {devnull}'.format(
+                start=draft_time,
+                input=mf.source.path,
+                fps=vt.fps,
+                vti=vti,
+                frames=2 + slic['pattern_offset'],
+                devnull=DEVNULL
+            )
+            proc = Popen(command.split(' '), stdout=PIPE, stderr=PIPE)
+            while proc.poll() is None:
+                time.sleep(0.1)
+            output = proc.stderr.read().decode()
+            parsed = Parsers.ffmpeg_auto_text(output)
+            # Search pattern start frame
+            Logger.warning('{}\n'.format(slic))
+            for frame in parsed['showinfo'][0]:
+                if timebase is None and 'config in time_base' in frame:
+                    timebase = frame['config in time_base'][:-1]
+                if 'n' in frame and int(frame['n']) == slic['pattern_offset']:
+                    slic['pts'] = int(frame['pts'])
+                    slic['pts_time'] = float(frame['pts_time'])
+                    break
+            slic['timebase'] = timebase
             slices.append(slic)
+        else:
+            Logger.warning('Unable to create slice at {}\n'.format(draft_time))
+
         if draft_time + overlap_time + dur > duration:
             dur1 = duration - draft_time - overlap_time
     # vt.slices = [MediaFile.VideoTrack.Slice(_) for _ in slices]
@@ -64,8 +90,7 @@ def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=
 
 def test():
     from .combined_info import combined_info_mediafile
-    from .ffmpeg_utils import FFMPEG_UTILS_TEST_FILE_AVS
-    from pprint import pprint
-    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AVS)
+    from .ffmpeg_utils import FFMPEG_UTILS_TEST_FILE_AV
+    mf = combined_info_mediafile(FFMPEG_UTILS_TEST_FILE_AV)
     slices = [MediaFile.VideoTrack.Slice(_) for _ in create_slices(mf)]
     pprint(slices)

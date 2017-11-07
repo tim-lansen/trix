@@ -26,7 +26,6 @@ class Collector(Record):
             # {"silence_start": 0.042, "silence_end": 30.074, "silence_duration": 30.032}
             self.silencedetect = []
             # Astats is captured for every audio track
-            #
             self.astats = {}
 
     def __init__(self, name='', guid=None):

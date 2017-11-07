@@ -225,6 +225,10 @@ class MediaFile(Record):
                 super().__init__(*args)
 
         class Slice(JSONer):
+            class Timebase(Rational):
+                def __init__(self, *args):
+                    super().__init__(*args)
+
             def __init__(self, setup=None):
                 super().__init__()
                 self.length = 0
@@ -232,6 +236,9 @@ class MediaFile(Record):
                 self.time = 0
                 self.crc = []
                 self.size = 0
+                self.timebase: self.Timebase = self.Timebase()
+                self.pts = 0
+                self.pts_time = 0.0
                 if setup:
                     self.update_json(setup)
 
@@ -383,7 +390,7 @@ class MediaFile(Record):
             # ID of mediafile that consists of extracted audio track
             self.extract = None
 
-            self.audioResults = None
+            # self.audioResults = None
 
     class SubTrack(JSONer):
         class Tags(JSONer):
