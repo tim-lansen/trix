@@ -166,6 +166,7 @@ Tools
     sudo apt-get install ffmpeg
     sudo apt-get install mediainfo
     sudo apt-get install sox
+    sudo apt-get install gpac
 
 
 

@@ -36,6 +36,8 @@ from .slices import create_slices
 from .storage import Storage
 from .exchange import Exchange
 
+from .database import DBInterface
+
 
 # def _icpeas(mf: MediaFile, ass: str, out_progress: CPLQueue, out_final: CPLQueue):
 #     tdir = Storage.storage_path('transit', str(mf.guid))
@@ -95,9 +97,9 @@ class ExecuteInternal:
             :param chain_error_event: error event
             :return: mediaFile + set of data to create jobs for sliced transcode and A/S extraction
             """
-            mf: MediaFile = MediaFile(guid=None)
-            mf.update_str(params[0])
-            # mf = Exchange.object_decode(params[0])
+            # mf: MediaFile = MediaFile(guid=None)
+            # mf.update_str(params[0])
+            mf: MediaFile = DBInterface.MediaFile.get(params[0])
             slices = create_slices(mf, params[1])
             Logger.info('ExecuteInternal.create_slices.handler: slices\n{}\n'.format(slices))
             out_final.put([slices])

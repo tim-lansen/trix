@@ -182,8 +182,11 @@ class ApiTrix(ApiClassBase):
                     if type(asset['mediaFilesExtra']) is list:
                         for guid in asset['mediaFilesExtra']:
                             mf = DBInterface.MediaFile.get(guid)
-                            ApiTrix.Request.asset.get_expanded._preview_guid_to_url_(mf)
-                            media_files_extra.append(json.loads(mf.dumps()))
+                            if mf is None:
+                                Logger.warning('MediaFile {} is not registered\n'.format(guid))
+                            else:
+                                ApiTrix.Request.asset.get_expanded._preview_guid_to_url_(mf)
+                                media_files_extra.append(json.loads(mf.dumps()))
                     asset['mediaFiles'] = media_files
                     asset['mediaFilesExtra'] = media_files_extra
                     # Collect collectors, add them to the asset

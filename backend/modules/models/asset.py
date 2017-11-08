@@ -126,7 +126,7 @@ class Asset(Record):
 
         def __init__(self):
             super().__init__(Stream.Type.VIDEO, Asset.VideoStream.Layout.NORMAL)
-            self.cropdetect = self.Cropdetect()
+            self.cropdetect: self.Cropdetect = self.Cropdetect()
             self.fpsOriginal: self.FpsOriginal = self.FpsOriginal()
             self.fpsEncode: self.FpsEncode = self.FpsEncode()
 

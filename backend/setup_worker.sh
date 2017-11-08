@@ -13,6 +13,7 @@ sudo python3.5 -m pip install python_slugify
 sudo apt-get install -y ffmpeg
 sudo apt-get install -y mediainfo
 sudo apt-get install -y sox
+sudo apt-get install gpac
 # ===================
 # x265
 # ===================
