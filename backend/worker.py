@@ -46,7 +46,6 @@ def dir_clear_create(path):
 
 class Worker:
 
-    @tracer
     def exit(self, params):
         """
         Force node to stop processing and exit
@@ -63,12 +62,10 @@ class Worker:
         DBInterface.Node.unregister(self.node, False)
         # self.node.job = None
 
-    @tracer
     def finish(self, params):
         Logger.warning('Finishing ({})\n'.format(self.node.name))
         self.node.status = Node.Status.FINISHING
 
-    @tracer
     def ping(self, params):
         Logger.info('pong\n')
         DBInterface.Node.pong(self.node)
@@ -134,7 +131,6 @@ class Worker:
         'offer': offer
     }
 
-    @tracer
     def run(self):
         if not DBInterface.Node.register(self.node):
             Logger.warning('Failed to register the node {}\n'.format(self.node.name))

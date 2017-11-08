@@ -79,10 +79,9 @@ class ExecuteInternal:
             # adir = Storage.storage_path('archive', None)
             # tdir = Storage.storage_path('transit', None)
             # pdir = Storage.storage_path('preview', None)
-            res = mediafile_asset_for_ingest(params[0], params[1])
-            # if type(res) is dict:
-            #     # res['task'] = params[1]
-            #     res['asset'].taskId.set()
+            res = mediafile_asset_for_ingest(params[0])
+            if type(res) is dict:
+                res['asset'].taskId.set(params[1])
             out_final.put([res])
 
     class create_slices:

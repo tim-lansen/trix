@@ -6,6 +6,7 @@ import re
 import os
 import sys
 import copy
+import time
 from pprint import pprint
 from .parsers import Parsers, timecode_to_float
 from .log_console import Logger
@@ -793,7 +794,8 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
 
 # Get combined info for URL, create mediafile and asset objects, fill asset with streams,
 # create transit and preview mediafile objects
-def mediafile_asset_for_ingest(url, task_id):
+def mediafile_asset_for_ingest(url):
+    Logger.warning('mediafile_asset_for_ingest({})\n'.format(url))
     #, dir_archive: TrixConfig.Storage.Server.Path, dir_transit: TrixConfig.Storage.Server.Path, dir_preview: TrixConfig.Storage.Server.Path):
     # Create mediafile and asset
     mediafile: MediaFile = MediaFile()
@@ -824,118 +826,118 @@ def mediafile_asset_for_ingest(url, task_id):
     # dir_preview.net_path += os.path.sep + str(asset.guid)
     # dir_preview.web_path += '/' + str(asset.guid)
 
-    out_archives: List[MediaFile] = []
-    out_previews: List[MediaFile] = []
-    out_transits: List[MediaFile] = []
-
-    # Enumerate video tracks, create preview mediafile object(s)
-    for sti, v in enumerate(mediafile.videoTracks):
-        # preview: MediaFile = v.ref_add()
-        vt = copy.deepcopy(v)
-        # archive: MediaFile = MediaFile(name='Archive: {}'.format(mediafile.name))
-        # archive.source.path = os.path.join(dir_archive.net_path, '{}.v{}.archive.mp4'.format(mediafile.guid, sti))
-        # archive.videoTracks.append(vt)
-        # out_archives.append(archive)
-        # preview.name = 'preview-video'
-        # out_previews.append(preview)
-        # preview.source.path = os.path.join(dir_preview.net_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
-        # preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
-
-    # Enumerate subtitles tracks, previews and extracted tracks
-    for sti, s in enumerate(mediafile.subTracks):
-        # Special case for 1-track subtitles only
-        if len(mediafile.videoTracks) == 0 and len(mediafile.audioTracks) == 0 and len(mediafile.subTracks) == 1:
-            subtitles = mediafile
-            st = s
-        else:
-            st = copy.deepcopy(s)
-            st.index = 0
-            subtitles: MediaFile = MediaFile(name='transit subtitles')
-            s.extract = subtitles.guid
-            subtitles.role = MediaFile.Role.TRANSIT
-            subtitles.master.set(mediafile.guid.guid)
-            subtitles.subTracks.append(st)
-            subtitles.source.path = os.path.join(dir_transit.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
-            out_transits.append(subtitles)
-        subtitles_preview: MediaFile = MediaFile(name='preview-sub')
-        out_previews.append(subtitles_preview)
-        subtitles_preview.master.set(subtitles.guid.guid)
-        subtitles_preview.role = MediaFile.Role.PREVIEW
-        subtitles_preview.source.path = os.path.join(dir_preview.net_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
-        subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
-        st.previews.append(str(subtitles_preview.guid))
-
-    # Enumerate audio tracks, collect pan filters and outputs for previews and extracted tracks
-    for sti, a in enumerate(mediafile.audioTracks):
-        # Special case for 1-track audio only
-        if len(mediafile.videoTracks) == 0 and len(mediafile.subTracks) == 0 and len(mediafile.audioTracks) == 1:
-            audio = mediafile
-            at = a
-        else:
-            at = copy.deepcopy(a)
-            audio: MediaFile = MediaFile(name='transit audio')
-            a.extract = audio.guid
-            audio.role = MediaFile.Role.TRANSIT
-            audio.master.set(mediafile.guid.guid)
-            audio.audioTracks.append(at)
-            audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
-            out_transits.append(audio)
-        for ci in range(a.channels):
-            audio_preview: MediaFile = MediaFile(name='preview-audio')
-            out_previews.append(audio_preview)
-            audio_preview.master.set(audio.guid.guid)
-            audio_preview.role = MediaFile.Role.PREVIEW
-            audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
-            audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
-            at.previews.append(str(audio_preview.guid))
-
-    # Add main source
-
-    # Add transit source(s)
-    # asset.mediaFiles += [_.guid for _ in out_transits]
-    asset.mediaFilesExtra = [_.guid for _ in out_transits]
-
-    # # Add main video stream and auto-detected params
-    # for ti, vt in enumerate(mediafile.videoTracks):
-    #     v_stream = VideoStream()
-    #     v_stream.program_in = 0.0
-    #     v_stream.program_out = dur
-    #     v_stream.cropdetect.update_json(cropdetects[ti])
-    #     v_stream.channels.append(Stream.Channel())
-    #     v_stream.collector.new()
-    #     asset.videoStreams.append(v_stream)
+    # out_archives: List[MediaFile] = []
+    # out_previews: List[MediaFile] = []
+    # out_transits: List[MediaFile] = []
     #
-    # # Add audio stream(s)
-    # for ti, at in enumerate(mediafile.audioTracks):
-    #     # asset.mediaFiles.append(trans.guid)
-    #     channels = at.channels
-    #     a_stream = AudioStream()
-    #     a_stream.program_in = 0.0
-    #     a_stream.program_out = dur
-    #     a_stream.layout = at.channel_layout
-    #     if at.tags and at.tags.language:
-    #         a_stream.language = at.tags.language
-    #     for ci in range(channels):
-    #         chan = Stream.Channel()
-    #         chan.src_stream_index = ti
-    #         chan.src_channel_index = ci
-    #         a_stream.channels.append(chan)
-    #     asset.audioStreams.append(a_stream)
+    # # Enumerate video tracks, create preview mediafile object(s)
+    # for sti, v in enumerate(mediafile.videoTracks):
+    #     # preview: MediaFile = v.ref_add()
+    #     vt = copy.deepcopy(v)
+    #     # archive: MediaFile = MediaFile(name='Archive: {}'.format(mediafile.name))
+    #     # archive.source.path = os.path.join(dir_archive.net_path, '{}.v{}.archive.mp4'.format(mediafile.guid, sti))
+    #     # archive.videoTracks.append(vt)
+    #     # out_archives.append(archive)
+    #     # preview.name = 'preview-video'
+    #     # out_previews.append(preview)
+    #     # preview.source.path = os.path.join(dir_preview.net_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
+    #     # preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
     #
-    # # Add subtitles stream(s)
-    # for ti in range(len(mediafile.subTracks)):
-    #     s_stream: SubStream = SubStream()
-    #     s_stream.program_in = 0.0
-    #     s_stream.program_out = dur
-    #     asset.subStreams.append(s_stream)
-
-    return {
-        'asset': asset,
-        'mediafile': mediafile,
-        # 'archives': out_archives,
-        # 'previews': out_previews,
-        # 'transits': out_transits
-    }
+    # # Enumerate subtitles tracks, previews and extracted tracks
+    # for sti, s in enumerate(mediafile.subTracks):
+    #     # Special case for 1-track subtitles only
+    #     if len(mediafile.videoTracks) == 0 and len(mediafile.audioTracks) == 0 and len(mediafile.subTracks) == 1:
+    #         subtitles = mediafile
+    #         st = s
+    #     else:
+    #         st = copy.deepcopy(s)
+    #         st.index = 0
+    #         subtitles: MediaFile = MediaFile(name='transit subtitles')
+    #         s.extract = subtitles.guid
+    #         subtitles.role = MediaFile.Role.TRANSIT
+    #         subtitles.master.set(mediafile.guid.guid)
+    #         subtitles.subTracks.append(st)
+    #         subtitles.source.path = os.path.join(dir_transit.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
+    #         out_transits.append(subtitles)
+    #     subtitles_preview: MediaFile = MediaFile(name='preview-sub')
+    #     out_previews.append(subtitles_preview)
+    #     subtitles_preview.master.set(subtitles.guid.guid)
+    #     subtitles_preview.role = MediaFile.Role.PREVIEW
+    #     subtitles_preview.source.path = os.path.join(dir_preview.net_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
+    #     subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
+    #     st.previews.append(str(subtitles_preview.guid))
+    #
+    # # Enumerate audio tracks, collect pan filters and outputs for previews and extracted tracks
+    # for sti, a in enumerate(mediafile.audioTracks):
+    #     # Special case for 1-track audio only
+    #     if len(mediafile.videoTracks) == 0 and len(mediafile.subTracks) == 0 and len(mediafile.audioTracks) == 1:
+    #         audio = mediafile
+    #         at = a
+    #     else:
+    #         at = copy.deepcopy(a)
+    #         audio: MediaFile = MediaFile(name='transit audio')
+    #         a.extract = audio.guid
+    #         audio.role = MediaFile.Role.TRANSIT
+    #         audio.master.set(mediafile.guid.guid)
+    #         audio.audioTracks.append(at)
+    #         audio.source.path = os.path.join(dir_transit.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
+    #         out_transits.append(audio)
+    #     for ci in range(a.channels):
+    #         audio_preview: MediaFile = MediaFile(name='preview-audio')
+    #         out_previews.append(audio_preview)
+    #         audio_preview.master.set(audio.guid.guid)
+    #         audio_preview.role = MediaFile.Role.PREVIEW
+    #         audio_preview.source.path = os.path.join(dir_preview.net_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
+    #         audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
+    #         at.previews.append(str(audio_preview.guid))
+    #
+    # # Add main source
+    #
+    # # Add transit source(s)
+    # # asset.mediaFiles += [_.guid for _ in out_transits]
+    # asset.mediaFilesExtra = [_.guid for _ in out_transits]
+    #
+    # # # Add main video stream and auto-detected params
+    # # for ti, vt in enumerate(mediafile.videoTracks):
+    # #     v_stream = VideoStream()
+    # #     v_stream.program_in = 0.0
+    # #     v_stream.program_out = dur
+    # #     v_stream.cropdetect.update_json(cropdetects[ti])
+    # #     v_stream.channels.append(Stream.Channel())
+    # #     v_stream.collector.new()
+    # #     asset.videoStreams.append(v_stream)
+    # #
+    # # # Add audio stream(s)
+    # # for ti, at in enumerate(mediafile.audioTracks):
+    # #     # asset.mediaFiles.append(trans.guid)
+    # #     channels = at.channels
+    # #     a_stream = AudioStream()
+    # #     a_stream.program_in = 0.0
+    # #     a_stream.program_out = dur
+    # #     a_stream.layout = at.channel_layout
+    # #     if at.tags and at.tags.language:
+    # #         a_stream.language = at.tags.language
+    # #     for ci in range(channels):
+    # #         chan = Stream.Channel()
+    # #         chan.src_stream_index = ti
+    # #         chan.src_channel_index = ci
+    # #         a_stream.channels.append(chan)
+    # #     asset.audioStreams.append(a_stream)
+    # #
+    # # # Add subtitles stream(s)
+    # # for ti in range(len(mediafile.subTracks)):
+    # #     s_stream: SubStream = SubStream()
+    # #     s_stream.program_in = 0.0
+    # #     s_stream.program_out = dur
+    # #     asset.subStreams.append(s_stream)
+    #
+    # return {
+    #     'asset': asset,
+    #     'mediafile': mediafile,
+    #     # 'archives': out_archives,
+    #     # 'previews': out_previews,
+    #     # 'transits': out_transits
+    # }
 
 
 def test_ffmpeg_cropdetect():
@@ -959,3 +961,12 @@ def test_ffmpeg_create_preview_extract_audio_subtitles():
     Logger.debug('trans:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['trans']])))
     Logger.debug('previews:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['previews']])))
     Logger.debug('archives:\n{}\n'.format('\n'.join([_.dumps(indent=2) for _ in result['archives']])))
+
+
+def test_mediafile_asset_for_ingest():
+    res = mediafile_asset_for_ingest(FFMPEG_UTILS_TEST_FILE_AV, None)
+    pprint(res)
+    Logger.log('sleep...\n')
+    time.sleep(5)
+    Logger.log('done\n')
+

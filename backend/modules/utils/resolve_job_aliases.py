@@ -43,7 +43,7 @@ def resolve_job_aliases(job: Job):
     }
     if resolve_aliases(params):
         # Clear all lists in info
-        job.info.reset_lists()
+        Job.object_reset_lists(job.info)
         job.info.update_json(params['json'])
 
 

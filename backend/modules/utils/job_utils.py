@@ -1976,7 +1976,7 @@ class JobUtils:
         }
         if JobUtils._resolve_aliases(params):
             # Clear all lists in info
-            job.info.reset_lists()
+            job.info.object_reset_lists(job.info)
             job.info.update_json(params['json'])
 
     # if 'JobUtils' not in globals() or 'RESULTS' not in globals()['JobUtils'].__dict__:

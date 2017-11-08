@@ -6,13 +6,14 @@ import os
 import sys
 import uuid
 import json
+import traceback
 from pprint import pprint
 from subprocess import Popen, PIPE
 
 from modules.models.mediafile import MediaFile
 from .jsoner import JSONer
 from .types import Guid, Rational, guess_type
-from .log_console import Logger
+from .log_console import Logger, tracer
 
 
 def get_ffprobe_info(filename, refine_duration=True):
@@ -674,7 +675,8 @@ def combine_ffprobe_mediainfo(ffstr, mistr):
 
 
 def combined_info(mf: MediaFile, path=None):
-
+    for frame in traceback.extract_tb(sys.exc_info()[2]):
+        print(frame)
     if path is None:
         path = mf.source.path
         if path is None:

@@ -236,16 +236,6 @@ class JobExecutor:
             Logger.info("Trigger job results\n")
             JobUtils.process_results(self.exec.job)
             return len(self.exec.job.emitted.results)
-        # self.exec.fmap.clear()
-        # fmap = None
-        # while True:
-        #     try:
-        #         fmap = self.exec.fmap_out.get(timeout=3.0)
-        #         Logger.info('Get fmap: {}\n...\n'.format(str(fmap)[:250]))
-        #     except Exception as e:
-        #         Logger.critical('Failed to get fmap {}\n'.format(e))
-        #         # Logger.traceback()
-        #         break
         self.exec.fmap = self.exec.fmap_out.flush()
         rc = 0
         for idx, result in enumerate(self.exec.job.emitted.results):
@@ -259,7 +249,6 @@ class JobExecutor:
                 else:
                     if text is not None:
                         result.data = PARSERS[result.source.parser](text)
-            # Logger.info('{}\n'.format(result.dumps(indent=2)))
             rc += 1
         JobUtils.process_results(self.exec.job)
         self.exec.reset()
@@ -276,6 +265,7 @@ class JobExecutor:
             self._last_captured_progress = jcap['progress']
         return self._last_captured_progress
 
+    @tracer
     def run(self, job: Job):
         if self.process:
             if self.process.is_alive():
@@ -292,7 +282,8 @@ class JobExecutor:
             self.exec.finish.set()
             return True
 
-        JobUtils.resolve_aliases(job)
+        JobUtils.resolve_aliases(self.exec.job)
+        # Logger.warning('{}\n'.format(job.dumps(indent=4)))
         self._last_captured_progress = 0.0
         self.process = Process(target=JobExecutor._process, args=(self.exec,))
         self.process.start()

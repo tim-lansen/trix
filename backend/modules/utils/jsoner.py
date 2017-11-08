@@ -324,10 +324,15 @@ class JSONer:
                         obj.full_instance()
                         self.__dict__[name].append(obj)
 
-    def reset_lists(self):
-        for k in self.__dict__:
-            if type(self.__dict__[k]) is list:
-                self.__dict__[k].clear()
+    @staticmethod
+    def object_reset_lists(obj):
+        if type(obj) is list:
+            for k in obj:
+                JSONer.object_reset_lists(k)
+            obj.clear()
+        elif hasattr(obj, 'object_reset_lists'):
+            for k in obj.__dict__:
+                JSONer.object_reset_lists(obj.__dict__[k])
 
     # @staticmethod
     # def jsoner_list_to_json(obj):
