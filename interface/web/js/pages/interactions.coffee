@@ -63,32 +63,32 @@ class AudioMan
         {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']}
         #{'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
     ]
-    # @audioChannels:
-    #     'FL': 'front left'
-    #     'FR': 'front right'
-    #     'FC': 'front center'
-    #     'LFE': 'low frequency'
-    #     'BL': 'back left'
-    #     'BR': 'back right'
-    #     'FLC': 'front left-of-center'
-    #     'FRC': 'front right-of-center'
-    #     'BC': 'back center'
-    #     'SL': 'side left'
-    #     'SR': 'side right'
-    #     'TC': 'top center'
-    #     'TFL': 'top front left'
-    #     'TFC': 'top front center'
-    #     'TFR': 'top front right'
-    #     'TBL': 'top back left'
-    #     'TBC': 'top back center'
-    #     'TBR': 'top back right'
-    #     'DL': 'downmix left'
-    #     'DR': 'downmix right'
-    #     'WL': 'wide left'
-    #     'WR': 'wide right'
-    #     'SDL': 'surround direct left'
-    #     'SDR': 'surround direct right'
-    #     'LFE2': 'low frequency 2'
+     @audioChannels:
+         'FL': 'front left'
+         'FR': 'front right'
+         'FC': 'front center'
+         'LFE': 'low frequency'
+         'BL': 'back left'
+         'BR': 'back right'
+         'FLC': 'front left-of-center'
+         'FRC': 'front right-of-center'
+         'BC': 'back center'
+         'SL': 'side left'
+         'SR': 'side right'
+         'TC': 'top center'
+         'TFL': 'top front left'
+         'TFC': 'top front center'
+         'TFR': 'top front right'
+         'TBL': 'top back left'
+         'TBC': 'top back center'
+         'TBR': 'top back right'
+         'DL': 'downmix left'
+         'DR': 'downmix right'
+         'WL': 'wide left'
+         'WR': 'wide right'
+         'SDL': 'surround direct left'
+         'SDR': 'surround direct right'
+         'LFE2': 'low frequency 2'
 
     constructor: ->
         @audioChannelSelectOptionsHtml = ''
@@ -173,44 +173,13 @@ class InteractionsPage
         @interaction_channelMerger = @interaction_audioContext.createChannelMerger(2)
         @interaction_channelMerger.connect @interaction_audioContext.destination
 
-        @audioMan = new AudioMan()
+        @audioMan = new AudioMan
         @liveCrop = new LiveCrop
-        @populateContentCardSelection()
+        @populateContentCardSelection
         return
 
-    updateInteractionDataOut: ->
-        # data = @interactions[@interaction_selected].data_out
-        # # Video part
-        # # Copy crop data
-        # data.program.video.crop.w = liveCrop.liveCrop[1] - (liveCrop.liveCrop[0])
-        # data.program.video.crop.h = liveCrop.liveCrop[3] - (liveCrop.liveCrop[2])
-        # data.program.video.crop.x = liveCrop.liveCrop[0]
-        # data.program.video.crop.y = liveCrop.liveCrop[2]
-        # # Program in/out/duration
-        # data.video.map.in = g_InteractionPlayer.timeStart
-        # data.video.map.out = g_InteractionPlayer.timeEnd
-        # # Sample fragments considering program start time
-        # data.sample = []
-        # i = 0
-        # while i < g_InteractionPlayer.bars.length
-        #     bar = g_InteractionPlayer.bars[i]
-        #     data.sample.push [
-        #         bar.timeStart - (g_InteractionPlayer.timeStart)
-        #         bar.timeEnd - (bar.timeStart)
-        #     ]
-        #     i++
-        # Audio part
-        # Color generation
-        #var fileCWS = 6;
-        #var trackCWS = 4;
-        #var channelCWS = 8;
-        # Creating styles
-        #createStyleSequence('src-file-map.s', 0, 8, 16, 1.0, 0, 16, 24, 1.0, fileCWS);
-        #                                          hue   sat  light alpha  hue   sat  light alpha   OEH   OEL
-        #createStyleSequence('src-file-map.s',         0,   12,   15,  1.0,    0,   16,   20,  1.0,  180,  2.0, fileCWS);
-        #createStyleSequence('src-track.t',          120,    8,   24,  0.5,  180,    8,   32, 0.75,  180,  2.0, trackCWS);
-        #createStyleSequence('src-audio-channel.c',    0,    4,   16,  0.5,    0,    4,    0, 0.75,  180,  6.0, channelCWS);
-        return
+    reset: ->
+
 
     updateAssetOut: ->
         # asset = @interaction_internal.asset
@@ -276,6 +245,7 @@ class InteractionsPage
                         'asset': @interaction_internal.asset
                 }, (answer) ->
                     console.log('submit_interaction response' + answer)
+                    @interactionsRefreshClick
                     return
                 return
             ).bind(@)
@@ -406,13 +376,16 @@ class InteractionsPage
         @interactions = {}
         for i, ans of answer
             ans.index = i
-            html += '<tr id="' + ans.guid + '" class="interaction row row' + i % 2 + '">'
+            console.log(ans)
+            if ans.status == 1
+                html += '<tr id="' + ans.guid + '" class="interaction row row' + i % 2 + '">'
+            else if ans.guid == @interaction_selected
+                html += '<tr id="' + ans.guid + '" class="interaction row row' + i % 2 + ' selected">'
+            else
+                html += '<tr id="' + ans.guid + '" class="interaction row locked">'
             for col in cols
                 html += '<td>' + ans[col] + '</td>'
             html += '</tr>'
-            # @interactions[answer[i].id] = new InteractionInternal(answer[i], g_InteractionPlayer)
-            # inter = new Interaction()
-            # UpdateObjectWithJSON(inter, ans)
             @interactions[ans.guid] = ans
             i++
         document.getElementById('interaction-table').innerHTML = html
@@ -435,7 +408,8 @@ class InteractionsPage
         # Reset selection
         if @interaction_selected != null
             # TODO: delete @interaction_internal, player, etc.
-            document.getElementById(@interaction_selected).className = 'interaction row row' + inter.index % 2
+#            document.getElementById(@interaction_selected).className = 'interaction row row' + inter.index % 2
+            $('#' + @interaction_selected).removeClass('selected')
             @interaction_internal.update_asset(@liveCrop)
             @interactions[@interaction_selected].status = 1
 #            inter = @interactions[@interaction_selected]
@@ -459,6 +433,7 @@ class InteractionsPage
         console.log(answer)
         inter_id = answer.inter_id
         @interaction_selected = inter_id
+        $('#' + @interaction_selected).addClass('selected')
         inter = @interactions[inter_id]
         if typeof(inter.assetIn) == 'string'
             # Request asset(s)
@@ -466,17 +441,8 @@ class InteractionsPage
                 'method': 'asset.get_expanded'
                 'params': 'guid': inter.assetIn
             }, @assetInRequestHandler.bind(@))
-            # Request pre-set output asset if there is one
-            # if typeof(inter.assetOut) == 'string'
-            #     @app.ws_api_trix.request({
-            #         'method': 'asset.get'
-            #         'params': 'guid': inter.assetOut
-            #     }, @assetOutRequestHandler.bind(@))
         else
             @interactionLoad()
-            # @interactionCreatePlayer()
-            # inter.showAudioOutputs()
-            # @interactionShowInfo inter
         return
 
     assetInRequestHandler: (msg) ->
@@ -501,15 +467,6 @@ class InteractionsPage
         @interactionLoad()
         return
 
-        # assetOutRequestHandler: (msg) ->
-        #     console.log 'assetOutRequestHandler'
-        #     console.log msg
-        #     inter = @interactions[@interaction_selected]
-        #     inter.assetOut = msg.result
-        #     document.getElementById(inter.guid).className = 'interaction row row' + inter.index % 2 + ' selected'
-        #     @interactionLoad()
-        #     return
-
     interactionLoad: () ->
         inter = @interactions[@interaction_selected]
         if typeof(inter.assetIn) == 'string' or typeof(inter.assetOut) == 'string'
@@ -523,19 +480,6 @@ class InteractionsPage
     interactionShowInfo: ->
         inter = @interactions[@interaction_selected]
         html = '<text>ID: ' + inter.guid + '</text>'
-        # if typeof inter.data_in != 'undefined' and inter.data_in != null
-        #     arr = Object.keys(inter.data_in)
-        #     arr.sort()
-        #     i = 0
-        #     while i < arr.length
-        #         key = arr[i]
-        #         outputData = ''
-        #         if typeof inter.data_in[key] == 'object'
-        #             outputData = JSON.stringify(inter.data_in[key])
-        #         else
-        #             outputData = inter.data_in[key]
-        #         html += '<br/><text>' + key + ': ' + outputData + '</text>'
-        #         i++
         document.getElementById('interaction-info').innerHTML = html
         return
 
