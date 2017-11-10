@@ -1,7 +1,7 @@
 {
   "dBase": {
     "connection": {
-      "host": "1.1.1.3",
+      "host": "trix-db",
       "port": 5432,
       "dbname": "trix_db"
     },
@@ -33,7 +33,7 @@
     }
   },
   "apiServer": {
-    "host": "127.0.0.1",
+    "host": "trix-nginx",
     "port": 9001
   },
   "machines": {
@@ -46,7 +46,7 @@
       {
         "name": "server1",
         "id": "server1_id",
-        "address": "1.1.1.1",
+        "address": "10.10.10.99",
         "filesystem": "cifs",
         "shares": {
           "crude": "/shared/crude",
@@ -69,7 +69,7 @@
             "role": "preview",
             "share": "web",
             "net_path": "web/preview",
-            "web_path": "http://1.1.1.101/media"
+            "web_path": "http://trix-nginx/media"
           },
           {
             "role": "transit",
@@ -83,7 +83,7 @@
       {
         "name": "server2",
         "id": "server2_id",
-        "address": "1.1.1.1",
+        "address": "10.10.10.99",
         "filesystem": "cifs",
         "shares": {
           "cache": "/shared/cache"
