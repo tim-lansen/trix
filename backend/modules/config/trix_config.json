@@ -46,7 +46,7 @@
       {
         "name": "server1",
         "id": "server1_id",
-        "address": "10.10.10.99",
+        "address": "tlansen",
         "filesystem": "cifs",
         "shares": {
           "crude": "/shared/crude",
@@ -83,7 +83,7 @@
       {
         "name": "server2",
         "id": "server2_id",
-        "address": "10.10.10.99",
+        "address": "tlansen",
         "filesystem": "cifs",
         "shares": {
           "cache": "/shared/cache"

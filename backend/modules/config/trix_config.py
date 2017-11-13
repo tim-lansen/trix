@@ -143,11 +143,16 @@ class TrixConfig(JSONer):
                     return r'\\{}\{}'.format(self.address, share)
                 return '/mnt/{}/{}'.format(self.id, share)
 
-            def mount_opts(self):
+            def mount_command(self, net_path, mount_point):
                 if self.filesystem == 'cifs':
-                    return '-t cifs -o username={u},password={p},dir_mode=0777,file_mode=0777'.format(u=self.username, p=self.password).split(' ')
+                    return 'mount.cifs {np} {mp} -o username={u},password={p},dir_mode=0777,file_mode=0777'.format(
+                        np=net_path,
+                        mp=mount_point,
+                        u=self.username,
+                        p=self.password
+                    )
                 elif self.filesystem == 'nfs':
-                    return '-t nfs'.split(' ')
+                    return 'mount {np} {mp}-t nfs'.format(np=net_path, mp=mount_point)
                 return None
 
             def get_paths(self, role):

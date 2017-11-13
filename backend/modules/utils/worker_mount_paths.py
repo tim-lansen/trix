@@ -49,11 +49,11 @@ def mount_paths():
                     Logger.info('{} is mounted to {}\n'.format(np, mount[np]))
                     continue
                 Logger.warning('{} is mounted to {} (must be {})\n'.format(np, mount[np], desired_mp))
-                _wrap_call_(['umount', mount[np]], 'Failed to unmount {}\n'.format(mount[np]))
-                _wrap_call_(['rmdir', mount[np]], 'Failed to remove {}\n'.format(mount[np]))
+                _wrap_call_(['umount', mount[np]], _error_='Failed to unmount {}\n'.format(mount[np]))
+                _wrap_call_(['rmdir', mount[np]], _error_='Failed to remove {}\n'.format(mount[np]))
             _wrap_call_(['mkdir', '-p', desired_mp])
             _wrap_call_(['chmod', '777', desired_mp])
-            _wrap_call_(['mount', np, desired_mp] + server.mount_opts())
+            _wrap_call_(server.mount_command(np, desired_mp).split(' '))
     for server in TRIX_CONFIG.storage.servers:
         for path in server.paths:
             mp = server.mount_point(path['net_path'])

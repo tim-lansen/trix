@@ -28,8 +28,9 @@ PostgreSQL
    15  sudo /etc/init.d/postgresql restart
    16  ps -f -u postgres
 ===================
-Network
+Network & shares
 ===================
+    sudo apt-get install cifs-utils
         # change hostname
 
       > sudo vim /etc/hosts

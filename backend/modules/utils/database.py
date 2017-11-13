@@ -28,7 +28,7 @@ def connect_to_db(args):
         conn = psycopg2.connect(**args)
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     except psycopg2.Error as e:
-        Logger.error("Unable to connect to DB\n{0}\n{1}\n".format(e.pgerror, e.diag.message_detail))
+        Logger.error("Unable to connect to DB: {}\n{}\n{}\n".format(args, e.pgerror, e.diag.message_detail))
         return None
     return conn
 

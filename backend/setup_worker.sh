@@ -1,4 +1,15 @@
 # ===================
+# Quicker boot:
+# sudo vim /boot/grub/grub.cfg
+#   find and replace
+#       set timeout=2
+#   with
+#       set timeout=2
+# ===================
+# CIFS support (needed for hostname resolving)
+# ===================
+sudo apt-get install cifs-utils
+# ===================
 # Python: psycopg2, Unidecode, python_slugify
 # ===================
 sudo apt-get update
