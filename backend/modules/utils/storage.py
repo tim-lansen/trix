@@ -37,3 +37,4 @@ class Storage:
             path = None #Storage.DEVNULL
         return path
 
+

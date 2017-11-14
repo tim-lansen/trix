@@ -10,6 +10,10 @@
 # ===================
 sudo apt-get install cifs-utils
 # ===================
+# SSHFS support
+# ===================
+sudo apt-get install sshfs
+# ===================
 # Python: psycopg2, Unidecode, python_slugify
 # ===================
 sudo apt-get update

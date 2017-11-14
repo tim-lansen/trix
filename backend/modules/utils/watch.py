@@ -10,6 +10,7 @@ import uuid
 import time
 from .log_console import Logger
 from modules.config import TRIX_CONFIG
+from modules.models.fileset import Fileset
 from .job_utils import JobUtils
 
 
@@ -89,3 +90,33 @@ def watch_once():
         Logger.info('Job created:\n{}\n'.format(job.dumps(indent=2)))
         # Create PROBE job
         # CreateJob.media_info(**d)
+
+
+def fileset(path) -> Fileset:
+    fs: Fileset = Fileset()
+    fs.name = os.path.basename(path)
+    stat = os.stat(path)
+    fs.creation_time = stat.st_ctime
+    fs.modification_time = stat.st_mtime
+    for f in os.listdir(path):
+        fpath = os.path.join(path, f)
+        stat = os.stat(fpath)
+        fs.modification_time = max(fs.modification_time, stat.st_mtime)
+        if os.path.isfile(fpath):
+            file: Fileset.File = Fileset.File()
+            file.name = f
+            file.ctime = stat.st_ctime
+            file.mtime = stat.st_mtime
+            fs.files.append(file)
+        elif os.path.isdir(fpath):
+            fs.dirs.append(f)
+    return fs
+
+
+def filesets(path):
+    fss = []
+    for d in os.listdir(path):
+        dpath = os.path.join(path, d)
+        if os.path.isdir(dpath):
+            fss.append(fileset(dpath))
+    return fss

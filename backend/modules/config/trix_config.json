@@ -102,7 +102,9 @@
     "watchfolders": [
       {
         "action": "ingest",
-        "path": "/mnt/server1_id/crude"
+        "server_id": "server1_id",
+        "share": "crude",
+        "net_path": "crude/watch"
       }
     ]
   }

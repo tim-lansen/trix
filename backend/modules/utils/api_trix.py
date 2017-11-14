@@ -18,6 +18,8 @@ from modules.models.asset import Asset, Stream
 from modules.models.collector import Collector
 from modules.models.mediafile import MediaFile
 from modules.utils.job_utils import JobUtils
+from modules.utils.watch import Fileset, filesets, TRIX_CONFIG
+from modules.utils.worker_mount_paths import mount_share
 import traceback
 
 
@@ -243,6 +245,18 @@ class ApiTrix(ApiClassBase):
         #             params = args[0]
         #             asset = DBInterface.Asset.get_dict(params['guid'])
         #             return asset
+
+        class fileset:
+            class get_list(meth):
+                @staticmethod
+                def handler(*args):
+                    res = []
+                    for wf in TRIX_CONFIG.storage.watchfolders:
+                        srv = TRIX_CONFIG.storage.get_server(wf.server_id)
+                        mount_share(srv, wf.share, None)
+                        path = srv.mount_point(srv, wf.net_path)
+                        res += filesets(path)
+                    return res
 
     @staticmethod
     def execute(target, request, client: ApiClient):

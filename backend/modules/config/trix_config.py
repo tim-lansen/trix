@@ -133,26 +133,36 @@ class TrixConfig(JSONer):
             def network_address(self, share):
                 if self.filesystem == 'cifs':
                     return '//{}/{}'.format(self.address, share)
-                elif self.filesystem == 'nfs':
+                elif self.filesystem == 'nfs' or self.filesystem == 'sshfs':
                     return '{}:{}'.format(self.address, self.shares[share])
                 return None
 
             def mount_point(self, share):
-                # sh = share.split(os.path.sep, 1)[0]
                 if os.name == 'nt':
                     return r'\\{}\{}'.format(self.address, share)
                 return '/mnt/{}/{}'.format(self.id, share)
 
             def mount_command(self, net_path, mount_point):
                 if self.filesystem == 'cifs':
-                    return 'mount.cifs {np} {mp} -o username={u},password={p},dir_mode=0777,file_mode=0777'.format(
-                        np=net_path,
-                        mp=mount_point,
-                        u=self.username,
-                        p=self.password
-                    )
+                    return {
+                        'command': 'mount.cifs {np} {mp} -o username={u},password={p},dir_mode=0777,file_mode=0777'.format(
+                            np=net_path,
+                            mp=mount_point,
+                            u=self.username,
+                            p=self.password
+                        ).split(' '),
+                        'need_root': True
+                    }
                 elif self.filesystem == 'nfs':
-                    return 'mount {np} {mp}-t nfs'.format(np=net_path, mp=mount_point)
+                    return {
+                        'command': 'mount {np} {mp}-t nfs'.format(np=net_path, mp=mount_point).split(' '),
+                        'need_root': True
+                    }
+                elif self.filesystem == 'sshfs':
+                    return {
+                        'command': 'sshfs {np} {mp}-t nfs'.format(np=net_path, mp=mount_point).split(' '),
+                        'need_root': False
+                    }
                 return None
 
             def get_paths(self, role):
@@ -179,6 +189,9 @@ class TrixConfig(JSONer):
                 self.action: self.Action = self.Action.UNDEFINED
                 self.path = None
                 self.map: self.Map = self.Map()
+                self.server_id = None
+                self.share = None
+                self.net_path = None
 
             def paths(self):
                 return {
@@ -198,8 +211,28 @@ class TrixConfig(JSONer):
 
         def __init__(self):
             super().__init__()
+            self.servers_map = {}
             self.servers: List[self.Server] = []
             self.watchfolders: List[self.Watchfolder] = []
+
+        def _remap_(self):
+            self.servers_map = {}
+            for i, s in enumerate(self.servers):
+                self.servers_map[s.id] = i
+
+        def update_str(self, json_str):
+            super().update_str(json_str)
+            self._remap_()
+
+        def update_json(self, json_obj):
+            super().update_json(json_obj)
+            self._remap_()
+
+        def get_server(self, server_id):
+            try:
+                return self.servers[self.servers_map[server_id]]
+            except:
+                return None
 
     def __init__(self):
         super().__init__()
@@ -211,13 +244,11 @@ class TrixConfig(JSONer):
 
 if 'TRIX_CONFIG' not in globals():
     TRIX_CONFIG = TrixConfig()
-
-
-# Read trix_config.json
-with open(os.path.join(os.path.dirname(__file__), 'trix_config.json'), 'r') as config_file:
-    config_string = config_file.read()
-    TRIX_CONFIG.update_str(config_string)
-    TRIX_CONFIG.dBase.conform_tables()
+    # Read trix_config.json
+    with open(os.path.join(os.path.dirname(__file__), 'trix_config.json'), 'r') as config_file:
+        config_string = config_file.read()
+        TRIX_CONFIG.update_str(config_string)
+        TRIX_CONFIG.dBase.conform_tables()
 
 
 # Check that tables config equals class definitions
