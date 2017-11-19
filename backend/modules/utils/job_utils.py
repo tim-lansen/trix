@@ -474,7 +474,7 @@ class JobUtils:
 
                     preview.master.guid = mediafile.guid.guid
                     preview.name = 'Preview: {}'.format(mediafile.name)
-                    preview.source.path = os.path.join(pdir.net_path, preview_name)
+                    preview.source.path = os.path.join(pdir.abs_path, preview_name)
                     preview.source.url = '{}/{}'.format(pdir.web_path, preview_name)
                     previews.append(preview)
 
@@ -482,9 +482,9 @@ class JobUtils:
                     job: Job = Job(name='split.v{}'.format(ti), guid=0, task_id=task_id, job_type=Job.Type.SLICES_CREATE)
                     job.groupIds.append(group_id)
                     job.info.paths = [
-                        pdir.net_path,
-                        adir.net_path,
-                        cdir.net_path
+                        pdir.abs_path,
+                        adir.abs_path,
+                        cdir.abs_path
                     ]
                     chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
                     # mf_dumps = mediafile.dumps()
@@ -543,7 +543,7 @@ class JobUtils:
                         subtitles.role = MediaFile.Role.TRANSIT
                         subtitles.master.set(mediafile.guid.guid)
                         subtitles.subTracks.append(st)
-                        subtitles.source.path = os.path.join(tdir.net_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, ti))
+                        subtitles.source.path = os.path.join(tdir.abs_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, ti))
                         outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=ti, path=subtitles.source.path))
                         transits.append(subtitles)
                         asset.mediaFilesExtra.append(subtitles.guid)
@@ -551,7 +551,7 @@ class JobUtils:
                     subtitles_preview: MediaFile = MediaFile(name='preview-sub')
                     subtitles_preview.master.set(subtitles.guid.guid)
                     subtitles_preview.role = MediaFile.Role.PREVIEW
-                    subtitles_preview.source.path = os.path.join(pdir.net_path, preview_name)
+                    subtitles_preview.source.path = os.path.join(pdir.abs_path, preview_name)
                     subtitles_preview.source.url = '{}/{}'.format(pdir.web_path, preview_name)
                     st.previews.append(str(subtitles_preview.guid))
                     outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=ti, path=subtitles_preview.source.path))
@@ -582,7 +582,7 @@ class JobUtils:
                         audio.role = MediaFile.Role.TRANSIT
                         audio.master.set(mediafile.guid.guid)
                         audio.audioTracks.append(at)
-                        audio.source.path = os.path.join(tdir.net_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, ti))
+                        audio.source.path = os.path.join(tdir.abs_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, ti))
                         outputs.append('-map 0:a:{ti} -c:a copy {path}'.format(ti=ti, path=audio.source.path))
                         transits.append(audio)
                         asset.mediaFilesExtra.append(audio.guid)
@@ -594,7 +594,7 @@ class JobUtils:
                         audio_preview: MediaFile = MediaFile(name='preview-audio')
                         audio_preview.master.set(audio.guid.guid)
                         audio_preview.role = MediaFile.Role.PREVIEW
-                        audio_preview.source.path = os.path.join(pdir.net_path, preview_name)
+                        audio_preview.source.path = os.path.join(pdir.abs_path, preview_name)
                         audio_preview.source.url = '{}/{}'.format(pdir.web_path, preview_name)
                         at.previews.append(str(audio_preview.guid))
                         if audio_filter is None:
@@ -655,8 +655,8 @@ class JobUtils:
                     job.groupIds.append(group_id)
                     job.info.steps.append(step)
                     job.info.paths = [
-                        pdir.net_path,
-                        tdir.net_path
+                        pdir.abs_path,
+                        tdir.abs_path
                     ]
                     # Create job: result to capture silence [and levels, ebur128, etc.] ***only for 1st audio track
                     result: Job.Emitted.Result = Job.Emitted.Result()
@@ -732,7 +732,7 @@ class JobUtils:
             cdir = Storage.storage_path('cache', str(mf.guid))
             adir = Storage.storage_path('archive', str(mf.guid))
 
-            archive_path = os.path.join(adir.net_path, trig['archive_name'])
+            archive_path = os.path.join(adir.abs_path, trig['archive_name'])
 
             vt: MediaFile.VideoTrack = mf.videoTracks[vti]
             pvt: MediaFile.VideoTrack = preview.videoTracks[0]
@@ -755,7 +755,7 @@ class JobUtils:
             job_archive_concat: Job = Job(name='archive_concat', guid=0, task_id=task_id)
             job_archive_concat.type = Job.Type.SLICES_CONCAT
             job_archive_concat.groupIds.append(group_id)
-            job_archive_concat.info.paths.append(adir.net_path)
+            job_archive_concat.info.paths.append(adir.abs_path)
             job_archive_concat.dependsOnGroupId = job_preview_concat.dependsOnGroupId
 
             # 2 Create Nx2 encode jobs
@@ -768,8 +768,8 @@ class JobUtils:
             jobs = []
             pslic: MediaFile.VideoTrack.Slice = None
             for idx, slic in enumerate(vt.slices + [None]):
-                segment_path_preview = os.path.join(cdir.net_path, 'prv_{:03d}.h264'.format(idx))
-                segment_path_archive = os.path.join(cdir.net_path, 'arch_{:03d}.hevc'.format(idx))
+                segment_path_preview = os.path.join(cdir.abs_path, 'prv_{:03d}.h264'.format(idx))
+                segment_path_archive = os.path.join(cdir.abs_path, 'arch_{:03d}.hevc'.format(idx))
                 segments_preview.append(segment_path_preview)
                 segments_archive.append(segment_path_archive)
                 # segment_list_preview += 'file {}\n'.format(segment_path_preview)
@@ -857,9 +857,9 @@ class JobUtils:
                 # Logger.info('{} | {} | {} | {}\n\n'.format(proc0, proc1, proc2, proc3))
 
             # Write concat files
-            # concat_preview = os.path.join(cdir.net_path, 'preview.list')
-            # concat_archive = os.path.join(cdir.net_path, 'archive.list')
-            os.makedirs(cdir.net_path, exist_ok=True)
+            # concat_preview = os.path.join(cdir.abs_path, 'preview.list')
+            # concat_archive = os.path.join(cdir.abs_path, 'archive.list')
+            os.makedirs(cdir.abs_path, exist_ok=True)
             # with open(concat_preview, 'w') as f:
             #     f.write(''.join(['file {}\n'.format(_) for _ in segments_preview])
             # with open(concat_archive, 'w') as f:
@@ -988,7 +988,7 @@ class JobUtils:
             jobs = []
             pslic: MediaFile.VideoTrack.Slice = None
             for idx, slic in enumerate(vt.slices + [None]):
-                segment_path_preview = os.path.join(cdir.net_path, 'prv_{:03d}.h264'.format(idx))
+                segment_path_preview = os.path.join(cdir.abs_path, 'prv_{:03d}.h264'.format(idx))
                 segment_list_preview += 'file {}\n'.format(segment_path_preview)
                 job_preview_slice: Job = Job(name='preview_slice_{:03d}'.format(idx), guid=0, task_id=task_id)
                 job_preview_slice.type = Job.Type.ENCODE_VIDEO
@@ -1071,8 +1071,8 @@ class JobUtils:
                 pslic = slic
 
             # Write concat files
-            concat_preview = os.path.join(cdir.net_path, 'preview.list')
-            os.makedirs(cdir.net_path, exist_ok=True)
+            concat_preview = os.path.join(cdir.abs_path, 'preview.list')
+            os.makedirs(cdir.abs_path, exist_ok=True)
             with open(concat_preview, 'w') as f:
                 f.write(segment_list_preview)
 
@@ -1137,14 +1137,14 @@ class JobUtils:
 
             cdir = Storage.storage_path('cache', str(asset.guid))
             adir = Storage.storage_path('archive', str(asset.guid))
-            archive_mediafile_path = os.path.join(adir.net_path, '{}.archive.mp4'.format(asset.guid))
+            archive_mediafile_path = os.path.join(adir.abs_path, '{}.archive.mp4'.format(asset.guid))
 
             # Create audio encoding job(s)
             video_stream: Asset.VideoStream = asset.videoStreams[0]
             tempo_fps = video_stream.fpsEncode.val() / video_stream.fpsOriginal.val()
             chains = []
             for i, audio_stream in enumerate(asset.audioStreams):
-                output = '{}/{}.mp4'.format(cdir.net_path, str(uuid.uuid4()))
+                output = '{}/{}.mp4'.format(cdir.abs_path, str(uuid.uuid4()))
                 job_assemble_audio_inputs.append(output)
                 command = 'ffmpeg -y -loglevel error -stats'
                 # Calculate start, duration and rate
@@ -1264,7 +1264,7 @@ class JobUtils:
                         first_slice = i
 
                 job_archive_concat: Job = Job(name='archive_concat', task_id=task_id, job_type=Job.Type.SLICES_CONCAT)
-                job_archive_concat.info.paths.append(adir.net_path)
+                job_archive_concat.info.paths.append(adir.abs_path)
                 job_archive_concat.dependsOnGroupId.new()
 
                 tmpl_ffmpeg, tmpl_x264 = JobUtils.template_ffmpeg_x264_archive(vt, video_stream.cropdetect)
@@ -1276,7 +1276,7 @@ class JobUtils:
                     slic: MediaFile.VideoTrack.Slice = vt.slices[idx]
 
                     # mediafile: MediaFile = MediaFile(name='Archive')
-                    segment_path_archive = os.path.join(cdir.net_path, 'arch_{}_{:03d}.h264'.format(vsi, idx))
+                    segment_path_archive = os.path.join(cdir.abs_path, 'arch_{}_{:03d}.h264'.format(vsi, idx))
                     segment_list_archive += 'file {}\n'.format(segment_path_archive)
                     job_archive_slice: Job = Job(name='encode_slice_{}_{:03d}'.format(vsi, idx), guid=0, task_id=task_id, job_type=Job.Type.ENCODE_VIDEO)
                     job_archive_slice.groupIds.append(job_archive_concat.dependsOnGroupId)
@@ -1460,7 +1460,7 @@ class JobUtils:
                 #                 # Create video track preview
                 #                 preview = vt.ref_add()
                 #                 preview.name = 'preview-video#{}'.format(vti)
-                #                 preview.source.path = os.path.join(pdir.net_path, '{}.v{}.preview.mp4'.format(mf.guid, vti))
+                #                 preview.source.path = os.path.join(pdir.abs_path, '{}.v{}.preview.mp4'.format(mf.guid, vti))
                 #                 preview.source.url = '{}/{}.v{}.preview.mp4'.format(pdir.web_path, mf.guid, vti)
                 #                 pvt: MediaFile.VideoTrack = preview.videoTracks[0]
                 #                 #1 Create 2 concat jobs: for preview and for archive
@@ -1482,8 +1482,8 @@ class JobUtils:
                 #                 segment_list_x265 = ''
                 #                 pslic = None
                 #                 for slic in res['slices'] + [None]:
-                #                     segment_path_x264 = os.path.join(cdir.net_path, 'prv_{:03d}.h264')
-                #                     segment_path_x265 = os.path.join(cdir.net_path, 'arch_{:03d}.hevc')
+                #                     segment_path_x264 = os.path.join(cdir.abs_path, 'prv_{:03d}.h264')
+                #                     segment_path_x265 = os.path.join(cdir.abs_path, 'arch_{:03d}.hevc')
                 #                     segment_list_x264 += 'file {}\n'.format(segment_path_x264)
                 #                     segment_list_x265 += 'file {}\n'.format(segment_path_x265)
                 #                     job_preview_archive_slice: Job = Job(guid=0)

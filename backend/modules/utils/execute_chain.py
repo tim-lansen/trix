@@ -159,8 +159,8 @@ class ExecuteInternal:
 
             mediafile: MediaFile = MediaFile(name='Made from asset')
             adir = Storage.storage_path('archive', str(mediafile.guid))
-            path = '{}/{}.mp4'.format(adir.net_path, mediafile.guid)
-            os.makedirs(adir.net_path, exist_ok=True)
+            path = '{}/{}.mp4'.format(adir.sub_path, mediafile.guid)
+            os.makedirs(adir.sub_path, exist_ok=True)
 
             # Trim source video if needed
             # Search mediafile that contains video

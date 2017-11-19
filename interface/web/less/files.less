@@ -1,0 +1,55 @@
+.cell {
+    overflow: hidden;
+}
+
+table.files {
+    table-layout: fixed;
+    width: 750px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+table.files td { border-style: hidden; }
+/* Folder */     table.files th:nth-of-type(1), tr.files td:nth-of-type(1) { width:25%; }
+/* created */    table.files th:nth-of-type(2), tr.files td:nth-of-type(2) { width:25%; text-align: center; }
+/* modified */   table.files th:nth-of-type(3), tr.files td:nth-of-type(3) { width:25%; text-align: center; }
+/* status */     table.files th:nth-of-type(4), tr.files td:nth-of-type(4) { width:10%; text-align: center; }
+/* action */     table.files th:nth-of-type(5), tr.files td:nth-of-type(5) { width:15%; text-align: center; }
+tr.files.row {
+    //cursor: pointer;
+    height: 16px;
+    background-image: none;
+    background-repeat: repeat;
+    background-attachment: scroll;
+    background-position: 0% 0%;
+    background-clip: border-box;
+    background-origin: padding-box;
+    background-size: auto auto;
+}
+tr.files.row:hover { color: #C06030; }
+
+//tr.files.row.row0 { background-color: #282828; }
+
+//tr.files.row.row1 { background-color: #303030; }
+th, td { overflow: hidden; }
+
+.files-raw-list {
+    width: 720px;
+    height: 120px;
+    background-color: #A0A0A0;
+}
+
+tr.files.row.selected {
+    color: #E07020;
+}
+
+tr.files.row.row0.undefined { background-color: #55291e; }
+tr.files.row.row1.undefined { background-color: #3a1c14; }
+tr.files.row.row0.new { background-color: #282828; }
+tr.files.row.row1.new { background-color: #202020; }
+tr.files.row.row0.inwork { background-color: #283b3c; }
+tr.files.row.row1.inwork { background-color: #203233; }
+tr.files.row.row0.done { background-color: #1c341d; }
+tr.files.row.row1.done { background-color: #102c11; }
+tr.files.row.row0.failed { background-color: #ae192b; }
+tr.files.row.row1.failed { background-color: #881422; }

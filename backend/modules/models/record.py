@@ -19,21 +19,6 @@ class Record(JSONer):
         self.ctime = None
         self.mtime = None
 
-    def db_value(self, key):
-        val = self.__dict__[key]
-        if type(val) is list:
-            vtype = 'name[]'
-            for f in self.TABLE_SETUP['fields']:
-                if f[0] == key:
-                    vtype = f[1]
-            string = "ARRAY[{values}]::{type}".format(
-                values=','.join(["'{}'".format(_) for _ in val]),
-                type=vtype
-            )
-        else:
-            string = "'{}'".format(str(val))
-        return string
-
     TABLE_SETUP = {
         "fields": [
             ["guid", "uuid NOT NULL"],
@@ -50,6 +35,21 @@ class Record(JSONer):
             "GRANT ALL ON TABLE public.{relname} TO trix WITH GRANT OPTION;"
         ]
     }
+
+    def db_value(self, key):
+        val = self.__dict__[key]
+        if type(val) is list:
+            vtype = 'name[]'
+            for f in self.TABLE_SETUP['fields']:
+                if f[0] == key:
+                    vtype = f[1]
+            string = "ARRAY[{values}]::{type}".format(
+                values=','.join(["'{}'".format(_) for _ in val]),
+                type=vtype
+            )
+        else:
+            string = "'{}'".format(str(val))
+        return string
 
 
 def test():

@@ -63,7 +63,7 @@ class AudioMan
         {'code': 'octagonal',      'name': 'Octagonal',       'layout': ['FL',  'FR',  'FC',  'BL',  'BR',  'BC',  'SL',  'SR']}
         #{'code': 'downmix',        'name': 'Downmix',         'layout': ['DL',  'DR']}
     ]
-     @audioChannels:
+    @audioChannels:
          'FL': 'front left'
          'FR': 'front right'
          'FC': 'front center'
@@ -153,6 +153,7 @@ class InteractionsPage
     @hash: 'interactions'
 
     constructor: (app) ->
+        console.log('== constructor InteractionsPage ==')
         @app = app
         @proposeAudioLang = null
         @interaction_initialized = false

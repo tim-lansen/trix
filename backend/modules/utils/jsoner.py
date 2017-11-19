@@ -123,16 +123,22 @@ class JSONer:
         # Check if there is a child class with the same name (capitalized)
         #  declared in current class (preferred) or in global space
         # subclass = None
+        if name == 'storage':
+            print('sto')
         is_root = False
         try:
             subclass = getattr(self, class_name)
+        except Exception as e:
+            subclass = None
+
+        if subclass:
             if isinstance(self.__dict__[name], subclass):
                 self.__dict__[name].update_json(val)
                 return
-            subclass = None
-        except:
-            subclass = None
-            if class_name in roots:
+            if val.upper() in subclass.__dict__:
+                self.__dict__[name] = subclass.__dict__[val.upper()]
+                return
+        elif class_name in roots:
                 subclass = roots[class_name]
                 is_root = True
         # if class_name in self.__class__.__dict__:
@@ -148,6 +154,7 @@ class JSONer:
             #     return
             # if val is a string, lookup subclass member <val> and use it's value for member
             if isinstance(val, str):
+
                 if val in subclass.__dict__:
                     self.__dict__[name] = subclass.__dict__[val]
                     return

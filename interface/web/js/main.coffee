@@ -29,7 +29,7 @@ class Utils
 class Templates
     @templates:
         interactionsPage: require('../build/jade_tmpl/interactionsPage')
-        moviesPage:       require('../build/jade_tmpl/moviesPage')
+        filesPage:       require('../build/jade_tmpl/filesPage')
         playerPage:       require('../build/jade_tmpl/playerPage')
         seriesPage:       require('../build/jade_tmpl/seriesPage')
     @get: (name) ->
@@ -70,7 +70,7 @@ class App extends AppInterface
     @device_token : null
     @pages: Pages
     @sections: [
-        #{capt: 'Movies',      hash: 'movies',      constructor: require('./pages/movies')}
+        {capt: 'Files',      hash: 'files',      constructor: FilesPage}
         #{capt: 'Series',      hash: 'series',      constructor: require('./pages/series')}
         {capt: 'Interactions', hash: 'interactions', constructor: InteractionsPage}
         {capt: 'Tasks',       hash: 'monitor',     constructor: null}

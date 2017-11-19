@@ -13,7 +13,7 @@ import sys
 import uuid
 import time
 import shutil
-import modules.utils.worker_mount_paths
+import modules.utils.mount_paths
 # from modules.utils.non_daemonic_pool import NonDaemonicPool
 # from typing import List
 from modules.config import *
@@ -59,7 +59,7 @@ class Worker:
             self.job_executor.stop()
             DBInterface.Job.set_status(self.node.job, Job.Status.CANCELED)
         self.node.status = Node.Status.EXITING
-        DBInterface.Node.unregister(self.node, False)
+        DBInterface.Node.remove(self.node, False)
         # self.node.job = None
 
     def finish(self, params):
@@ -188,7 +188,7 @@ class Worker:
             Logger.info('Node: {}\n'.format(self.node.dumps()))
             working = self.node.status in valid_status_set or self.job_executor.working()
 
-        DBInterface.Node.unregister(self.node, False)
+        DBInterface.Node.remove(self.node, False)
 
 
 def launch_node(name, channel, job_types):
@@ -262,6 +262,6 @@ if __name__ == '__main__':
     if len(sys.argv) == 3:
         launch_node(sys.argv[1], sys.argv[2], None)
     else:
-        if not modules.utils.worker_mount_paths.mount_paths():
+        if not modules.utils.mount_paths.mount_paths():
             Logger.critical('Failed to mount all necessary paths\n')
     #         run_worker()

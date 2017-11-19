@@ -57,23 +57,23 @@
           {
             "role": "archive",
             "share": "store",
-            "net_path": "store/archive"
+            "sub_path": "store/archive"
           },
           {
             "role": "production",
             "share": "store",
-            "net_path": "store/production"
+            "sub_path": "store/production"
           },
           {
             "role": "preview",
             "share": "web",
-            "net_path": "web/preview",
+            "sub_path": "web/preview",
             "web_path": "http://10.128.134.16/media"
           },
           {
             "role": "transit",
             "share": "store",
-            "net_path": "store/_transit"
+            "sub_path": "store/_transit"
           }
         ]
       },
@@ -89,7 +89,7 @@
           {
             "role": "cache",
             "share": "cache",
-            "net_path": "cache"
+            "sub_path": "cache"
           }
         ]
       }

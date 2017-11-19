@@ -14,12 +14,10 @@ import json
 import threading
 from pprint import pformat
 from modules.websocket_server import ApiClassBase, ApiClientClassBase, WebsocketServer
-from modules.models.asset import Asset, Stream
-from modules.models.collector import Collector
-from modules.models.mediafile import MediaFile
+from modules.models import Asset, Stream, Collector, MediaFile, Fileset
 from modules.utils.job_utils import JobUtils
-from modules.utils.watch import Fileset, filesets, TRIX_CONFIG
-from modules.utils.worker_mount_paths import mount_share
+from modules.utils.watch import Fileset, TRIX_CONFIG
+from modules.utils.mount_paths import mount_share
 import traceback
 
 
@@ -247,14 +245,14 @@ class ApiTrix(ApiClassBase):
         #             return asset
 
         class fileset:
-            class get_list(meth):
+            class getList(meth):
                 @staticmethod
                 def handler(*args):
                     res = []
                     for wf in TRIX_CONFIG.storage.watchfolders:
                         srv = TRIX_CONFIG.storage.get_server(wf.server_id)
                         mount_share(srv, wf.share, None)
-                        path = srv.mount_point(srv, wf.net_path)
+                        path = srv.local_address(srv, wf.sub_path)
                         res += filesets(path)
                     return res
 

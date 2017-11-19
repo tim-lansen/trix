@@ -12,7 +12,8 @@ from modules.utils.log_console import Logger
 MODELS_TO_TRANSLATE = [
     modules.models.Asset,
     modules.models.MediaFile,
-    modules.models.Interaction
+    modules.models.Interaction,
+    modules.models.Fileset
 ]
 
 

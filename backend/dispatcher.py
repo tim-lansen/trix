@@ -16,7 +16,7 @@ from modules.utils.database import DBInterface
 # 2. Send 'ping' notifications
 # 3. Pause
 # 4. Get all nodes -> list2
-# 5. If list2[node].mtime - list1[node].mtime > timeout: unregister node; remove it from list2
+# 5. If list2[node].mtime - list1[node].mtime > timeout: remove node; remove it from list2
 # 6. list2 -> list1
 # 7. Goto 1
 

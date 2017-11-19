@@ -18,7 +18,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from .log_console import Logger, tracer
 from .types import Guid
 from modules.config import TRIX_CONFIG
-from modules.models import Asset, Interaction, Job, Task, MediaChunk, MediaFile, Machine, Node, Record, Collector
+from modules.models import Asset, Interaction, Job, Task, MediaChunk, MediaFile, Machine, Node, Record, Collector, Fileset
 
 
 # Establish a connection to db using args
@@ -388,20 +388,16 @@ class DBInterface:
             request = 'SELECT localtimestamp;'
             if request_db(cur, request):
                 rows = cur.fetchall()
-                rec.ctime = str(rows[0][0])
                 rec.mtime = str(rows[0][0])
                 if rec.guid is None:
                     rec.guid = Guid(0)
                 # Select table and fields
                 rd = rec.__dict__
                 table_name = rec.__class__.__name__
-                tdata = TRIX_CONFIG.dBase.tables[table_name]
-                fields = [f[0] for f in tdata['fields'] if
-                          rd[f[0]] is not None and not (type(rd[f[0]]) is list and len(rd[f[0]]) == 0)]
                 # Build request
                 request = "UPDATE {relname} SET {setup};".format(
                     relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
-                    setup=','.join(['{}={}'.format(f, rec.db_value(f)) for f in fields])
+                    setup=','.join(['{}={}'.format(f, rec.db_value(f)) for f in field_set if rd[f] is not None])
                 )
                 # Register node
                 result = request_db(cur, request)
@@ -590,9 +586,9 @@ class DBInterface:
         def register(node: Node):
             return DBInterface.register_record(node, user=DBInterface.Node.USER)
 
-        # Register node in db
+        # Unregister node
         @staticmethod
-        def unregister(node: Node, backend=True):
+        def remove(node: Node, backend=True):
             conn = DBInterface.connect(DBInterface.USER if backend else DBInterface.Node.USER)
             if conn is None:
                 Logger.warning('DBInterface.Node.register({}): connection is None\n'.format(node.name))
@@ -782,3 +778,47 @@ class DBInterface:
                 id=collector_id
             )
             return DBInterface.request_db(request)
+
+    class Fileset:
+        USER = 'backend'
+
+        @staticmethod
+        def get(uid) -> Fileset:
+            return DBInterface.get_record_to_class('Fileset', uid)
+
+        @staticmethod
+        def set(fs: Fileset):
+            return DBInterface.register_record(fs, user=DBInterface.Fileset.USER)
+
+        @staticmethod
+        def records_by_uids(uids):
+            fields = TRIX_CONFIG.dBase.fields('Fileset')
+            condition = ["guid=ANY('{{{}}}'::uuid[])".format(','.join(uids))]
+            return DBInterface.get_records('Fileset', fields=fields, cond=condition)
+
+        @staticmethod
+        def get_fields(fields: set):
+            return DBInterface.get_records('Fileset', fields=fields)
+
+        @staticmethod
+        def record_by_name(name):
+            return DBInterface.get_record_by_field_to_class('Fileset', field='name', value=name, user=DBInterface.Fileset.USER)
+
+        @staticmethod
+        def update_fields(fs: Fileset, field_set: set):
+            return DBInterface.update_record(fs, field_set, user=DBInterface.Fileset.USER)
+
+        @staticmethod
+        def remove_by_names(names: List[str]):
+            conn = DBInterface.connect(DBInterface.Fileset.USER)
+            if conn is None:
+                return False
+            cur = conn.cursor()
+            request = "DELETE FROM {relname} WHERE name=ANY('{{{names}}}'::name[]);".format(
+                relname=TRIX_CONFIG.dBase.tables['Fileset']['relname'],
+                names=','.join(names)
+            )
+            result = request_db(cur, request)
+            cur.close()
+            return result
+

@@ -7,6 +7,7 @@ from typing import List
 from modules.models import *
 from modules.utils.log_console import Logger, tracer
 from modules.utils.jsoner import JSONer
+import pprint
 
 
 def config_table_using_class(C, dBase):
@@ -105,22 +106,38 @@ class TrixConfig(JSONer):
                     UNDEFINED = 0
                     CRUDE = 1
                     CACHE = 2
-                    ARCHIVE = 3
-                    PRODUCTION = 4
-                    PREVIEW = 5
+                    TRANSIT = 3
+                    ARCHIVE = 4
+                    PRODUCTION = 5
+                    PREVIEW = 6
+                    WATCH = 7
 
-                def __init__(self, role=Role.UNDEFINED, net_path=None, web_path=None):
+                def __init__(self, path=None, role=Role.UNDEFINED, share=None, sub_path=None, web_path=None, server=None):
                     super().__init__()
                     self.role: self.Role = role
-                    # Local network access path
-                    self.net_path = net_path
+                    self.share = share
+                    # subdirectory
+                    self.sub_path = sub_path
                     # WEB access path
                     self.web_path = web_path
+                    # local access path
+                    self.abs_path = None
+                    if path is not None:
+                        if type(path) is dict:
+                            self.update_json(path)
+                        else:
+                            self.role = path.role
+                            self.share = path.share
+                            self.sub_path = path.sub_path
+                            self.web_path = path.web_path
+                            self.abs_path = path.abs_path
+                    if self.share is not None and self.sub_path is not None and server is not None:
+                        self.abs_path = server.local_address(os.path.sep.join([self.share, self.sub_path]))
 
             def __init__(self):
                 super().__init__()
                 self.name = None
-                self.id = None
+                # self.id = None
                 self.address = None
                 self.filesystem = None
                 # Typical 'share' element example:
@@ -131,16 +148,29 @@ class TrixConfig(JSONer):
                 self.password = None
 
             def network_address(self, share):
-                if self.filesystem == 'cifs':
-                    return '//{}/{}'.format(self.address, share)
-                elif self.filesystem == 'nfs' or self.filesystem == 'sshfs':
-                    return '{}:{}'.format(self.address, self.shares[share])
+                # Compose network address of share
+                # share is a name of shared resource
+                if share in self.shares:
+                    if self.filesystem == 'cifs':
+                        # example: //TLANSEN/web
+                        return '//{}/{}'.format(self.address, share)
+                    elif self.filesystem == 'nfs' or self.filesystem == 'sshfs':
+                        # example: TLANSEN:/shared/web
+                        return '{}:{}/{}'.format(self.address, self.shares[share], share)
                 return None
 
-            def mount_point(self, share):
+            def local_address(self, subdir):
+                # On Windows we use network address
                 if os.name == 'nt':
-                    return r'\\{}\{}'.format(self.address, share)
-                return '/mnt/{}/{}'.format(self.id, share)
+                    return r'\\{}\{}'.format(self.address, subdir)
+                return '/mnt/{}/{}'.format(self.address, subdir)
+
+            def update_json(self, json_obj):
+                super().update_json(json_obj)
+                for i, p in enumerate(self.paths):
+                    path = self.Path(path=p, server=self)
+                    path.unmentioned = self.paths[i].unmentioned
+                    self.paths[i] = path
 
             def mount_command(self, net_path, mount_point):
                 if self.filesystem == 'cifs':
@@ -166,9 +196,7 @@ class TrixConfig(JSONer):
                 return None
 
             def get_paths(self, role):
-                if os.name == 'nt':
-                    return [self.Path(role, r'\\{}\{}'.format(self.address, _.net_path.replace('/', '\\')), _.web_path) for _ in self.paths if _.role == role]
-                return [self.Path(role, '/mnt/{}/{}'.format(self.id, _.net_path), _.web_path) for _ in self.paths if _.role == role]
+                return [_ for _ in self.paths if _.role == role]
 
         class Watchfolder(JSONer):
             class Action:
@@ -189,25 +217,24 @@ class TrixConfig(JSONer):
                 self.action: self.Action = self.Action.UNDEFINED
                 self.path = None
                 self.map: self.Map = self.Map()
-                self.server_id = None
-                self.share = None
-                self.net_path = None
 
-            def paths(self):
-                return {
-                    'downl': os.path.join(self.path, self.map.downl),
-                    'watch': os.path.join(self.path, self.map.watch),
-                    'work': os.path.join(self.path, self.map.work),
-                    'done': os.path.join(self.path, self.map.done),
-                    'fail': os.path.join(self.path, self.map.fail),
-                }
+            # def paths(self):
+            #     return {
+            #         'downl': os.path.join(self.path, self.map.downl),
+            #         'watch': os.path.join(self.path, self.map.watch),
+            #         'work': os.path.join(self.path, self.map.work),
+            #         'done': os.path.join(self.path, self.map.done),
+            #         'fail': os.path.join(self.path, self.map.fail),
+            #     }
 
             def accessible(self):
-                paths = self.paths()
-                for p in paths:
-                    if not os.path.isdir(paths[p]):
-                        return None
-                return paths
+                if os.path.isdir(self.path):
+                    return {'watch': self.path}
+                # paths = self.paths()
+                # for p in paths:
+                #     if not os.path.isdir(paths[p]):
+                #         return None
+                # return paths
 
         def __init__(self):
             super().__init__()
@@ -217,8 +244,19 @@ class TrixConfig(JSONer):
 
         def _remap_(self):
             self.servers_map = {}
+            self.watchfolders = []
             for i, s in enumerate(self.servers):
-                self.servers_map[s.id] = i
+                self.servers_map[s.address] = i
+                for path in s.paths:
+                    Logger.log('{}\n'.format(path))
+                    if path.role == path.Role.WATCH:
+                        wf: TrixConfig.Storage.Watchfolder = TrixConfig.Storage.Watchfolder()
+                        print(path.dumps(expose_unmentioned=True))
+                        wf.update_json({
+                            'path': path.abs_path,
+                            'action': path.unmentioned['action']
+                        })
+                        self.watchfolders.append(wf)
 
         def update_str(self, json_str):
             super().update_str(json_str)

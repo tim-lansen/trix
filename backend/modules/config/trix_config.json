@@ -29,7 +29,8 @@
       "Node": {},
       "Collector": {},
       "Machine": {},
-      "Interaction": {}
+      "Interaction": {},
+      "Fileset": {}
     }
   },
   "apiServer": {
@@ -49,32 +50,38 @@
         "address": "tlansen",
         "filesystem": "cifs",
         "shares": {
-          "crude": "/shared/crude",
-          "store": "/shared/store",
-          "web": "/shared/web"
+          "crude": "/shared",
+          "store": "/shared",
+          "web": "/shared"
         },
-        "comment": "in case of nfs, shares and net_path(s) must be absolute",
+        "comment": "in case of nfs, shares and sub_path(s) must be absolute",
         "paths": [
           {
             "role": "archive",
             "share": "store",
-            "net_path": "store/archive"
+            "sub_path": "archive"
           },
           {
             "role": "production",
             "share": "store",
-            "net_path": "store/production"
+            "sub_path": "production"
           },
           {
             "role": "preview",
             "share": "web",
-            "net_path": "web/preview",
+            "sub_path": "preview",
             "web_path": "http://trix-nginx/media"
           },
           {
             "role": "transit",
             "share": "store",
-            "net_path": "store/_transit"
+            "sub_path": "_transit"
+          },
+          {
+            "role": "watch",
+            "action": "ingest",
+            "share": "crude",
+            "sub_path": "watch"
           }
         ],
         "username": "tim",
@@ -86,13 +93,13 @@
         "address": "tlansen",
         "filesystem": "cifs",
         "shares": {
-          "cache": "/shared/cache"
+          "cache": "/shared"
         },
         "paths": [
           {
             "role": "cache",
             "share": "cache",
-            "net_path": "cache"
+            "sub_path": "cache"
           }
         ],
         "username": "tim",
@@ -104,7 +111,7 @@
         "action": "ingest",
         "server_id": "server1_id",
         "share": "crude",
-        "net_path": "crude/watch"
+        "sub_path": "crude/watch"
       }
     ]
   }

@@ -3,15 +3,21 @@
 
 
 import os
+import sys
 import slugify
 import hashlib
 import codecs
 import uuid
 import time
+import pprint
+import traceback
+from typing import List
 from .log_console import Logger
 from modules.config import TRIX_CONFIG
-from modules.models.fileset import Fileset
+from modules.models import Fileset
 from .job_utils import JobUtils
+from modules.utils.database import DBInterface
+from modules.utils.mount_paths import mount_paths
 
 
 def process_file(root, fn, paths: dict):
@@ -92,31 +98,37 @@ def watch_once():
         # CreateJob.media_info(**d)
 
 
-def fileset(path) -> Fileset:
-    fs: Fileset = Fileset()
-    fs.name = os.path.basename(path)
-    stat = os.stat(path)
-    fs.creation_time = stat.st_ctime
-    fs.modification_time = stat.st_mtime
-    for f in os.listdir(path):
-        fpath = os.path.join(path, f)
-        stat = os.stat(fpath)
-        fs.modification_time = max(fs.modification_time, stat.st_mtime)
-        if os.path.isfile(fpath):
-            file: Fileset.File = Fileset.File()
-            file.name = f
-            file.ctime = stat.st_ctime
-            file.mtime = stat.st_mtime
-            fs.files.append(file)
-        elif os.path.isdir(fpath):
-            fs.dirs.append(f)
-    return fs
+def update_filesets():
+    filesets: List[Fileset] = []
+    for wf in TRIX_CONFIG.storage.watchfolders:
+        print(wf)
+        paths = wf.accessible()
+        if paths:
+            filesets += Fileset.filesets(paths['watch'])
+    fs_set = {_.name for _ in filesets}
+    # Read name+guid of all filesets from DB
+    fsdb = DBInterface.Fileset.get_fields({'guid', 'name'} | Fileset.UPDATE_FIELDS)
+    tmp = [_['name'] for _ in fsdb]
+    fsdb_map = {name: Fileset(fsdb[i]) for i, name in enumerate(tmp)}
+
+    # Register new and update modified filesets
+    for fs in filesets:
+        if fs.name not in fsdb_map:
+            fs.guid.new()
+            DBInterface.Fileset.set(fs)
+        elif fsdb_map[fs.name] != fs:
+            Logger.error('{}\n{}\n'.format(fs, fsdb_map[fs.name]))
+            DBInterface.Fileset.update_fields(fs, Fileset.UPDATE_FIELDS)
+    # Remove absent filesets
+    absent = [_ for _ in fsdb_map if _ not in fs_set]
+    if len(absent):
+        Logger.warning('Removing fileset(s):\n{}\n'.format('\n'.join(absent)))
+        DBInterface.Fileset.remove_by_names(absent)
 
 
-def filesets(path):
-    fss = []
-    for d in os.listdir(path):
-        dpath = os.path.join(path, d)
-        if os.path.isdir(dpath):
-            fss.append(fileset(dpath))
-    return fss
+def test_update_filesets():
+    mount_paths({'watch'})
+    for i in range(50):
+        update_filesets()
+        time.sleep(5)
+
