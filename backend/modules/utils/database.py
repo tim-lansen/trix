@@ -787,6 +787,10 @@ class DBInterface:
             return DBInterface.get_record_to_class('Fileset', uid)
 
         @staticmethod
+        def get_dict(uid):
+            return DBInterface.get_record('Fileset', uid)
+
+        @staticmethod
         def set(fs: Fileset):
             return DBInterface.register_record(fs, user=DBInterface.Fileset.USER)
 
@@ -797,7 +801,7 @@ class DBInterface:
             return DBInterface.get_records('Fileset', fields=fields, cond=condition)
 
         @staticmethod
-        def get_fields(fields: set):
+        def records_fields(fields: set):
             return DBInterface.get_records('Fileset', fields=fields)
 
         @staticmethod

@@ -69,7 +69,9 @@ class WSAPI
                         else
                             console.log 'No handler for message: ' + m
                     catch err
-                        console.log err
+                        console.log(err)
+                        console.log('Message:')
+                        console.log(msg)
                 return
             ).bind(@)
             @ws.onopen = (->

@@ -1,4 +1,5 @@
 ﻿#sections.sections
+    button#files-refresh Refresh
     table.main-layout
         tr
             td(style="width:768px;vertical-align:top")
@@ -70,6 +71,15 @@
                             td 2016-05-05 17:09:02
                             td inwork
                             td.clickable ingest
-            td#files-data(style="width:720px;vertical-align:top" rowspan="2")
-                p video.mp4
-                p audio.mp3
+            td(style="width:600px;vertical-align:top;" rowspan="2")
+                table#files-data.files(style="width:580px;" frame="border")
+                    tr
+                        th Filename
+                        th Created
+                        th Modified
+                        th Size
+                    tr.files.row.row0
+                        td test.mp4
+                        td 2016-05-05 15:30:22
+                        td 2016-05-05 16:33:45
+                        td 10000

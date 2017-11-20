@@ -1,6 +1,6 @@
 {
     "apiServer": {
-        "host": "1.1.1.1",
+        "host": "trix-nginx",
         "port": 9001
     }
 }

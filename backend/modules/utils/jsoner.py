@@ -101,6 +101,8 @@ class JSONer:
                 continue
             if isinstance(v, JSONer):
                 d[k] = v.__jsoner2dict__()
+            elif hasattr(v, 'dump_alt'):
+                d[k] = str(v)
             else:
                 d[k] = v
         return d
@@ -135,8 +137,11 @@ class JSONer:
             if isinstance(self.__dict__[name], subclass):
                 self.__dict__[name].update_json(val)
                 return
-            if val.upper() in subclass.__dict__:
+            if type(val) is str and val.upper() in subclass.__dict__:
                 self.__dict__[name] = subclass.__dict__[val.upper()]
+                return
+            if type(val) is int:
+                self.__dict__[name] = val
                 return
         elif class_name in roots:
                 subclass = roots[class_name]

@@ -29,7 +29,7 @@ class Utils
 class Templates
     @templates:
         interactionsPage: require('../build/jade_tmpl/interactionsPage')
-        filesPage:       require('../build/jade_tmpl/filesPage')
+        filesPage:        require('../build/jade_tmpl/filesPage')
         playerPage:       require('../build/jade_tmpl/playerPage')
         seriesPage:       require('../build/jade_tmpl/seriesPage')
     @get: (name) ->

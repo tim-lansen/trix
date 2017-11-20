@@ -107,7 +107,7 @@ def update_filesets():
             filesets += Fileset.filesets(paths['watch'])
     fs_set = {_.name for _ in filesets}
     # Read name+guid of all filesets from DB
-    fsdb = DBInterface.Fileset.get_fields({'guid', 'name'} | Fileset.UPDATE_FIELDS)
+    fsdb = DBInterface.Fileset.records_fields({'guid', 'name'} | Fileset.FIELDS_FOR_UPDATE)
     tmp = [_['name'] for _ in fsdb]
     fsdb_map = {name: Fileset(fsdb[i]) for i, name in enumerate(tmp)}
 
@@ -115,10 +115,11 @@ def update_filesets():
     for fs in filesets:
         if fs.name not in fsdb_map:
             fs.guid.new()
+            fs.status = Fileset.Status.NEW
             DBInterface.Fileset.set(fs)
         elif fsdb_map[fs.name] != fs:
             Logger.error('{}\n{}\n'.format(fs, fsdb_map[fs.name]))
-            DBInterface.Fileset.update_fields(fs, Fileset.UPDATE_FIELDS)
+            DBInterface.Fileset.update_fields(fs, Fileset.FIELDS_FOR_UPDATE)
     # Remove absent filesets
     absent = [_ for _ in fsdb_map if _ not in fs_set]
     if len(absent):

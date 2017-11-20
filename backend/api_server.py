@@ -5,6 +5,7 @@ from modules.utils.api_trix import ApiTrix, ApiClient, WebsocketServer
 from modules.config import TRIX_CONFIG
 from pprint import pprint
 from modules.utils.log_console import Logger, tracer
+from modules.utils.mount_paths import mount_paths
 
 import signal
 import json
@@ -153,5 +154,6 @@ def cancel_all_interactions(params, profile):
 
 if __name__ == "__main__":
     Logger.set_level(Logger.LogLevel.TRACE)
+    mount_paths({'watch'})
     api_server = WebsocketServer(port=TRIX_CONFIG.apiServer.port, host='0.0.0.0', apiClass=ApiTrix, clientClass=ApiClient)
     api_server.serve_forever()

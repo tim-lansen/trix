@@ -10,9 +10,10 @@ class Fileset(Record):
     class Status:
         UNDEFINED = 0
         NEW = 1
-        INWORK = 2
-        DONE = 3
-        FAILED = 4
+        IGNORE = 2
+        INWORK = 3
+        DONE = 4
+        FAILED = 5
 
     class File(JSONer):
         def __init__(self):
@@ -49,7 +50,9 @@ class Fileset(Record):
         ]
     }
 
-    UPDATE_FIELDS = {'files', 'dirs', 'creation_time', 'modification_time'}
+    FIELDS_FOR_UPDATE = {'files', 'dirs', 'creation_time', 'modification_time'}
+    FIELDS_FOR_LIST = {'name', 'guid', 'creation_time', 'modification_time', 'status'}
+
 
     def __eq__(self, other):
         # Ignore dirs completely

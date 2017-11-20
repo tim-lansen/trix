@@ -17,7 +17,6 @@ from modules.websocket_server import ApiClassBase, ApiClientClassBase, Websocket
 from modules.models import Asset, Stream, Collector, MediaFile, Fileset
 from modules.utils.job_utils import JobUtils
 from modules.utils.watch import Fileset, TRIX_CONFIG
-from modules.utils.mount_paths import mount_share
 import traceback
 
 
@@ -248,13 +247,14 @@ class ApiTrix(ApiClassBase):
             class getList(meth):
                 @staticmethod
                 def handler(*args):
-                    res = []
-                    for wf in TRIX_CONFIG.storage.watchfolders:
-                        srv = TRIX_CONFIG.storage.get_server(wf.server_id)
-                        mount_share(srv, wf.share, None)
-                        path = srv.local_address(srv, wf.sub_path)
-                        res += filesets(path)
-                    return res
+                    fsdb = DBInterface.Fileset.records_fields(Fileset.FIELDS_FOR_LIST)
+                    return fsdb
+
+            class get(meth):
+                @staticmethod
+                def handler(*args):
+                    fsdb = DBInterface.Fileset.get_dict(args[0]['guid'])
+                    return fsdb
 
     @staticmethod
     def execute(target, request, client: ApiClient):

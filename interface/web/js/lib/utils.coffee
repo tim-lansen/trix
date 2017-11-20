@@ -1,5 +1,20 @@
 
 
+secondsToDateTime = (seconds) ->
+    t = new Date(1970, 0, 1)
+    t.setSeconds(seconds)
+    d = zpad(t.getFullYear(), 4)+'-'+zpad(1+t.getMonth(), 2)+'-'+zpad(t.getDate(), 2)+' '+zpad(t.getHours(), 2)+':'+zpad(t.getMinutes(), 2)+':'+zpad(t.getSeconds(), 2)
+    return d
+
+formatSize = (a, b) ->
+    if a == 0
+        return "0 Bytes"
+    c = 1024
+    d = b || 2
+    e = ["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"]
+    f = Math.floor(Math.log(a)/Math.log(c))
+    return parseFloat((a/Math.pow(c,f)).toFixed(d))+" "+e[f]
+
 zeroez = '0000000000000000'
 
 zpad = (strnum, size) ->
