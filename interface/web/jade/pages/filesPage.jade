@@ -1,76 +1,191 @@
 ﻿#sections.sections
     button#files-refresh Refresh
+    select#files-select-action(style="border: 1px solid #ccc;width: 100px;")
+        option(value="1") Ingest
+        option(value="2") Encode
+        option(value="3") Reset
     table.main-layout
         tr
             td(style="width:768px;vertical-align:top")
-                div(style="height:360px;overflow-y:scroll")
-                    table#files-table.files(frame="border")
-                        tr
-                            th Folder
-                            th Created
-                            th Modified
-                            th Status
-                            th Action
-                        tr.files.row.row0.new
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row1.new
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row0.new
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row1.new
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row0.inwork
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row1.inwork
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row0.inwork
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row1.done
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row0.done
-                            td.clickable 10020310
-                            td 2016-05-05 15:30:22
-                            td 2016-05-05 16:33:45
-                            td new
-                            td.clickable ingest
-                        tr.files.row.row1.done
-                            td.clickable 10020311
-                            td 2016-05-05 15:21:54
-                            td 2016-05-05 17:09:02
-                            td inwork
-                            td.clickable ingest
+                    table.files(frame="border")
+                        tbody
+                            tr#files-table-head
+                                th Folder
+                                th Created
+                                th Modified
+                                th Status
+                                th Action
+                    div(style="height:300px;overflow-y:scroll;border: 1px solid #aaa;")
+                        table.files(frame="border")
+                            tbody#files-table
+                                tr.files.row.row0.new
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.new
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.new
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.new
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020311
+                                    td 2016-05-05 15:21:54
+                                    td 2016-05-05 17:09:02
+                                    td inwork
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020311
+                                    td 2016-05-05 15:21:54
+                                    td 2016-05-05 17:09:02
+                                    td inwork
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020311
+                                    td 2016-05-05 15:21:54
+                                    td 2016-05-05 17:09:02
+                                    td inwork
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.inwork
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row0.done
+                                    td.clickable 10020310
+                                    td 2016-05-05 15:30:22
+                                    td 2016-05-05 16:33:45
+                                    td new
+                                    td.clickable ingest
+                                tr.files.row.row1.done
+                                    td.clickable 10020311
+                                    td 2016-05-05 15:21:54
+                                    td 2016-05-05 17:09:02
+                                    td inwork
+                                    td.clickable ingest
             td(style="width:600px;vertical-align:top;" rowspan="2")
                 table#files-data.files(style="width:580px;" frame="border")
                     tr

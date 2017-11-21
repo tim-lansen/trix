@@ -70,12 +70,13 @@ class App extends AppInterface
     @device_token : null
     @pages: Pages
     @sections: [
-        {capt: 'Files',      hash: 'files',      constructor: FilesPage}
+        {capt: 'Files',      hash: 'files',      constructor: FilesPage, push: 'fileset'}
         #{capt: 'Series',      hash: 'series',      constructor: require('./pages/series')}
         {capt: 'Interactions', hash: 'interactions', constructor: InteractionsPage}
         {capt: 'Tasks',       hash: 'monitor',     constructor: null}
         {capt: 'Profiles',    hash: 'profiles',    constructor: null}
     ]
+    @pushHandlers: {}
     @currentPage: null
     @currentHash: null
     @profile: new Profile()
@@ -93,12 +94,10 @@ class App extends AppInterface
         if !(s.hasOwnProperty('capt') && s.hasOwnProperty('hash'))
             console.log('Bad section record: '+s.toString())
             return false
-        else if ! s.constructor
+        if ! s.constructor
             console.log('Section '+s.capt+' has no constructor')
-            #return false
-        else if s.hash != s.constructor.hash
-            console.log('Section '+s.capt+' constructor\'s name does not match hash: '+s.constructor.hash)
-            s.constructor.hash = s.hash
+            return false
+        s.constructor.hash = s.hash
         return true
 
     @init: (window) ->
@@ -118,6 +117,8 @@ class App extends AppInterface
             else
                 html_select += '<span class="select_page" id="sel_'+s.hash+'" onclick="window.location.hash=\''+s.hash+'\'">'+s.capt+'</span>'
                 html_sections += '<section id='+s.hash+' src="pages/'+s.hash+'.htm"></section>'
+                if s.hasOwnProperty('push')
+                    s.constructor.push = s.push
                 @pages.add(s.constructor)
 
         document.getElementById('selection_pane').innerHTML = html_select
@@ -169,6 +170,8 @@ class App extends AppInterface
                 console.log e
         console.log 'Activating page "'+hash+'"'                        # Activate the new page
         page = @pages.get(hash)
+        if page.hasOwnProperty('push') and !@pushHandlers.hasOwnProperty(page.push)
+            @pushHandlers[page.push] = page
         if page
             console.log("%o", page)
             try
@@ -221,7 +224,6 @@ class App extends AppInterface
                 onerror: ( -> document.getElementById('trix-status').innerHTML = 'TRIX: error' )
                 onopen:  ( -> document.getElementById('trix-status').innerHTML = 'TRIX: opened' )
                 onmessage: ((wsapi, msg) ->
-                    #try
                     if msg.error
                         wsapi.close()
                         throw msg.error
@@ -234,18 +236,26 @@ class App extends AppInterface
                             wsapi.state = 'authorized'
                             @setMainStatus 'Authorized'
                             document.getElementById('trix-status').innerHTML = 'TRIX: Authorized'
+                        when 'push'
+#                            push message = {
+#                                'method': 'push',
+#                                'push': 'fileset',
+#                                'params': {...}
+#                            }
+                            instance = @pushHandlers[msg.push]
+                            pushHandler = instance.pushHandler
+                            if typeof pushHandler == 'function'
+                                pushHandler(instance, msg.params)
                         else
-                            if msg.id and wsapi.requestPool[msg.id]
+                            if msg.id and wsapi.requestPool.hasOwnProperty(msg.id)
                                 if typeof wsapi.requestPool[msg.id].callback == 'function'
-                                    wsapi.requestPool[msg.id].callback msg
-                                    delete wsapi.requestPool[msg.id]
-                    #catch e
-                    #    console.log 'onmessage error: ' + e + '\n  message: ' + msg
-                    #    document.getElementById('trix-status').innerHTML = 'TRIX: connection error'
+                                    wsapi.requestPool[msg.id].callback(msg)
+                                delete wsapi.requestPool[msg.id]
+
                     return
                 ).bind(@)
                 states:
-                    opened: ((wsapi) -> wsapi.connect() )
+                    opened: ((wsapi) -> wsapi.connect())
                     connected: ((wsapi) -> # authorize if we have user data
                         if ! @profile.authorized
                             wsapi.authorize @profile, @device_token, @serial_number

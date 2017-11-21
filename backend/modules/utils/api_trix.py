@@ -294,7 +294,7 @@ class ApiTrix(ApiClassBase):
         except Exception as e:
             Logger.warning('{}\n'.format(e))
             # traceback_debug()
-            ApiTrix.Pool.submit(ApiTrix.execute, meth.handler, request, client)
+            ApiTrix.Pool.submit(ApiTrix.execute, meth, request, client)
 
     def new_client(self, client: ApiClient, server):
         Logger.info('Client connected: {} / {}\n'.format(client.addr, client.ws_handler.guid))

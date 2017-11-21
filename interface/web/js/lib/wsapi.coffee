@@ -59,15 +59,12 @@ class WSAPI
             @ws = new WebSocket(@address)
             @ws.onmessage = ((e) ->
                 msg = e.data
-#                console.log 'onmessage ' + @address + ' ' + e.data
-                #console.log('wsOnMessage: ' + msg);
                 if msg
                     try
                         m = JSON.parse(msg)
+                        console.log(msg)
                         if typeof @handlers.onmessage == 'function'
                             @handlers.onmessage @, m
-                        else
-                            console.log 'No handler for message: ' + m
                     catch err
                         console.log(err)
                         console.log('Message:')
