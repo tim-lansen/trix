@@ -25,6 +25,8 @@ class Storage:
     @staticmethod
     def storage_path(role, guid):
         # TODO: decision must base on storage load, source location, etc...
+        if type(role) is str:
+            role = TrixConfig.Storage.Server.Path.RoleMap[role]
         paths = []
         pn = 0
         for server in TRIX_CONFIG.storage.servers:
@@ -45,9 +47,14 @@ class Storage:
                     path.web_path += '/' + guid
         else:
             path = None #Storage.DEVNULL
+        Logger.info('{}\n'.format(path))
         return path
 
 
 def test_storage():
-    Logger.log('{}\n'.format(Storage.storage_path('archive', str(uuid.uuid4()))))
     Logger.info('{}\n'.format(TRIX_CONFIG.storage.servers[0].dumps(indent=4)))
+    for server in TRIX_CONFIG.storage.servers:
+        for path in server.paths:
+            p = Storage.storage_path(path.role, str(uuid.uuid4()))
+            Logger.log('{}\n'.format(p.abs_path))
+

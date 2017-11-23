@@ -9,15 +9,32 @@ from .record import *
 # Result is what Task or Job emits on completion
 
 class Task(Record):
+    class Status:
+        UNDEFINED = 0
+        WAITING = 1
+        EXECUTING = 2
+        FINISHED = 3
+        CANCELED = 4
+
     class Type:
         PROXY = 1
         ARCHIVE = 2
         PRODUCTION = 3
 
+    class Priority:
+        OOPS = 1
+        NEED_IT_YESTERDAY = 2
+        URGENT = 3
+        WHY_NOT = 4
+        NORMAL = 5
+        DEFAULT = 6
+        IDLE = 7
+
     def __init__(self, task_info=None):
         super().__init__(name='', guid=0)
+        self.status = 0
         self.jobs = None
-        self.priority = None
+        self.priority = Task.Priority.DEFAULT
         self.depends = None
         if task_info is None:
             # Create new task
@@ -47,6 +64,7 @@ class Task(Record):
     TABLE_SETUP = {
         "relname": "trix_tasks",
         "fields": [
+            ["status", "integer NOT NULL"],
             ["jobs", "uuid[]"],
             ["priority", "integer"],
             ["depends", "uuid"]
@@ -211,15 +229,6 @@ class Job(Record):
         FAILED = 6
         CANCELED = 7
 
-    class Priority:
-        OOPS = 1
-        NEED_IT_YESTERDAY = 2
-        URGENT = 3
-        WHY_NOT = 4
-        NORMAL = 5
-        DEFAULT = 6
-        IDLE = 7
-
     class Emitted(JSONer):
         class Result(JSONer):
             class Source(JSONer):
@@ -283,7 +292,7 @@ class Job(Record):
         self.fails = 0
         self.offers = 0
         self.status = self.Status.NEW
-        self.priority = Job.Priority.DEFAULT
+        self.priority = 0
         # float: Overall job progress, 0.0 at start, 1.0 at end
         self.progress = 0.0
         # List of groups that this job belongs to

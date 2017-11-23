@@ -245,7 +245,7 @@ class DBInterface:
     # status may be single value, or list of values: [1, 3, 4]
     # cond is a list of filtering conditions: ['type=2', 'priority>3']
     @staticmethod
-    def get_records(table_name, fields=None, status=None, sort=None, cond=None, user=USER):
+    def get_records(table_name, fields=None, status=None, sort=None, cond=None, limit=None, user=USER):
         result = None
         conn = DBInterface.connect(user)
         if conn is not None:
@@ -261,6 +261,8 @@ class DBInterface:
                 condition = ' WHERE ' + ' AND '.join(cond)
             if sort is not None:
                 condition += ' ORDER BY {}'.format(', '.join(sort))
+            if type(limit) is int:
+                condition += ' LIMIT {}'.format(limit)
             result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], fields, condition)
             cur.close()
         Logger.info(pformat(result) + '\n')
@@ -739,6 +741,21 @@ class DBInterface:
         @staticmethod
         def delete(uid):
             return DBInterface.delete_records('Task', [uid])
+
+        @staticmethod
+        def set_fields(uid, fields: dict):
+            fields['mtime'] = 'localtimestamp'
+            setup = ','.join(['{}={}'.format(k, fields[k]) for k in fields])
+            request = "UPDATE {relname} SET {setup} WHERE guid='{uid}';".format(
+                relname=TRIX_CONFIG.dBase.tables['Task']['relname'],
+                setup=setup,
+                uid=uid
+            )
+            return DBInterface.request_db(request)
+
+        @staticmethod
+        def set_status(uid, status):
+            return DBInterface.Task.set_fields(uid, {'status': status})
 
     class Collector:
         USER = 'node'

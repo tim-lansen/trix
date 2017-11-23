@@ -32,6 +32,7 @@ from .commands import *
 from .pipe_nowait import pipe_nowait
 from .parsers import PARSERS
 from .ffmpeg_utils import ffmpeg_create_preview_extract_audio_subtitles, mediafile_asset_for_ingest, ffmpeg_get_iframes
+from .mp4box_utils import mp4box_concat
 from .slices import create_slices
 from .storage import Storage
 from .exchange import Exchange
@@ -383,6 +384,36 @@ class ExecuteInternal:
 
             combined_info(mediafile)
             out_final.put([Exchange.object_encode(mediafile)])
+
+    class mp4box_concat_update_mediafile:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            """
+            Prepare media for ingest
+            :param params:            ['<predefined>', '<output url>', '<mp4box params>', '<segment #0 url>', '<segment #1 url>', ...]
+            :param out_progress:      progress output queue
+            :param out_final:         final output queue: [mediaFile]
+            :param chain_error_event: error event
+            :return:
+            """
+            rc = mp4box_concat(params[1], params[2], params[3:])
+            mf = None
+            dirs = set([])
+            if rc == 0:
+                for path in params[3:]:
+                    dirs.add(os.path.dirname(path))
+                    os.remove(path)
+                for d in dirs:
+                    try:
+                        Logger.info('Removing directory {}\n'.format(d))
+                        os.rmdir(d)
+                    except:
+                        Logger.warning('Failed to remove directory {}\n'.format(d))
+                        pass
+                mf: MediaFile = MediaFile()
+                mf.update_str(params[0])
+                combined_info(mf, params[1])
+            out_final.put([mf])
 
 
 # def internal_ingest_assets(params, out_progress: CPLQueue, out_final: CPLQueue):

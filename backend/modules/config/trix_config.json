@@ -99,7 +99,7 @@
           {
             "role": "cache",
             "share": "cache",
-            "sub_path": "cache"
+            "sub_path": "data"
           }
         ],
         "username": "tim",

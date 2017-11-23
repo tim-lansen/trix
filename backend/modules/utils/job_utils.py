@@ -393,6 +393,7 @@ class JobUtils:
                 return 0
             # Create task
             task: Task = Task()
+            task.status = Task.Status.WAITING
             # Store common path to aliases as base
             base = os.path.commonpath((os.path.dirname(_) for _ in paths))
             # Create job
@@ -651,7 +652,6 @@ class JobUtils:
                     step.chains.append(chain)
                     job: Job = Job('PEAS({})'.format(mediafile.name), 0, task_id)
                     job.type = Job.Type.PEAS
-                    job.priority = Job.Priority.NORMAL
                     job.groupIds.append(group_id)
                     job.info.steps.append(step)
                     job.info.paths = [
@@ -856,18 +856,8 @@ class JobUtils:
 
                 # Logger.info('{} | {} | {} | {}\n\n'.format(proc0, proc1, proc2, proc3))
 
-            # Write concat files
-            # concat_preview = os.path.join(cdir.abs_path, 'preview.list')
-            # concat_archive = os.path.join(cdir.abs_path, 'archive.list')
             os.makedirs(cdir.abs_path, exist_ok=True)
-            # with open(concat_preview, 'w') as f:
-            #     f.write(''.join(['file {}\n'.format(_) for _ in segments_preview])
-            # with open(concat_archive, 'w') as f:
-            #     f.write(''.join(['file {}\n'.format(_) for _ in segments_archive])
 
-            # Concat commands
-            # cprv = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
-            # carc = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_archive, archive_path)
             cprv = 'MP4Box -out {prev} -tmp {temp} -new /dev/null {inputs}'.format(
                 prev=preview.source.path,
                 temp='/tmp/',
@@ -899,7 +889,7 @@ class JobUtils:
             step: Job.Info.Step = Job.Info.Step()
             step.chains.append(chain)
             job_archive_concat.info.steps.append(step)
-            #==============
+            ##################################################
             chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
             chain.procs = [
                 [
@@ -980,16 +970,15 @@ class JobUtils:
 
             tmpl2 = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(w=vt.width, h=vt.height, fps=vt.fps, pf=vt.pix_fmt)
             tmpl2 += ' -vf format=yuv420p,scale={w}:{h},blackdetect=d=0.5:pic_th=0.99:pix_th=0.005,showinfo'.format(w=pvt.width, h=pvt.height)
-            # tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 0 -refs 2 -b:v 600k '
             tmpl2 += ' -c:v libx264 -preset slow -g 30 -bf 3 -refs 2 -b:v 600k '
 
             overlap = 50
-            segment_list_preview = ''
+            segments_preview = []
             jobs = []
             pslic: MediaFile.VideoTrack.Slice = None
             for idx, slic in enumerate(vt.slices + [None]):
                 segment_path_preview = os.path.join(cdir.abs_path, 'prv_{:03d}.h264'.format(idx))
-                segment_list_preview += 'file {}\n'.format(segment_path_preview)
+                segments_preview.append(segment_path_preview)
                 job_preview_slice: Job = Job(name='preview_slice_{:03d}'.format(idx), guid=0, task_id=task_id)
                 job_preview_slice.type = Job.Type.ENCODE_VIDEO
                 job_preview_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
@@ -1016,6 +1005,8 @@ class JobUtils:
                     slice_frames = int(slice_duration * vt.fps.val())
                     dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic['pattern_offset']) / vt.fps.val()
                     proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed(), pout=slic.embed())
+
+                job_preview_slice.priority = int(vt.duration - dur + 1)
                 if pslic is None:
                     proc0 = 'ffmpeg -y -loglevel error -stats -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(i=mf.source.path, ti=vti,
                                                                                                                   fps=vt.fps.dump_alt(), t=dur)
@@ -1070,28 +1061,38 @@ class JobUtils:
 
                 pslic = slic
 
-            # Write concat files
-            concat_preview = os.path.join(cdir.abs_path, 'preview.list')
             os.makedirs(cdir.abs_path, exist_ok=True)
-            with open(concat_preview, 'w') as f:
-                f.write(segment_list_preview)
 
-            # Concat commands
-            cprv = 'ffmpeg -y -safe 0 -loglevel error -stats -f concat -i {} -c copy {}'.format(concat_preview, preview.source.path)
+            # Concat command
+            # cprv = 'MP4Box -out {prev} -tmp {temp} -new /dev/null {inputs}'.format(
+            #     prev=preview.source.path,
+            #     temp='/tmp/',
+            #     inputs=' '.join(['-cat {}'.format(_) for _ in segments_preview])
+            # )
 
             ##################################################
             chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
-            chain.procs = [cprv.split(' ')]
-            chain.return_codes = [[0]]
-            chain.progress.capture = 0
-            chain.progress.parser = 'ffmpeg_progress'
+            chain.procs = [
+                [
+                    'ExecuteInternal.mp4box_concat_update_mediafile',
+                    '{{"guid": "{}"}}'.format(trig['archive_id']),
+                    preview.source.path,
+                    ''
+                ] + segments_preview
+            ]
+            # chain.return_codes = [[0]]
+            # chain.progress.capture = 0
+            # chain.progress.parser = 'ffmpeg_progress'
 
             step: Job.Info.Step = Job.Info.Step()
             step.chains.append(chain)
             job_preview_concat.info.steps.append(step)
-            ##################################################
 
-            Logger.info('Concat preview command: {}\n'.format(cprv))
+            # Compose result that update preview media file
+            result = Job.Emitted.Result()
+            result.handler = JobUtils.ResultHandlers.mediafile.__name__
+            result.source.step = 0
+            job_preview_concat.emitted.results.append(result)
 
             # Register jobs
             for job in jobs:
@@ -1599,8 +1600,8 @@ class JobUtils:
             def handler(emit: Job.Emitted):
                 slices = emit.results[0].data
                 trig = emit.results[1].data
-                JobUtils.CreateJob._ips_p03_slices(slices, trig)
-                # JobUtils.CreateJob.process_slices_create_preview(slices, trig)
+                # JobUtils.CreateJob._ips_p03_slices(slices, trig)
+                JobUtils.CreateJob.process_slices_create_preview(slices, trig)
 
         class ips_p03_audio_info:
             # TODO: we should bind captured silencedetect info to master asset/file

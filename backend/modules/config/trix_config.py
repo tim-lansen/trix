@@ -112,6 +112,8 @@ class TrixConfig(JSONer):
                     PREVIEW = 6
                     WATCH = 7
 
+                RoleMap = None
+
                 def __init__(self, path=None, role=Role.UNDEFINED, share=None, sub_path=None, web_path=None, server=None):
                     super().__init__()
                     self.role: self.Role = role
@@ -319,6 +321,10 @@ def check_config_conformity():
 
 
 check_config_conformity()
+
+
+if TrixConfig.Storage.Server.Path.RoleMap is None:
+    TrixConfig.Storage.Server.Path.RoleMap = {str(_).lower(): TrixConfig.Storage.Server.Path.Role.__dict__[_] for _ in TrixConfig.Storage.Server.Path.Role.__dict__}
 
 
 if __name__ == '__main__':
