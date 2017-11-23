@@ -4,6 +4,11 @@
 import sys
 import time
 import traceback
+import os
+if os.name == 'nt':
+    from .syslog_bulk import syslog
+else:
+    import syslog
 
 
 class Console:
@@ -54,35 +59,38 @@ class Console:
 
 class Logger:
     class LogLevel:
-        TRACE = 0
-        DEBUG = 1
-        INFO = 2
-        LOG = 3
-        TRACEBACK = 4
-        WARNING = 5
-        ERROR = 6
-        CRITICAL = 7
-        EXCEPTION = 8
+        LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG = range(8)
+        # DEBUG = 1
+        # INFO = 2
+        # LOG = 3
+        TRACEBACK = 10
+        TRACE = 11
+        # WARNING = 5
+        # ERROR = 6
+        # CRITICAL = 7
+        # LOG_EMERG = 8
 
     LOG_FILE = None
-    LOG_FILE_LEVEL = LogLevel.DEBUG
+    LOG_FILE_LEVEL = LogLevel.LOG_INFO
     LOG_FILE_FORMAT      = '{{"strftime": "{ST}", "time": {T:.3f}, "level": {L}, "log": "{log}"}}\n'
     LOG_FILE_FORMAT_ARGS = '{{"strftime": "{ST}", "time": {T:.3f}, "level": {L}, "log": "{log}", "args": "{A}", "kwargs": "{K}"}}\n'
 
     LOG_CONSOLE = sys.stderr
-    LOG_CONSOLE_LEVEL = LogLevel.TRACE
+    LOG_CONSOLE_LEVEL = LogLevel.LOG_DEBUG
     LOG_CONSOLE_LIKE_FILE = False
 
     COLOR_MAP = {
-        LogLevel.TRACE:     {'color': Console.Colormap.green, 'invert': False, 'hi': 0},
-        LogLevel.DEBUG:     {'color': Console.Colormap.blue, 'invert': False, 'hi': 1},
-        LogLevel.INFO:      {'color': Console.Colormap.cyan, 'invert': False, 'hi': 1},
-        LogLevel.LOG:       {'color': Console.Colormap.green, 'invert': False, 'hi': 1},
-        LogLevel.TRACEBACK: {'color': Console.Colormap.yellow, 'invert': False, 'hi': 0},
-        LogLevel.WARNING:   {'color': Console.Colormap.yellow, 'invert': False, 'hi': 1},
-        LogLevel.ERROR:     {'color': Console.Colormap.red, 'invert': False, 'hi': 1},
-        LogLevel.CRITICAL:  {'color': Console.Colormap.red, 'invert': True, 'hi': 1},
-        LogLevel.EXCEPTION: {'color': Console.Colormap.magenta, 'invert': True, 'hi': 2},
+        LogLevel.LOG_DEBUG:     {'color': Console.Colormap.green, 'invert': False, 'hi': 0},
+        LogLevel.LOG_INFO:     {'color': Console.Colormap.blue, 'invert': False, 'hi': 1},
+        LogLevel.LOG_NOTICE:      {'color': Console.Colormap.cyan, 'invert': False, 'hi': 1},
+        LogLevel.LOG_WARNING:   {'color': Console.Colormap.yellow, 'invert': False, 'hi': 1},
+        LogLevel.LOG_ERR:     {'color': Console.Colormap.red, 'invert': False, 'hi': 1},
+        LogLevel.LOG_CRIT:  {'color': Console.Colormap.red, 'invert': True, 'hi': 1},
+        LogLevel.LOG_ALERT: {'color': Console.Colormap.magenta, 'invert': True, 'hi': 2},
+        LogLevel.LOG_EMERG: {'color': Console.Colormap.cyan, 'invert': True, 'hi': 1},
+
+        LogLevel.TRACE:     {'color': Console.Colormap.green, 'invert': False, 'hi': 1},
+        LogLevel.TRACEBACK: {'color': Console.Colormap.yellow, 'invert': False, 'hi': 2},
     }
 
     @staticmethod
@@ -98,9 +106,11 @@ class Logger:
         return Logger.LOG_FILE_FORMAT.format(ST=st, T=t, L=level, log=string.replace('\n', '\\n'))
 
     @staticmethod
-    def _log(string, level, *args, **kwargs):
+    def _log(string, level, colorset_level=None, *args, **kwargs):
+        if colorset_level is None:
+            colorset_level = level
         log_for_file = None
-        if Logger.LOG_FILE_LEVEL <= level and Logger.LOG_FILE:
+        if Logger.LOG_FILE_LEVEL >= level and Logger.LOG_FILE:
             log_for_file = Logger._log_file_string(string, level, *args, **kwargs)
             try:
                 f = open(Logger.LOG_FILE, 'a')
@@ -108,13 +118,13 @@ class Logger:
                 f.close()
             except:
                 pass
-        if Logger.LOG_CONSOLE_LEVEL <= level:
+        if Logger.LOG_CONSOLE_LEVEL >= level:
             if Logger.LOG_CONSOLE_LIKE_FILE:
                 if log_for_file is None:
                     log_for_file = Logger._log_file_string(string, level, *args, **kwargs)
                 Console.write_console_colored(log_for_file, **Logger.COLOR_MAP[level])
             else:
-                Console.write_console_colored(string, **Logger.COLOR_MAP[level])
+                Console.write_console_colored(string, **Logger.COLOR_MAP[colorset_level])
 
     @staticmethod
     def traceback():
@@ -124,36 +134,40 @@ class Logger:
         Logger._log(string, Logger.LogLevel.TRACEBACK)
 
     @staticmethod
-    def trace(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.TRACE, *args, **kwargs)
+    def trace(string, colorset_level=None, *args, **kwargs):
+        Logger._log(string, Logger.LogLevel.TRACE, colorset_level, *args, **kwargs)
 
     @staticmethod
-    def debug(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.DEBUG, *args, **kwargs)
+    def debug(string, colorset_level=None, *args, **kwargs):
+        Logger._log(string, Logger.LogLevel.LOG_DEBUG, colorset_level, *args, **kwargs)
 
     @staticmethod
-    def info(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.INFO, *args, **kwargs)
+    def info(string, colorset_level=None, *args, **kwargs):
+        Logger._log(string, Logger.LogLevel.LOG_INFO, colorset_level, *args, **kwargs)
 
     @staticmethod
     def log(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.LOG, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.LOG_NOTICE, *args, **kwargs)
 
     @staticmethod
     def warning(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.WARNING, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.LOG_WARNING, *args, **kwargs)
 
     @staticmethod
     def error(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.ERROR, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.LOG_ERR, *args, **kwargs)
 
     @staticmethod
     def critical(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.CRITICAL, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.LOG_CRIT, *args, **kwargs)
 
     @staticmethod
     def exception(string, *args, **kwargs):
-        Logger._log(string, Logger.LogLevel.EXCEPTION, *args, **kwargs)
+        Logger._log(string, Logger.LogLevel.LOG_ALERT, *args, **kwargs)
+
+    @staticmethod
+    def emergency(string, *args, **kwargs):
+        Logger._log(string, Logger.LogLevel.LOG_EMERG, *args, **kwargs)
 
 
 def tracer(function):
@@ -167,15 +181,15 @@ def tracer(function):
 def test_logger(a=1, b=2, *args, **kwargs):
     Logger.trace('Trace', **{'asd': 'qwe'})
     Logger.debug('Debug')
+    Logger.debug('Debug', Logger.LogLevel.LOG_ALERT)
     Logger.info('Info')
     Logger.log('Log')
     Logger.warning('Warning')
     Logger.error('Error')
     Logger.critical('Critical')
-    Logger.exception('Exception\n')
+    Logger.exception('Exception')
 
-
-if __name__ == '__main__':
+def test():
     Logger.set_level(Logger.LogLevel.TRACE)
     Console.write_console_colored('test!\ntest1\ntest2\n', color=Console.Colormap.magenta, invert=True, hi=2)
     Console.write_console_colored('test!\ntest1\ntest2\n', color=Console.Colormap.magenta, invert=False, hi=1)
@@ -183,5 +197,3 @@ if __name__ == '__main__':
     test_logger(3, 4, *(5, 6, 7), **{'asd': 'qwe'})
     Logger.LOG_CONSOLE_LIKE_FILE = True
     test_logger(3, 4, *(5, 6, 7), **{'asd': 'qwe'})
-
-
