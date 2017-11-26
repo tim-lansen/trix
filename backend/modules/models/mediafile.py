@@ -286,8 +286,8 @@ class MediaFile(Record):
             # ID of mediafile that consists of archived video track
             self.archive = None
 
-            self.slices: List(self.Slice) = []
-            self.segments: List(self.Segment) = []
+            self.slices: List[self.Slice] = []
+            self.segments: List[self.Segment] = []
 
         @staticmethod
         def fit_video(src, dst, dw: int, dh: int, size_round=2):
