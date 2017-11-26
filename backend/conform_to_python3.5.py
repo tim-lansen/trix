@@ -40,6 +40,7 @@ def convert(src, dst):
 def conform():
     dirs = set([])
     srcd = os.path.dirname(abspath(getsourcefile(lambda: 0)))
+    dstd_base = sys.argv[1]
     print(srcd)
     if sys.argv[1] == srcd:
         print('Destination dir equals to source dir!')
@@ -51,7 +52,7 @@ def conform():
     for root, dd, files in os.walk(srcd):
         fpy = [_ for _ in files if _.endswith('.py')]
         if len(fpy):
-            dstd = rpls.sub(sys.argv[1], root)
+            dstd = rpls.sub(dstd_base, root)
             if dstd == root:
                 print('FAIL!')
                 exit(1)

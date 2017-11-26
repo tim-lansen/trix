@@ -6,6 +6,8 @@
 #   with
 #       set timeout=2
 # ===================
+sudo apt-get update
+# ===================
 # CIFS support (needed for hostname resolving)
 # ===================
 sudo apt-get install cifs-utils
@@ -16,7 +18,6 @@ sudo apt-get install sshfs
 # ===================
 # Python: psycopg2, Unidecode, python_slugify
 # ===================
-sudo apt-get update
 sudo apt-get install -y python3-pip
 sudo python3.5 -m pip install --upgrade pip
 sudo python3.5 -m pip install psycopg2
@@ -81,5 +82,11 @@ sudo mv x264 /usr/local/bin/x264.10
 cd ~/
 rm nasm-2.13.01.tar.bz2
 rm -rf nasm-2.13.01 x264  x265
-mkdir -p trix/backend
+
+# ===================
+# conform code to Python 3.5
+# ===================
+sudo mkdir -p /www/trix/bin/backend
+sudo python3.5 ~/trix/backend/conform_to_python3.5.py /www/trix/bin/backend
+
 

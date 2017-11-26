@@ -23,12 +23,17 @@ class Interaction(Record):
         def __init__(self):
             super().__init__()
 
+    class TaskId(Guid):
+        def __init__(self):
+            super().__init__()
+
     def __init__(self):
         super().__init__()
         self.status = Interaction.Status.FREE
         self.assetIn = Interaction.AssetIn()
         self.assetOut = Interaction.AssetOut()
         self.priority = 0
+        self.taskId = Interaction.TaskId()
 
     TABLE_SETUP = {
         "relname": "trix_interactions",
@@ -36,7 +41,8 @@ class Interaction(Record):
             ["status", "integer NOT NULL"],
             ["assetIn", "uuid NOT NULL"],
             ["assetOut", "uuid"],
-            ["priority", "integer"]
+            ["priority", "integer"],
+            ["taskId", "uuid NOT NULL"]
         ],
         "fields_extra": [],
         "creation": [

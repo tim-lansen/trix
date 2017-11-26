@@ -36,6 +36,9 @@ class Guid:
         else:
             self.guid = uuid.UUID(str(value))
 
+    def update_str(self, value):
+        self.set(value)
+
     def dump_alt(self):
         # return None if self.is_null() else str(self.guidx)
         return str(self.guid)

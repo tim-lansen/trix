@@ -16,8 +16,8 @@ class InteractionInternal
     update_asset: (livecrop) ->
         if @asset != null and @player != null
             vs = @asset.videoStreams[0]
-            vs.program_in = @player.timeStart
-            vs.program_out = @player.timeEnd
+            vs.program_in = @player.program_in
+            vs.program_out = @player.program_out
             livecrop.updateCropDetect(vs.cropdetect)
 
     audioRemoveUnbindAll: ->

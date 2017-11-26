@@ -389,24 +389,24 @@ class ExecuteInternal:
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
-            Prepare media for ingest
-            :param params:            ['<predefined>', '<output url>', '<mp4box params>', '<segment #0 url>', '<segment #1 url>', ...]
+            Assemble mediafile from video segments [and audio tracks]
+            :param params:            ['<predefined>', '<output url>', '<mp4box params>', [<video segments>], [<audio tracks>]]
             :param out_progress:      progress output queue
             :param out_final:         final output queue: [mediaFile]
             :param chain_error_event: error event
             :return:
             """
-            rc = mp4box_concat(params[1], params[2], params[3:])
+            rc = mp4box_concat(params[1], params[2], params[3], params[4])
             mf = None
             dirs = set([])
             if rc == 0:
-                for path in params[3:]:
+                for path in params[3]:
                     dirs.add(os.path.dirname(path))
-                    os.remove(path)
+                    # os.remove(path)
                 for d in dirs:
                     try:
                         Logger.info('Removing directory {}\n'.format(d))
-                        os.rmdir(d)
+                        # os.rmdir(d)
                     except:
                         Logger.warning('Failed to remove directory {}\n'.format(d))
                         pass
@@ -415,6 +415,29 @@ class ExecuteInternal:
                 combined_info(mf, params[1])
             out_final.put([mf])
 
+    class remove_files:
+        @staticmethod
+        def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
+            """
+            Remove files and directories
+            :param params:            ['<file1>', '<file2>', ...]
+            :param out_progress:      progress output queue
+            :param out_final:         final output queue
+            :param chain_error_event: error event
+            :return:
+            """
+            dirs = set([])
+            for path in params:
+                dirs.add(os.path.dirname(path))
+                # os.remove(path)
+            for d in dirs:
+                try:
+                    Logger.info('Removing directory {}\n'.format(d))
+                    # os.rmdir(d)
+                except:
+                    Logger.warning('Failed to remove directory {}\n'.format(d))
+                    pass
+            out_final.put(list(dirs))
 
 # def internal_ingest_assets(params, out_progress: CPLQueue, out_final: CPLQueue):
 #     """

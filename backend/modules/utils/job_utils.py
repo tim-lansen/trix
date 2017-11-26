@@ -72,7 +72,7 @@ def merge_assets(assets):
     return asset
 
 
-def merge_assets_create_interaction(asset_ids: List[str]):
+def merge_assets_create_interaction(asset_ids: List[str], task_id: str):
     # Get assets from DB, merge and create Interaction
     guid = None
     if len(asset_ids) == 1:
@@ -90,11 +90,12 @@ def merge_assets_create_interaction(asset_ids: List[str]):
         guid = str(asset.guid)
     if guid:
         # Create Interaction
-        inter = Interaction()
+        inter: Interaction = Interaction()
         inter.guid.new()
         inter.name = asset.programName
         inter.assetIn.set(guid)
         inter.assetOut = None
+        inter.taskId.set(task_id)
         DBInterface.Interaction.set(inter)
         guid = str(inter.guid)
     return guid
@@ -155,7 +156,7 @@ class JobUtils:
 
         tmpl_ffmpeg = 'ffmpeg -y -f rawvideo -s {w}:{h} -r {fps} -pix_fmt {pf} -nostats -i -'.format(
             w=vt.width, h=vt.height,
-            fps=vt.fps,
+            fps=fps,
             pf=vt.pix_fmt
         )
         if len(video_filters):
@@ -477,7 +478,7 @@ class JobUtils:
                     preview.name = 'Preview: {}'.format(mediafile.name)
                     preview.source.path = os.path.join(pdir.abs_path, preview_name)
                     preview.source.url = '{}/{}'.format(pdir.web_path, preview_name)
-                    previews.append(preview)
+                    # previews.append(preview)
 
                     # A job to capture slices
                     job: Job = Job(name='split.v{}'.format(ti), guid=0, task_id=task_id, job_type=Job.Type.SLICES_CREATE)
@@ -652,6 +653,7 @@ class JobUtils:
                     step.chains.append(chain)
                     job: Job = Job('PEAS({})'.format(mediafile.name), 0, task_id)
                     job.type = Job.Type.PEAS
+                    job.priority = 1
                     job.groupIds.append(group_id)
                     job.info.steps.append(step)
                     job.info.paths = [
@@ -685,7 +687,8 @@ class JobUtils:
                 result = Job.Emitted.Result()
                 result.source.step = -1
                 result.data = {
-                    'assets': asset_ids
+                    'assets': asset_ids,
+                    'task': str(task_id)
                 }
                 # Create final aggregative job (trigger)
                 agg: Job = Job('Ingest sliced: aggregate assets', 0, task_id)
@@ -981,6 +984,7 @@ class JobUtils:
                 segments_preview.append(segment_path_preview)
                 job_preview_slice: Job = Job(name='preview_slice_{:03d}'.format(idx), guid=0, task_id=task_id)
                 job_preview_slice.type = Job.Type.ENCODE_VIDEO
+                job_preview_slice.info.paths.append(cdir.abs_path)
                 job_preview_slice.groupIds.append(job_preview_concat.dependsOnGroupId)
 
                 # slice_start = 0.0
@@ -1061,24 +1065,17 @@ class JobUtils:
 
                 pslic = slic
 
-            os.makedirs(cdir.abs_path, exist_ok=True)
-
-            # Concat command
-            # cprv = 'MP4Box -out {prev} -tmp {temp} -new /dev/null {inputs}'.format(
-            #     prev=preview.source.path,
-            #     temp='/tmp/',
-            #     inputs=' '.join(['-cat {}'.format(_) for _ in segments_preview])
-            # )
-
             ##################################################
             chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
             chain.procs = [
                 [
                     'ExecuteInternal.mp4box_concat_update_mediafile',
-                    '{{"guid": "{}"}}'.format(trig['archive_id']),
+                    '{{"guid": "{}"}}'.format(preview.guid),
                     preview.source.path,
-                    ''
-                ] + segments_preview
+                    '',
+                    segments_preview,
+                    []
+                ]
             ]
             # chain.return_codes = [[0]]
             # chain.progress.capture = 0
@@ -1107,10 +1104,15 @@ class JobUtils:
 
             # Plan jobs
             task_id = str(asset.taskId)
-            job_assemble: Job = Job(task_id=task_id)
-            job_assemble.dependsOnGroupId.new()
+            job_cleanup: Job = Job('cleanup', task_id=task_id)
+            job_cleanup.dependsOnGroupId.new()
+            jobs_assemble = []
+            for i in range(len(asset.videoStreams)):
+                job: Job = Job(name='{} #{} assemble'.format(asset.name, i), task_id=task_id)
+                job.dependsOnGroupId.new()
+                job.groupIds.append(job_cleanup.dependsOnGroupId)
+                jobs_assemble.append(job)
             job_assemble_audio_inputs = []
-            job_assemble_video_inputs = []
             jobs = []
 
             media_files = []
@@ -1119,7 +1121,7 @@ class JobUtils:
                 mf = DBInterface.MediaFile.get(guid)
                 media_files.append(mf)
                 mf_map[str(mf.guid)] = mf
-            for guid in asset['mediaFilesExtra']:
+            for guid in asset.mediaFilesExtra:
                 mf = DBInterface.MediaFile.get(guid)
                 mf_map[str(mf.guid)] = mf
 
@@ -1138,7 +1140,6 @@ class JobUtils:
 
             cdir = Storage.storage_path('cache', str(asset.guid))
             adir = Storage.storage_path('archive', str(asset.guid))
-            archive_mediafile_path = os.path.join(adir.abs_path, '{}.archive.mp4'.format(asset.guid))
 
             # Create audio encoding job(s)
             video_stream: Asset.VideoStream = asset.videoStreams[0]
@@ -1171,7 +1172,7 @@ class JobUtils:
                 audio_dur = audio_out - audio_in
 
                 # Collect source media files, re-index inputs
-                source_mediafiles_streams = [audio_mfindex(ch.src_stream_index) + [ch.src_channel_index] for ch in audio_stream.channels]
+                source_mediafiles_streams = [audio_mfindex(ch.src_stream_index) + (ch.src_channel_index,) for ch in audio_stream.channels]
                 smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
                 offsets = []
                 idx = 0
@@ -1189,7 +1190,7 @@ class JobUtils:
                 for smfs in source_mediafiles_streams:
                     if smfs[1] not in joined:
                         joined.add(smfs[1])
-                        mf: MediaFile = asset.mediaFiles[smfs[1]]
+                        mf: MediaFile = media_files[smfs[1]]
                         # TODO optimize extracted tracks usage
                         if mf.audioTracks[0].extract is None:
                             join_inputs += len(mf.audioTracks)
@@ -1204,8 +1205,7 @@ class JobUtils:
                 # join=inputs=2:channel_layout=5.1:map=0.0-FL|0.1-FR|1.2-FC|1.3-LFE|1.1-BL|0.5-BR
                 layout = Asset.AudioStream.Layout.LAYMAP[audio_stream.layout]
                 layout_dst = layout['layout']
-                layout_map = '|'.join(['{}.{}-{}'.format(_s[2], _s[3], layout_dst[_i]) for _i, _s in
-                                       enumerate(source_mediafiles_streams)])
+                layout_map = '|'.join(['{}.{}-{}'.format(_s[1], _s[2], layout_dst[_i]) for _i, _s in enumerate(source_mediafiles_streams)])
                 command += ' -filter_complex join=inputs={inputs}:channel_layout={layout}:map={laymap}'.format(
                     inputs=join_inputs,
                     layout=audio_stream.layout,
@@ -1233,23 +1233,26 @@ class JobUtils:
                 job: Job = Job(name='archive audio tracks', task_id=task_id)
                 job.info.steps.append(Job.Info.Step(name='single'))
                 job.info.steps[0].chains = chains
-                job.groupIds.append(job_assemble.dependsOnGroupId)
+                job.groupIds = [_.dependsOnGroupId for _ in jobs_assemble]
                 jobs.append(job)
 
             # Create sliced video encoding jobs
             GAP = 20.0
             overlap = 50
             for vsi, video_stream in enumerate(asset.videoStreams):
+
+                mf_arch: MediaFile = MediaFile(name='{}#{}'.format(asset.name, vsi))
+                mf_arch.source.path = os.path.join(adir.abs_path, '{}_{}.archive.mp4'.format(asset.guid, vsi))
+
                 mf_index, tr_index = video_mfindex(video_stream.channels[0].src_stream_index)
                 mf_src: MediaFile = media_files[mf_index]
                 vt: MediaFile.VideoTrack = mf_src.videoTracks[tr_index]
 
-                video_src = mf_src.source.path
                 scale_time_fps = video_stream.fpsOriginal.val() / video_stream.fpsEncode.val()
-                tempo_fps = video_stream.fpsEncode.val() / video_stream.fpsOriginal.val()
+                # tempo_fps = video_stream.fpsEncode.val() / video_stream.fpsOriginal.val()
                 program_in = scale_time_fps * video_stream.program_in
                 program_out = scale_time_fps * video_stream.program_out
-                program_dur = program_out - program_in
+                # program_dur = program_out - program_in
 
                 # Get usable slices range
                 first_slice = 0
@@ -1264,47 +1267,45 @@ class JobUtils:
                     if slic.time < video_stream.program_in + GAP:
                         first_slice = i
 
-                job_archive_concat: Job = Job(name='archive_concat', task_id=task_id, job_type=Job.Type.SLICES_CONCAT)
-                job_archive_concat.info.paths.append(adir.abs_path)
-                job_archive_concat.dependsOnGroupId.new()
+                job_archive_assemble: Job = jobs_assemble[vsi]   #Job(name='archive_concat', task_id=task_id, job_type=Job.Type.SLICES_CONCAT)
+                job_archive_assemble.info.paths.append(adir.abs_path)
+                job_archive_assemble.dependsOnGroupId.new()
 
                 tmpl_ffmpeg, tmpl_x264 = JobUtils.template_ffmpeg_x264_archive(vt, video_stream.cropdetect)
 
                 # Create slice encoding jobs
-                segment_list_archive = ''
+                segments_archive = []
                 pslic = None
-                for idx in range(first_slice, last_slice):
+                for idx in range(first_slice, last_slice + 1):
                     slic: MediaFile.VideoTrack.Slice = vt.slices[idx]
 
                     # mediafile: MediaFile = MediaFile(name='Archive')
                     segment_path_archive = os.path.join(cdir.abs_path, 'arch_{}_{:03d}.h264'.format(vsi, idx))
-                    segment_list_archive += 'file {}\n'.format(segment_path_archive)
+                    segments_archive.append(segment_path_archive)
                     job_archive_slice: Job = Job(name='encode_slice_{}_{:03d}'.format(vsi, idx), guid=0, task_id=task_id, job_type=Job.Type.ENCODE_VIDEO)
-                    job_archive_slice.groupIds.append(job_archive_concat.dependsOnGroupId)
+                    job_archive_slice.groupIds.append(job_archive_assemble.dependsOnGroupId)
 
                     if slic is None:
-                        slice_start = pslic.time + pslic.pattern_offset / vt.fps.val()
-                        slice_duration = vt.duration - slice_start
-                        slice_frames = int(slice_duration * vt.fps.val())
                         dur = vt.duration - pslic.time + 1
                         proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed())
                     elif pslic is None:
-                        slice_start = 0.0
-                        slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val()
-                        slice_frames = int(slice_duration * vt.fps.val())
                         dur = slic['time'] + (overlap + slic['pattern_offset']) / vt.fps.val()
                         proc1 = '{trim} trim --pout {pout}'.format(trim=JobUtils.TRIMMER, pout=slic.embed())
                     else:
-                        slice_start = pslic['time'] + pslic['pattern_offset'] / vt.fps.val()
-                        slice_duration = slic['time'] + slic['pattern_offset'] / vt.fps.val() - slice_start
-                        slice_frames = int(slice_duration * vt.fps.val())
-                        dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic[
-                            'pattern_offset']) / vt.fps.val()
-                        proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed(),
-                                                                               pout=slic.embed())
+                        dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic['pattern_offset']) / vt.fps.val()
+                        proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed(), pout=slic.embed())
                     if pslic is None:
-                        proc0 = 'ffmpeg -y -loglevel error -stats -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(
-                            i=mf.source.path, ti=tr_index, fps=vt.fps.dump_alt(), t=dur)
+                        if program_in < 0.001:
+                            ss0 = ''
+                            ss1 = ''
+                        elif program_in < 5.0:
+                            ss0 = ''
+                            ss1 = ' -ss {:.3f}'.format(program_in)
+                        else:
+                            ss0 = ' -ss {:.3f}'.format(program_in - 3.0)
+                            ss1 = ' -ss 3.0'
+                        proc0 = 'ffmpeg -y -loglevel error -stats{ss0} -i {i}{ss1} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(
+                            ss0=ss0, ss1=ss1, i=mf.source.path, ti=tr_index, fps=vt.fps.dump_alt(), t=dur)
                     else:
                         proc0 = 'ffmpeg -y -loglevel error -stats -ss {ss} -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(
                             ss=pslic['time'], i=mf.source.path, ti=tr_index, fps=vt.fps.dump_alt(), t=dur)
@@ -1333,58 +1334,48 @@ class JobUtils:
                     step.chains.append(chain)
 
                     job_archive_slice.info.steps.append(step)
-
-                    # First result is a ffmpeg's stderr parsed
-                    result: Job.Emitted.Result = Job.Emitted.Result()
-                    result.source.proc = 2
-                    result.source.parser = 'ffmpeg_auto_text'
-                    job_preview_archive_slice.emitted.results.append(result)
-                    # Second is a helper - it supplies slice's start time and duration, points to results collector
-                    result = Job.Emitted.Result()
-                    result.source.step = -1
-                    result.data = {
-                        'slice': {
-                            'start': slice_start,
-                            'frames': slice_frames,
-                            'duration': slice_duration
-                        },
-                        'collector_id': trig['collector_id']
-                    }
-                    job_preview_archive_slice.emitted.results.append(result)
-                    # Single handler for 2 results
-                    job_preview_archive_slice.emitted.handler = JobUtils.EmittedHandlers.slice.__name__
-
-                    jobs.append(job_preview_archive_slice)
+                    jobs.append(job_archive_slice)
 
                     pslic = slic
 
+                ##################################################
 
-        #
-        #     for idx, guid in enumerate(asset.mediaFiles):
-        #         mf: MediaFile = DBInterface.MediaFile.get(guid)
-        #         media_files.append(mf)
-        #     asset.mediaFiles = media_files
-        #     if type(asset.mediaFilesExtra) is list:
-        #         media_files_extra = []
-        #         for idx, guid in enumerate(asset.mediaFilesExtra):
-        #             mf: MediaFile = DBInterface.MediaFile.get(guid)
-        #             media_files_extra.append(mf)
-        #         asset.mediaFilesExtra = media_files_extra
-        #
-        #     job: Job = Job(name='asset to mediafile', guid=0)
-        #     job.type = Job.Type.ENCODE_VIDEO | Job.Type.ENCODE_AUDIO
-        #     step: Job.Info.Step = Job.Info.Step()
-        #     step.name = 'Create media file using asset'
-        #     job.info.steps.append(step)
-        #     chain = Job.Info.Step.Chain()
-        #     Logger.log('{}\n'.format(asset))
-        #     chain.procs = [['ExecuteInternal.asset_to_mediafile', Exchange.object_encode(asset)]]
-        #     step.chains.append(chain)
-        #     # Compose result
-        #     job.emitted.results.append(Job.Emitted.Result())
-        #     job.emitted.handler = JobUtils.EmittedHandlers.asset_to_mediafile.__name__
-        #
-        #     DBInterface.Job.register(job)
+                chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+                chain.procs = [
+                    [
+                        'ExecuteInternal.mp4box_concat_update_mediafile',
+                        '{{"guid": "{}", "name": "{}"}}'.format(mf_arch.guid, mf_arch.name),
+                        mf_arch.source.path,
+                        '',
+                        segments_archive,
+                        job_assemble_audio_inputs
+                    ]
+                ]
+
+                step: Job.Info.Step = Job.Info.Step()
+                step.chains.append(chain)
+                job_archive_assemble.info.steps.append(step)
+
+                # Compose result that update archive media file
+                result = Job.Emitted.Result()
+                result.handler = JobUtils.ResultHandlers.mediafile.__name__
+                result.source.step = 0
+                job_archive_assemble.emitted.results.append(result)
+
+            chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
+            chain.procs = [
+                [
+                    'ExecuteInternal.remove_files',
+                ] + job_assemble_audio_inputs
+            ]
+
+            step: Job.Info.Step = Job.Info.Step()
+            step.chains.append(chain)
+            job_cleanup.info.steps.append(step)
+            # Register jobs
+            for job in jobs + jobs_assemble + [job_cleanup]:
+                DBInterface.Job.register(job)
+            DBInterface.Task.set_status(task_id, Task.Status.EXECUTING)
 
     class ResultHandlers:
 
@@ -1631,6 +1622,7 @@ class JobUtils:
             @staticmethod
             def handler(emit: Job.Emitted):
                 asset_ids = emit.results[0].data['assets']
+                task_id = emit.results[0].data['task']
                 # Read assets
                 assets = DBInterface.Asset.records(asset_ids)
                 for ass in assets:
@@ -1709,7 +1701,7 @@ class JobUtils:
                             # vstrs = json.dumps(asset.videoStreams)
                             DBInterface.Asset.update_videoStreams(asset)
 
-                guid = merge_assets_create_interaction(asset_ids)
+                guid = merge_assets_create_interaction(asset_ids, task_id)
                 Logger.log('assets_to_ingest: interaction created {}\n'.format(guid))
                 return
                 # if len(asset_ids) == 1:

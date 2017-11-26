@@ -131,7 +131,6 @@ class ApiTrix(ApiClassBase):
                     asset: Asset = Asset()
                     asset.update_json(args[0]['asset'])
                     Logger.log('{}\n'.format(asset.dumps(indent=2)))
-                    # exit(1)
                     JobUtils.CreateJob.create_archive_with_asset(asset)
                     return True
 

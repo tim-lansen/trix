@@ -19,21 +19,58 @@ from modules.models.asset import Asset, Stream
 from modules.utils.storage import Storage
 
 
-def mp4box_concat(output: str, params: str, inputs: List[str]):
-    command = 'MP4Box {params}-out {out} -tmp {temp} -new /dev/null {inputs}'.format(
-        params='{} '.format(params) if len(params) else '',
-        out=output,
-        temp='/tmp/',
-        inputs=' '.join(['-cat {}'.format(_) for _ in inputs])
-    ).split(' ')
-    proc = Popen(command, stdin=sys.stdin, stderr=PIPE)
-    # pipe_nowait(proc.stderr)
-    stde = proc.stderr.fileno()
+def mp4box_concat(output: str, params: str, video_segments: List[str], audio_tracks: List[str]):
+    if len(audio_tracks) == 0:
+        command = 'MP4Box {params}-out {out} -tmp {temp} -new /dev/null {video}'.format(
+            params='{} '.format(params) if len(params) else '',
+            out=output,
+            temp='/tmp/',
+            video=' '.join(['-cat {}'.format(_) for _ in video_segments])
+        )
+        Logger.debug('{}\n'.format(command), Logger.LogLevel.LOG_ERR)
+        proc = Popen(command.split(' '), stdin=sys.stdin, stderr=PIPE)
+        # pipe_nowait(proc.stderr)
+        stde = proc.stderr.fileno()
 
-    while proc.poll() is None:
-        line = proc.stderr.read().decode().replace('\r', '')
-        Logger.log('{}\n'.format(line))
-    Logger.info('Result: {}\n'.format(proc.returncode))
+        while proc.poll() is None:
+            line = proc.stderr.read().decode().replace('\r', '')
+            Logger.log('{}\n'.format(line))
+        Logger.info('Result: {}\n'.format(proc.returncode))
+    else:
+        vtmp = '{}/__tmp__.mp4'.format(os.path.dirname(video_segments[0]))
+        command = 'MP4Box {params}-out {out} -tmp {temp} -new /dev/null {video}'.format(
+            params='{} '.format(params) if len(params) else '',
+            out=vtmp,
+            temp='/tmp/',
+            video=' '.join(['-cat {}'.format(_) for _ in video_segments])
+        )
+        Logger.debug('{}\n'.format(command), Logger.LogLevel.LOG_ERR)
+        proc = Popen(command.split(' '), stdin=sys.stdin, stderr=PIPE)
+        # pipe_nowait(proc.stderr)
+        stde = proc.stderr.fileno()
+
+        while proc.poll() is None:
+            line = proc.stderr.read().decode().replace('\r', '')
+            Logger.log('{}\n'.format(line))
+        Logger.info('Result: {}\n'.format(proc.returncode))
+
+        command = 'MP4Box {params}-out {out} -tmp {temp} -new /dev/null -add {video} {audio}'.format(
+            params='{} '.format(params) if len(params) else '',
+            out=output,
+            temp='/tmp/',
+            video=vtmp,
+            audio=' '.join(['-add {}'.format(_) for _ in audio_tracks])
+        )
+        Logger.debug('{}\n'.format(command), Logger.LogLevel.LOG_ERR)
+        proc = Popen(command.split(' '), stdin=sys.stdin, stderr=PIPE)
+        # pipe_nowait(proc.stderr)
+        stde = proc.stderr.fileno()
+
+        while proc.poll() is None:
+            line = proc.stderr.read().decode().replace('\r', '')
+            Logger.log('{}\n'.format(line))
+        Logger.info('Result: {}\n'.format(proc.returncode))
+
     return proc.returncode
 
 

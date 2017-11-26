@@ -90,7 +90,7 @@ def run(period=5):
                 cond=["task='{}'".format(task['guid'])]
             )
             if len(jobs) == 0:
-                DBInterface.Task.set_status(task['guid'], Task.Status.FINISHED)
+                # DBInterface.Task.set_status(task['guid'], Task.Status.FINISHED)
                 continue
 
             # Get all NEW jobs, change their status to WAITING if condition test is True
