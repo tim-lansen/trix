@@ -89,12 +89,12 @@
         "password": "1604001"
       },
       {
-        "name": "server2",
-        "id": "server2_id",
-        "hostname": "tlansen",
-        "filesystem": "cifs",
+        "name": "cache_server",
+        "id": "cs",
+        "hostname": "trix-worker-20",
+        "filesystem": "sshfs",
         "shares": {
-          "cache": "/shared"
+          "cache": "/mnt/trix-worker-20"
         },
         "paths": [
           {

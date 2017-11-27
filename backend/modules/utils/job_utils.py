@@ -2022,3 +2022,12 @@ class JobUtils:
 
     # if 'JobUtils' not in globals() or 'RESULTS' not in globals()['JobUtils'].__dict__:
     #     RESULTS = Results()
+
+    @staticmethod
+    def job_node_requirements(job: Job):
+        mask = 0
+        for step in job.info.steps:
+            for chain in step.chains:
+                for proc in chain.procs:
+                    exe = proc[0]
+

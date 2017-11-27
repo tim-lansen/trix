@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
 
+import os
 import platform
 from subprocess import Popen
 from .record import *
@@ -28,21 +29,23 @@ class Node(Record):
         X26X = X264_08 | X264_10 | X265_08 | X265_10 | X265_12
         SOX = 0x0200
         MP4BOX = 0x0400
+        TRIM = 0x0800
 
         CACHE = 0x8000
 
         checklist = {
             COMBINED_INFO:     [['ffprobe', 1], ['mediainfo', 255]],
             FFMPEG:            [['ffmpeg', 1]],
-            FFMPEG_NVENC_H264: [['ffmpeg -y -loglevel error -filter_complex smptehdbars=size=hd1080 -t 1 -c:v nvenc_h264 -f null /dev/null', 0]],
-            FFMPEG_NVENC_HEVC: [['ffmpeg -y -loglevel error -filter_complex smptehdbars=size=4k -t 1 -c:v nvenc_hevc -f null /dev/null', 0]],       # 4k == 4096x2160
+            FFMPEG_NVENC_H264: [['ffmpeg -y -loglevel error -filter_complex smptehdbars=size=hd1080 -t 1 -c:v nvenc_h264 -f null {}'.format(os.devnull), 0]],
+            FFMPEG_NVENC_HEVC: [['ffmpeg -y -loglevel error -filter_complex smptehdbars=size=4k -t 1 -c:v nvenc_hevc -f null {}'.format(os.devnull), 0]],       # 4k == 4096x2160
             X264_08:           [['x264.08', 255]],
             X264_10:           [['x264.10', 255]],
             X265_08:           [['x265.08', 1]],
             X265_10:           [['x265.10', 1]],
             X265_12:           [['x265.12', 1]],
             SOX:               [['sox', 1]],
-            MP4BOX:            [['MP4Box', 1]]
+            MP4BOX:            [['MP4Box', 1]],
+            TRIM:              [['trim.out', 255]]
         }
 
     def __init__(self):

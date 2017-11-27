@@ -103,10 +103,23 @@ class TrixConfig(JSONer):
     class Nodes(JSONer):
 
         class Role:
-            TRIGGER = 0x0001
-            AUDIO_ENCODER = Node.Abilities.FFMPEG | Node.Abilities.SOX
-            VIDEO_ENCODER = Node.Abilities.FFMPEG | Node.Abilities.X26X
-            AV_ENCODER = AUDIO_ENCODER | VIDEO_ENCODER
+            INFO                            = Node.Abilities.COMBINED_INFO
+            AUDIO_ENCODER                   = Node.Abilities.FFMPEG
+            AUDIO_BENDER_ENCODER            = Node.Abilities.FFMPEG | Node.Abilities.SOX
+            VIDEO_SLICER                    = Node.Abilities.FFMPEG | Node.Abilities.TRIM
+            VIDEO_ENCODER                   = Node.Abilities.FFMPEG | Node.Abilities.X26X
+            VIDEO_ENCODER_NVENC_H264        = Node.Abilities.FFMPEG | Node.Abilities.FFMPEG_NVENC_H264
+            VIDEO_ENCODER_NVENC_HEVC        = Node.Abilities.FFMPEG | Node.Abilities.FFMPEG_NVENC_HEVC
+            VIDEO_ENCODER_NVENC             = Node.Abilities.FFMPEG | Node.Abilities.FFMPEG_NVENC_H264 | Node.Abilities.FFMPEG_NVENC_HEVC
+            VIDEO_ENCODER_SLICED            = VIDEO_SLICER | Node.Abilities.X26X
+            VIDEO_ENCODER_SLICED_NVENC_H264 = VIDEO_SLICER | Node.Abilities.FFMPEG_NVENC_H264
+            VIDEO_ENCODER_SLICED_NVENC_HEVC = VIDEO_SLICER | Node.Abilities.FFMPEG_NVENC_HEVC
+            VIDEO_ENCODER_SLICED_NVENC      = VIDEO_SLICER | Node.Abilities.FFMPEG_NVENC_H264 | Node.Abilities.FFMPEG_NVENC_HEVC
+            VIDEO_ENCODER_FULL              = VIDEO_SLICER | VIDEO_ENCODER_SLICED_NVENC | Node.Abilities.X26X
+
+            AV_ENCODER          = AUDIO_ENCODER | VIDEO_ENCODER
+            AV_BENDER_ENCODER   = AUDIO_BENDER_ENCODER | VIDEO_ENCODER
+            # AV_ENCODER_SLICED = AUDIO_ENCODER | VIDEO_ENCODER_SLICED
             CONCATENATOR = Node.Abilities.FFMPEG | Node.Abilities.MP4BOX | Node.Abilities.CACHE
             COMPILER = Node.Abilities.FFMPEG | Node.Abilities.MP4BOX
 
@@ -229,13 +242,14 @@ class TrixConfig(JSONer):
                     }
                 elif self.filesystem == 'nfs':
                     return {
-                        'command': 'mount {np} {mp}-t nfs'.format(np=net_path, mp=mount_point).split(' '),
+                        'command': 'mount {np} {mp} -t nfs'.format(np=net_path, mp=mount_point).split(' '),
                         'need_root': True
                     }
                 elif self.filesystem == 'sshfs':
                     return {
-                        'command': 'sshfs {np} {mp}-t nfs'.format(np=net_path, mp=mount_point).split(' '),
-                        'need_root': False
+                        'command': 'sshfs -o allow_other,reconnect,sshfs_sync,cache=no,password_stdin,big_writes {np} {mp}'.format(np=net_path, mp=mount_point).split(' '),
+                        'need_root': False,
+                        'stdin_pass': True
                     }
                 return None
 

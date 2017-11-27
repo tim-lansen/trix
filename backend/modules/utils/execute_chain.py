@@ -10,22 +10,18 @@
 
 import os
 import re
-import sys
 import time
 import uuid
-import json
-import traceback
 from typing import List
-
-# from queue import Queue, Empty
-# from threading import Thread, Event
 from multiprocessing import Process, Event
 from .cross_process_lossy_queue import CPLQueue
 
 from subprocess import Popen, PIPE
 from modules.models.job import Job
+from modules.models.node import Node
 from modules.models.asset import Asset
 from modules.models.mediafile import MediaFile
+from modules.config.trix_config import TrixConfig
 from .log_console import Logger, tracer
 from .combined_info import combined_info, combined_info_mediafile
 from .commands import *
@@ -52,6 +48,8 @@ from .database import DBInterface
 
 class ExecuteInternal:
     class combined_info:
+        REQUIREMENTS = TrixConfig.Nodes.Role.INFO
+
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
@@ -69,6 +67,8 @@ class ExecuteInternal:
             out_final.put([mf])
 
     class create_mediafile_and_asset:
+        REQUIREMENTS = TrixConfig.Nodes.Role.INFO
+
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
@@ -88,6 +88,8 @@ class ExecuteInternal:
             out_final.put([res])
 
     class create_slices:
+        REQUIREMENTS = TrixConfig.Nodes.Role.VIDEO_SLICER
+
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
@@ -111,6 +113,8 @@ class ExecuteInternal:
             pass
 
     class create_preview_extract_audio_subtitles:
+        REQUIREMENTS = TrixConfig.Nodes.Role.AV_ENCODER
+
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
@@ -134,6 +138,8 @@ class ExecuteInternal:
             out_final.put([data])
 
     class asset_to_mediafile:
+        REQUIREMENTS = TrixConfig.Nodes.Role.VIDEO_ENCODER_SLICED | TrixConfig.Nodes.Role.INFO
+
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """
@@ -381,6 +387,8 @@ class ExecuteInternal:
             out_final.put([Exchange.object_encode(mediafile)])
 
     class mp4box_concat_update_mediafile:
+        REQUIREMENTS = TrixConfig.Nodes.Role.CONCATENATOR
+
         @staticmethod
         def handler(params, out_progress: CPLQueue, out_final: CPLQueue):
             """

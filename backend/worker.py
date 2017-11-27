@@ -201,14 +201,17 @@ def launch_node(node_index, abilities):
     return node_index
 
 
-def run_worker():
+def run_worker(limit_node_count=16):
     if not modules.utils.mount_paths.mount_paths():
         Logger.critical('Failed to mount all necessary paths\n')
         exit(1)
     abilities = node_abilities()
     processes = []
-    Logger.debug('Machine abilities:\n{}\n'.format(node_abilities_to_set(abilities)))
+    Logger.debug('Machine abilities:\n{}\n'.format('\n'.join(sorted(list(node_abilities_to_set(abilities))))))
     for idx, am in enumerate(TRIX_CONFIG.nodes.roles):
+        if limit_node_count < 1:
+            break
+        limit_node_count -= 1
         mask = abilities & am
         if mask != 0:
             with open(os.devnull, 'w') as nul:
@@ -234,4 +237,7 @@ def run_worker():
 
 if __name__ == '__main__':
     # Logger.set_level(Logger.LogLevel.LOG_NOTICE)
-    run_worker()
+    try:
+        run_worker(int(sys.argv[1]))
+    except:
+        run_worker()

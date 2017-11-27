@@ -595,7 +595,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
 
 # Get combined info for URL, create mediafile and asset objects, fill asset with streams,
 # create transit and preview mediafile objects
-def mediafile_asset_for_ingest(url):
+def mediafile_asset_for_ingest(url) -> dict:
     Logger.warning('mediafile_asset_for_ingest({})\n'.format(url))
     #, dir_archive: TrixConfig.Storage.Server.Path, dir_transit: TrixConfig.Storage.Server.Path, dir_preview: TrixConfig.Storage.Server.Path):
     # Create mediafile and asset

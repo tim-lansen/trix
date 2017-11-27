@@ -15,6 +15,10 @@ sudo apt-get install cifs-utils
 # SSHFS support
 # ===================
 sudo apt-get install sshfs
+
+# uncomment 'user_allow_other'
+sudo vim /etc/fuse.conf
+
 # ===================
 # Python: psycopg2, Unidecode, python_slugify
 # ===================

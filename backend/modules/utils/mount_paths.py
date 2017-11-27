@@ -4,9 +4,28 @@
 
 import os
 import re
+import platform
 from subprocess import call, Popen, PIPE
 from modules.config.trix_config import TrixConfig, TRIX_CONFIG
 from modules.utils.log_console import Logger
+
+
+def _wrap_call_(command=None, need_root=True, stdin_pass=False, error=None):
+    Logger.debug('{}\n'.format(' '.join(command)))
+    if need_root:
+        command = ['sudo', '-S'] + command
+        _proc_ = Popen(command, stdin=PIPE)
+        _proc_.communicate(input=b'1604001\n')
+        _res_ = _proc_.returncode
+    elif stdin_pass:
+        _proc_ = Popen(command, stdin=PIPE)
+        _proc_.communicate(input=b'1604001\n')
+        _res_ = _proc_.returncode
+    else:
+        _res_ = call(command)
+    if _res_ != 0:
+        Logger.error(error if error else 'Error {}: {}\n'.format(_res_, ' '.join(error)))
+        exit(_res_)
 
 
 def mount_share(server: TRIX_CONFIG.Storage.Server, share: str, mounts):
@@ -17,19 +36,11 @@ def mount_share(server: TRIX_CONFIG.Storage.Server, share: str, mounts):
         res = proc.communicate()
         mounts = dict(parse.findall(res[0].decode()))
 
-    def _wrap_call_(command=None, need_root=True, error=None):
-        if need_root:
-            command = ['sudo', '-S'] + command
-            _proc_ = Popen(command, stdin=PIPE)
-            _proc_.communicate(input=b'1604001\n')
-            _res_ = _proc_.returncode
-        else:
-            _res_ = call(command)
-        if _res_ != 0:
-            Logger.error(error if error else 'Error {}: {}\n'.format(_res_, ' '.join(error)))
-            exit(_res_)
-
-    np = server.network_address(share)
+    # Special case for cache host
+    if share == 'cache' and server.hostname == platform.node():
+        np = 'ramfs'
+    else:
+        np = server.network_address(share)
     desired_mp = server.local_address(share)
     if np in mounts:
         # Mount point must match desired pattern
@@ -40,9 +51,13 @@ def mount_share(server: TRIX_CONFIG.Storage.Server, share: str, mounts):
         _wrap_call_(command=['umount', mounts[np]], error='Failed to unmount {}\n'.format(mounts[np]))
         _wrap_call_(command=['rmdir', mounts[np]], error='Failed to remove {}\n'.format(mounts[np]))
     _wrap_call_(command=['mkdir', '-p', desired_mp])
-    _wrap_call_(command=['chmod', '777', desired_mp])
     Logger.info('Mounting {} to {}\n'.format(np, desired_mp))
-    _wrap_call_(**server.mount_command(np, desired_mp))
+    if share == 'cache' and server.hostname == platform.node():
+        _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', desired_mp])
+        _wrap_call_(command=['chmod', '777', desired_mp])
+    else:
+        _wrap_call_(command=['chmod', '777', desired_mp])
+        _wrap_call_(**server.mount_command(np, desired_mp))
 
 
 def mount_paths(roles: set = None):
@@ -56,6 +71,8 @@ def mount_paths(roles: set = None):
     def _make_dirs_(_d, _pin=False):
         if not os.path.isdir(_d):
             Logger.info('Creating directory {}\n'.format(_d))
+            # _wrap_call_(command=['mkdir', '-p', _d])
+            # _wrap_call_(command=['chmod', '777', _d])
             os.makedirs(_d)
             # Pin the folder to prevent it's deletion
             if _pin:
