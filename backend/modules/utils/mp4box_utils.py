@@ -61,15 +61,26 @@ def mp4box_concat(output: str, params: str, video_segments: List[str], audio_tra
             video=vtmp,
             audio=' '.join(['-add {}'.format(_) for _ in audio_tracks])
         )
+        command = 'ffmpeg -loglevel error -stats -i {video} {audio} -c copy {out}'.format(
+            out=output,
+            video=vtmp,
+            audio=' '.join(['-i {}'.format(_) for _ in audio_tracks])
+        )
         Logger.debug('{}\n'.format(command), Logger.LogLevel.LOG_ERR)
         proc = Popen(command.split(' '), stdin=sys.stdin, stderr=PIPE)
-        # pipe_nowait(proc.stderr)
+        pipe_nowait(proc.stderr)
         stde = proc.stderr.fileno()
 
         while proc.poll() is None:
-            line = proc.stderr.read().decode().replace('\r', '')
-            Logger.log('{}\n'.format(line))
+            # line = proc.stderr.read().decode().replace('\r', '')
+            try:
+                line = os.read(stde, 65536)
+                Logger.log('{}\n'.format(line))
+            except:
+                pass
         Logger.info('Result: {}\n'.format(proc.returncode))
+
+        os.remove(vtmp)
 
     return proc.returncode
 

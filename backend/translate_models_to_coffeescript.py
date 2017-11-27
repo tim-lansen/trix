@@ -19,18 +19,18 @@ MODELS_TO_TRANSLATE = [
 
 def translate_models_to_cs(basepath=None, prefix='', suffix='_py'):
     for c in MODELS_TO_TRANSLATE:
-        Logger.info('Translating model {} to coffee\n'.format(c.__name__))
+        Logger.debug('Translating model {} to coffee\n'.format(c.__name__), Logger.LogLevel.LOG_INFO)
         cs = class_py2coffee(c)
         if basepath:
             script = os.path.join(basepath, '{}{}{}.coffee'.format(prefix, c.__name__, suffix))
-            Logger.warning('Writing script file {}\n'.format(script))
+            Logger.debug('Writing script file {}\n'.format(script), Logger.LogLevel.LOG_WARNING)
             f = open(script, 'w')
             f.write(cs)
             f.close()
-        Logger.log(cs + '\n')
+        Logger.debug(cs + '\n', Logger.LogLevel.LOG_NOTICE)
 
 
 if __name__ == '__main__':
-    Logger.set_level(Logger.LogLevel.INFO)
+    Logger.set_level(Logger.LogLevel.LOG_DEBUG)
     models_dir = os.path.join(os.path.dirname(os.path.dirname(sys.argv[0])), 'interface', 'web', 'js', 'models_py')
     translate_models_to_cs(basepath=models_dir)

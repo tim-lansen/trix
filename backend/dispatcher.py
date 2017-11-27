@@ -36,7 +36,7 @@ def dispatch(nodes, jobs):
         job = jobs.pop(0)
         # if test_job_condition(job):
         if not DBInterface.Job.set_status(job['guid'], Job.Status.OFFERED):
-            Logger.warning('Failed to change job status\n')
+            Logger.debug('Failed to change job status\n', Logger.LogLevel.LOG_WARNING)
             continue
         notifications.append([node['channel'], 'offer {}'.format(job['guid'])])
     if len(notifications):
@@ -71,7 +71,7 @@ def run(period=5):
     def archive_job(uid):
         # TODO: Archive job
         # Remove job from DB
-        Logger.log('Archive job: {}\n'.format(uid))
+        Logger.debug('Archive job: {}\n'.format(uid), Logger.LogLevel.LOG_NOTICE)
         # DBInterface.Job.delete(uid)
 
     while True:
@@ -134,9 +134,9 @@ def run(period=5):
             check = "EXTRACT(EPOCH FROM AGE(localtimestamp, mtime))>{timeout}".format(timeout=5*period)
             suspicious_nodes = DBInterface.get_records('Node', fields=['guid', 'job'], cond=[check])
             if len(suspicious_nodes):
-                Logger.warning("Unregister node(s):\n{}\n".format('\n'.join([str(sn['guid']) for sn in suspicious_nodes])))
+                Logger.debug("Unregister node(s):\n{}\n".format('\n'.join([str(sn['guid']) for sn in suspicious_nodes])), Logger.LogLevel.LOG_WARNING)
                 DBInterface.delete_records('Node', [sn['guid'] for sn in suspicious_nodes])
-                Logger.info("Check jobs were being executed on these nodes...\n")
+                Logger.debug("Check jobs were being executed on these nodes...\n", Logger.LogLevel.LOG_INFO)
                 jobs = DBInterface.get_records(
                     'Job',
                     fields=['guid', 'fails'],
@@ -145,7 +145,7 @@ def run(period=5):
                     cond=["guid=ANY('{{{}}}'::uuid[])".format(','.join([str(sn['job']) for sn in suspicious_nodes if sn['job']]))]
                 )
                 for job in jobs:
-                    Logger.info('Reset job {}\n'.format(job['guid']))
+                    Logger.debug('Reset job {}\n'.format(job['guid']), Logger.LogLevel.LOG_WARNING)
                     DBInterface.Job.set_fields(job['guid'], {'status': Job.Status.NEW, 'offers': job['fails'] + 1})
                 time.sleep(period)
         else:
@@ -153,4 +153,4 @@ def run(period=5):
 
 
 if __name__ == '__main__':
-    run()
+    run(1)

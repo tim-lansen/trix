@@ -8,6 +8,6 @@ from modules.utils.combined_info import test
 
 
 if __name__ == '__main__':
-    Logger.info('Running  modules.utils.combined_info.test()\n')
+    Logger.debug('Running  modules.utils.combined_info.test()\n', Logger.LogLevel.LOG_INFO)
     test(None if len(sys.argv) == 1 else sys.argv[1:])
-    Logger.info('Done\n')
+    Logger.debug('Done\n', Logger.LogLevel.LOG_INFO)

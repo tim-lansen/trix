@@ -127,11 +127,13 @@ class Logger:
                 Console.write_console_colored(string, **Logger.COLOR_MAP[colorset_level])
 
     @staticmethod
-    def traceback():
+    def traceback(level=None, colorset_level=None):
+        if level is None:
+            level = Logger.LogLevel.TRACEBACK
         string = ''
         for frame in traceback.extract_tb(sys.exc_info()[2]):
             string += str(frame) + '\n'
-        Logger._log(string, Logger.LogLevel.TRACEBACK)
+        Logger._log(string, level, colorset_level)
 
     @staticmethod
     def trace(string, colorset_level=None, *args, **kwargs):

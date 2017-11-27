@@ -7,7 +7,7 @@ from modules.utils.executor import test, test_combined_info
 
 
 if __name__ == '__main__':
-    Logger.info('Running  modules.utils.executor.test()\n')
+    Logger.debug('Running  modules.utils.executor.test()\n', Logger.LogLevel.LOG_INFO)
     test()
     # test_combined_info()
-    Logger.info('Done\n')
+    Logger.debug('Done\n', Logger.LogLevel.LOG_INFO)

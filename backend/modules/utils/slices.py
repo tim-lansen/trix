@@ -13,8 +13,8 @@ from .ffmpeg_utils import DEVNULL
 from .parsers import Parsers
 
 
-def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=48, first_slice_duration=180, overlap_time=15, start_frame=0, pattern_length=8):
-    pattern_search_distance = start_frame + 5 * pattern_length
+def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=48, first_slice_duration=120, overlap_time=15, start_frame=0, pattern_length=8):
+    pattern_search_distance = start_frame + 32 * pattern_length
     vt = mf.videoTracks[vti]
     duration = vt.duration
     if duration < first_slice_duration + min_slice_duration:

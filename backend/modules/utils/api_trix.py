@@ -20,11 +20,11 @@ from modules.utils.watch import Fileset, TRIX_CONFIG
 import traceback
 
 
-def traceback_debug():
-    Logger.debug('===traceback===\n')
-    for frame in traceback.extract_tb(sys.exc_info()[2]):
-        Logger.debug('{}\n'.format(frame))
-    Logger.debug('===============\n')
+# def traceback_debug():
+#     Logger.debug('===traceback===\n')
+#     for frame in traceback.extract_tb(sys.exc_info()[2]):
+#         Logger.debug('{}\n'.format(frame))
+#     Logger.debug('===============\n')
 
 
 class ApiClient(ApiClientClassBase):
@@ -49,7 +49,7 @@ class ApiClient(ApiClientClassBase):
         def _check_authority_(data):
             time.sleep(0.5)
             data['authorized'] = True
-            Logger.log('{}\n'.format(data))
+            Logger.debug('{}\n'.format(data), Logger.LogLevel.LOG_NOTICE)
 
         if self.data['authorized']:
             return 12345
@@ -130,7 +130,7 @@ class ApiTrix(ApiClassBase):
                     # New asset from interaction result
                     asset: Asset = Asset()
                     asset.update_json(args[0]['asset'])
-                    Logger.log('{}\n'.format(asset.dumps(indent=2)))
+                    Logger.debug('{}\n'.format(asset.dumps(indent=2)), Logger.LogLevel.LOG_NOTICE)
                     JobUtils.CreateJob.create_archive_with_asset(asset)
                     return True
 
@@ -148,7 +148,7 @@ class ApiTrix(ApiClassBase):
                     for t in mf.videoTracks:
                         previews = []
                         for preview_guid in t.previews:
-                            Logger.log('Get preview media file: {}\n'.format(preview_guid))
+                            Logger.debug('Get preview media file: {}\n'.format(preview_guid), Logger.LogLevel.LOG_NOTICE)
                             preview_mf: MediaFile = DBInterface.MediaFile.get(preview_guid)
                             previews.append(preview_mf.source.url)
                         t.previews = previews
@@ -201,7 +201,7 @@ class ApiTrix(ApiClassBase):
                         cc: Collector = Collector()
                         cc.update_json(c)
                         cmap[str(cc.guid)] = json.loads(cc.dumps())
-                    Logger.log('{}\n'.format(cmap))
+                    Logger.debug('{}\n'.format(cmap), Logger.LogLevel.LOG_NOTICE)
                     mfex_map = {}
                     for mfex in media_files_extra:
                         mfex_map[mfex['guid']] = mfex
@@ -272,7 +272,7 @@ class ApiTrix(ApiClassBase):
             client.ws_handler.send_message(json.dumps(response, cls=NonJSONSerializibleEncoder))
         except Exception as e:
             Logger.warning('ApiTrix.execute exception: {}\n'.format(e))
-            traceback_debug()
+            Logger.traceback(Logger.LogLevel.LOG_WARNING)
 
     @staticmethod
     def dispatch(message, client: ApiClient):
@@ -281,6 +281,7 @@ class ApiTrix(ApiClassBase):
             request = json.loads(message)
         except ValueError as e:
             Logger.warning('{}\n'.format(e))
+            Logger.traceback(Logger.LogLevel.LOG_WARNING)
             return
         try:
             mpath = request['method'].split('.')
@@ -291,8 +292,8 @@ class ApiTrix(ApiClassBase):
             # Call handler in parallel thread
             ApiTrix.Pool.submit(ApiTrix.execute, target, request, client)
         except Exception as e:
-            Logger.warning('{}\n'.format(e))
-            # traceback_debug()
+            Logger.debug('{}\n'.format(e), Logger.LogLevel.LOG_INFO)
+            Logger.traceback(Logger.LogLevel.LOG_DEBUG, Logger.LogLevel.LOG_INFO)
             ApiTrix.Pool.submit(ApiTrix.execute, meth, request, client)
 
     def new_client(self, client: ApiClient, server):

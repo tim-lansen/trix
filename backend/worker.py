@@ -52,7 +52,7 @@ class Worker:
         :param params: don't care
         :return:
         """
-        Logger.warning('Exiting ({})\n'.format(self.node.name))
+        Logger.debug('Exiting ({})\n'.format(self.node.name), Logger.LogLevel.LOG_WARNING)
 
         # TODO: stop running processes
         if self.job_executor.exec.running.is_set():
@@ -63,11 +63,11 @@ class Worker:
         # self.node.job = None
 
     def finish(self, params):
-        Logger.warning('Finishing ({})\n'.format(self.node.name))
+        Logger.debug('Finishing ({})\n'.format(self.node.name), Logger.LogLevel.LOG_WARNING)
         self.node.status = Node.Status.FINISHING
 
     def ping(self, params):
-        Logger.info('pong\n')
+        Logger.debug('pong\n', Logger.LogLevel.LOG_INFO)
         DBInterface.Node.pong(self.node)
         # TODO: update status, job status/progress
         if self.node.status == Node.Status.BUSY:
@@ -75,21 +75,21 @@ class Worker:
             DBInterface.Job.set_fields(self.node.job, {'progress': progress})
 
     def _revert_(self, msg, revert_job=True):
-        Logger.error(msg)
+        Logger.debug(msg, Logger.LogLevel.LOG_ERR)
         if revert_job:
             # Try to revert job status
             if not DBInterface.Job.set_status(self.node.job, Job.Status.OFFERED):
                 Logger.error("Failed to revert job status {}\n".format(self.node.job))
         # Try to revert node status
         if not DBInterface.Node.set_status(self.node.guid, Node.Status.IDLE):
-            Logger.critical("Failed to revert node status {}\n".format(self.node.job))
+            Logger.critical("Failed to revert node status {}\n".format(self.node.name))
             self.exit('failed to revert node status')
         self.node.status = Node.Status.IDLE
 
     def offer(self, params):
-        Logger.info('Offered job: {}\n'.format(params[1]))
+        Logger.debug('Offered job: {}\n'.format(params[1]), Logger.LogLevel.LOG_INFO)
         if self.node.status != Node.Status.IDLE:
-            Logger.error("Worker is busy\n")
+            Logger.debug("Worker is busy\n", Logger.LogLevel.LOG_WARNING)
             return
 
         self.node.job = params[1]
@@ -98,7 +98,7 @@ class Worker:
         #     Logger.error("Failed to get BUSY\n")
         #     return
         if not DBInterface.Node.set_fields(self.node.guid, {'status': Node.Status.BUSY, 'job': "'{}'".format(self.node.job)}):
-            Logger.error("Failed to get BUSY\n")
+            Logger.debug("Failed to get BUSY\n", Logger.LogLevel.LOG_ERR)
             return
         self.node.status = Node.Status.BUSY
 
@@ -136,7 +136,7 @@ class Worker:
             Logger.warning('Failed to register the node {}\n'.format(self.node.name))
             self.job_executor.stop()
             return
-        Logger.info("Registered self as '{}' ({})\n".format(self.node.name, self.node.guid))
+        Logger.debug("Registered self as '{}' ({})\n".format(self.node.name, self.node.guid), Logger.LogLevel.LOG_INFO)
         # Starting loop
         invalid_status_set = {
             Node.Status.EXITING,
@@ -155,7 +155,7 @@ class Worker:
                 Logger.warning('Listening failed\n')
                 break
             for n in notifications:
-                Logger.warning("Got Notify: {} {} {}\n".format(n.pid, n.channel, n.payload))
+                Logger.debug("Got Notify: {} {} {}\n".format(n.pid, n.channel, n.payload), Logger.LogLevel.LOG_NOTICE)
                 params = n.payload.split(' ')
                 if params[0] in Worker.Vectors:
                     Worker.Vectors[params[0]](self, params)
@@ -163,7 +163,7 @@ class Worker:
                     Logger.warning("unknown command: {}\n".format(n.payload))
 
             if self.job_executor.exec.error.is_set():
-                Logger.critical('job {} failed\n'.format(self.node.job))
+                Logger.error('job {} failed\n'.format(self.node.job), Logger.LogLevel.LOG_CRIT)
                 DBInterface.Job.set_status(self.node.job, Job.Status.FAILED)
                 self.node.job = None
                 if self.node.status == Node.Status.BUSY:
@@ -185,7 +185,7 @@ class Worker:
                     self.node.status = Node.Status.IDLE
                 self.job_executor.exec.reset()
 
-            Logger.info('Node: {}\n'.format(self.node.dumps()))
+            Logger.debug('Node: {}\n'.format(self.node.dumps()), Logger.LogLevel.LOG_INFO)
             working = self.node.status in valid_status_set or self.job_executor.working()
 
         DBInterface.Node.remove(self.node, False)
@@ -259,6 +259,7 @@ def run_worker():
 
 
 if __name__ == '__main__':
+    Logger.set_level(Logger.LogLevel.LOG_LOG)
     if len(sys.argv) == 3:
         launch_node(sys.argv[1], sys.argv[2], None)
     else:

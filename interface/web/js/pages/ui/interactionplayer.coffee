@@ -41,6 +41,8 @@ class InteractionPlayer
 
         @id = 'program-selection-bar'
         @doc_currentTime = document.getElementById('current-time')
+        @doc_program_in = document.getElementById('program-in')
+        @doc_program_out = document.getElementById('program-out')
         @doc_audioDelay = document.getElementById('audio-delay')
         @doc_audioSync1 = document.getElementById('audio-sync1')
         @doc_audioSync2 = document.getElementById('audio-sync2')
@@ -49,6 +51,8 @@ class InteractionPlayer
         @timeBend = 1.0
         @timeOffset = 0.0
         @updateDelay()
+        @doc_program_in.innerHTML = Timecode.timecode(program_in)
+        @doc_program_out.innerHTML = Timecode.timecode(program_out)
         @sync_counter = 1
         @updateInterval = setInterval((->
             @updateTime()
@@ -127,8 +131,10 @@ class InteractionPlayer
         currentTime = @video.currentTime
         duration = @video.duration
         @program_in = currentTime
+        @doc_program_in.innerHTML = Timecode.timecode(@program_in)
         if @program_out < currentTime
             @program_out = duration
+            @doc_program_out.innerHTML = Timecode.timecode(@program_out)
         @updateBar()
         return
 
@@ -137,8 +143,10 @@ class InteractionPlayer
     setProgramOut: ->
         currentTime = @video.currentTime
         @program_out = currentTime
+        @doc_program_out.innerHTML = Timecode.timecode(@program_out)
         if @program_in > currentTime
             @program_in = 0.0
+            @doc_program_in.innerHTML = Timecode.timecode(@program_in)
         @updateBar()
         return
 

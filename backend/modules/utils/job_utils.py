@@ -478,7 +478,7 @@ class JobUtils:
                     preview.name = 'Preview: {}'.format(mediafile.name)
                     preview.source.path = os.path.join(pdir.abs_path, preview_name)
                     preview.source.url = '{}/{}'.format(pdir.web_path, preview_name)
-                    # previews.append(preview)
+                    previews.append(preview)
 
                     # A job to capture slices
                     job: Job = Job(name='split.v{}'.format(ti), guid=0, task_id=task_id, job_type=Job.Type.SLICES_CREATE)
@@ -1148,15 +1148,15 @@ class JobUtils:
             for i, audio_stream in enumerate(asset.audioStreams):
                 output = '{}/{}.mp4'.format(cdir.abs_path, str(uuid.uuid4()))
                 job_assemble_audio_inputs.append(output)
-                command = 'ffmpeg -y -loglevel error -stats'
+                proc0 = 'ffmpeg -y -loglevel error -stats'
                 # Calculate start, duration and rate
                 if audio_stream.sync.delay1 is None:
-                    audio_in = video_stream.program_in
-                    audio_out = video_stream.program_out
+                    audio_in = video_stream.program_in * tempo_fps
+                    # audio_out = video_stream.program_out * tempo_fps
                     sync_tempo_encoded = tempo_fps
                 elif audio_stream.sync.delay2 is None:
-                    audio_in = video_stream.program_in + audio_stream.sync.delay1
-                    audio_out = video_stream.program_out + audio_stream.sync.delay1
+                    audio_in = (video_stream.program_in + audio_stream.sync.delay1) * tempo_fps
+                    # audio_out = (video_stream.program_out + audio_stream.sync.delay1) * tempo_fps
                     sync_tempo_encoded = tempo_fps
                 else:
                     a1 = audio_stream.sync.offset1
@@ -1164,12 +1164,18 @@ class JobUtils:
                     v1 = a1 + audio_stream.sync.delay1
                     v2 = a2 + audio_stream.sync.delay2
 
-                    sync_tempo_original = (a2 - a1) / (v2 - v1)
-                    audio_in = a2 - (v2 - video_stream.program_in) * sync_tempo_original
-                    audio_out = a1 + (video_stream.program_out - v1) * sync_tempo_original
-                    sync_tempo_encoded = sync_tempo_original * tempo_fps
+                    # v1 = audio_stream.sync.offset1
+                    # v2 = audio_stream.sync.offset2
+                    # a1 = v1 - audio_stream.sync.delay1
+                    # a2 = v2 - audio_stream.sync.delay2
 
-                audio_dur = audio_out - audio_in
+                    sync_tempo_original = (a2 - a1) / (v2 - v1)
+                    sync_tempo_encoded = sync_tempo_original * tempo_fps
+                    audio_in = a2 - (v2 - video_stream.program_in) * sync_tempo_original
+                    # audio_out = a1 + (video_stream.program_out - v1) * sync_tempo_encoded
+
+                # audio_dur = audio_out - audio_in
+                audio_dur = (video_stream.program_out - video_stream.program_in) * sync_tempo_encoded
 
                 # Collect source media files, re-index inputs
                 source_mediafiles_streams = [audio_mfindex(ch.src_stream_index) + (ch.src_channel_index,) for ch in audio_stream.channels]
@@ -1194,38 +1200,43 @@ class JobUtils:
                         # TODO optimize extracted tracks usage
                         if mf.audioTracks[0].extract is None:
                             join_inputs += len(mf.audioTracks)
-                            command += ' -ss {start} -i {src}'.format(start=audio_in, src=mf.source.path)
+                            proc0 += ' -ss {start} -i {src}'.format(start=audio_in, src=mf.source.path)
                         else:
                             for at in mf.audioTracks:
                                 mfe: MediaFile = mf_map[str(at.extract)]
                                 join_inputs += 1
-                                command += ' -ss {start} -i {src}'.format(start=audio_in, src=mfe.source.path)
-                command += ' -t {:.3f}'.format(audio_dur)
+                                proc0 += ' -ss {start} -i {src}'.format(start=audio_in, src=mfe.source.path)
+                proc0 += ' -t {:.3f}'.format(audio_dur)
                 # Compose filter, example:
                 # join=inputs=2:channel_layout=5.1:map=0.0-FL|0.1-FR|1.2-FC|1.3-LFE|1.1-BL|0.5-BR
                 layout = Asset.AudioStream.Layout.LAYMAP[audio_stream.layout]
                 layout_dst = layout['layout']
                 layout_map = '|'.join(['{}.{}-{}'.format(_s[1], _s[2], layout_dst[_i]) for _i, _s in enumerate(source_mediafiles_streams)])
-                command += ' -filter_complex join=inputs={inputs}:channel_layout={layout}:map={laymap}'.format(
+                proc0 += ' -filter_complex join=inputs={inputs}:channel_layout={layout}:map={laymap}'.format(
                     inputs=join_inputs,
                     layout=audio_stream.layout,
                     laymap=layout_map
                 )
+                procs = [proc0]
                 if abs(sync_tempo_encoded - 1.0) > 0.00001:
-                    command += ',atempo={:.8f}'.format(sync_tempo_encoded)
+                    procs[0] += ' -f sox -'
+                    procs.append('sox -t sox - -t sox - tempo {:.7f}'.format(sync_tempo_encoded))
+                    procs.append('ffmpeg -y -loglevel error -f sox -i -')
                 # TODO use SOX to bend audio, set volume/compression
                 bitrate = 128 * len(audio_stream.channels)
-                command += ' -c:a aac -strict -2 -b:a {br}k -metadata:s:a:0 language={lang} {dst}'.format(
+                procs[-1] += ' -c:a aac -strict -2 -b:a {br}k -metadata:s:a:0 language={lang} {dst}'.format(
                     br=bitrate,
                     lang=audio_stream.language,
                     dst=output
                 )
                 Logger.info('asset_to_mediafile: audio #{}\n'.format(i))
-                Logger.warning('{}\n'.format(command))
+                Logger.warning('{}\n'.format('|'.join(procs)))
                 # Create chain
                 chain: Job.Info.Step.Chain = Job.Info.Step.Chain()
-                chain.procs = [command.split(' ')]
-                chain.return_codes = [[0]]
+                chain.procs = [
+                    _.split(' ') for _ in procs
+                ]
+                chain.return_codes = [[0]] + ([None]*(len(procs) - 1))
                 chain.progress.capture = 0
                 chain.progress.parser = 'ffmpeg_progress'
                 chains.append(chain)
@@ -1248,10 +1259,10 @@ class JobUtils:
                 mf_src: MediaFile = media_files[mf_index]
                 vt: MediaFile.VideoTrack = mf_src.videoTracks[tr_index]
 
-                scale_time_fps = video_stream.fpsOriginal.val() / video_stream.fpsEncode.val()
+                # scale_time_fps = video_stream.fpsOriginal.val() / video_stream.fpsEncode.val()
                 # tempo_fps = video_stream.fpsEncode.val() / video_stream.fpsOriginal.val()
-                program_in = scale_time_fps * video_stream.program_in
-                program_out = scale_time_fps * video_stream.program_out
+                # program_in = scale_time_fps * video_stream.program_in
+                # program_out = scale_time_fps * video_stream.program_out
                 # program_dur = program_out - program_in
 
                 # Get usable slices range
@@ -1286,7 +1297,7 @@ class JobUtils:
                     job_archive_slice.groupIds.append(job_archive_assemble.dependsOnGroupId)
 
                     if slic is None:
-                        dur = vt.duration - pslic.time + 1
+                        dur = video_stream.program_out - pslic.time
                         proc1 = '{trim} trim --pin {pin}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed())
                     elif pslic is None:
                         dur = slic['time'] + (overlap + slic['pattern_offset']) / vt.fps.val()
@@ -1295,14 +1306,14 @@ class JobUtils:
                         dur = slic['time'] - pslic['time'] + (overlap + slic['pattern_offset'] - pslic['pattern_offset']) / vt.fps.val()
                         proc1 = '{trim} trim --pin {pin} --pout {pout}'.format(trim=JobUtils.TRIMMER, pin=pslic.embed(), pout=slic.embed())
                     if pslic is None:
-                        if program_in < 0.001:
+                        if video_stream.program_in < 0.001:
                             ss0 = ''
                             ss1 = ''
-                        elif program_in < 5.0:
+                        elif video_stream.program_in < 5.0:
                             ss0 = ''
-                            ss1 = ' -ss {:.3f}'.format(program_in)
+                            ss1 = ' -ss {:.3f}'.format(video_stream.program_in)
                         else:
-                            ss0 = ' -ss {:.3f}'.format(program_in - 3.0)
+                            ss0 = ' -ss {:.3f}'.format(video_stream.program_in - 3.0)
                             ss1 = ' -ss 3.0'
                         proc0 = 'ffmpeg -y -loglevel error -stats{ss0} -i {i}{ss1} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(
                             ss0=ss0, ss1=ss1, i=mf.source.path, ti=tr_index, fps=vt.fps.dump_alt(), t=dur)
@@ -1310,6 +1321,7 @@ class JobUtils:
                         proc0 = 'ffmpeg -y -loglevel error -stats -ss {ss} -i {i} -map v:{ti} -vsync 1 -r {fps} -t {t}'.format(
                             ss=pslic['time'], i=mf.source.path, ti=tr_index, fps=vt.fps.dump_alt(), t=dur)
                     proc0 += ' -c:v rawvideo -f rawvideo -'
+                    Logger.debug('{}\n'.format(proc0), Logger.LogLevel.LOG_ALERT)
                     proc1 += ' -s {} {} -p {}'.format(vt.width, vt.height, vt.pix_fmt)
                     proc2 = tmpl_ffmpeg
                     proc3 = tmpl_x264.format(output=segment_path_archive)
@@ -1338,6 +1350,7 @@ class JobUtils:
 
                     pslic = slic
 
+                # The very last slice
                 ##################################################
 
                 chain: Job.Info.Step.Chain = Job.Info.Step.Chain()

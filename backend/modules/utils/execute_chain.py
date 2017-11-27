@@ -65,7 +65,7 @@ class ExecuteInternal:
             mf: MediaFile = MediaFile()
             mf.update_str(params[0])
             combined_info(mf, params[1])
-            Logger.critical('{}\n...\n'.format(mf.dumps(indent=2)[:250]))
+            Logger.debug('{}\n...\n'.format(mf.dumps(indent=2)[:250]), Logger.LogLevel.LOG_CRIT)
             out_final.put([mf])
 
     class create_mediafile_and_asset:
@@ -147,7 +147,6 @@ class ExecuteInternal:
             reencode = False
 
             asset: Asset = Exchange.object_decode(params[0])
-            Logger.log('{}\n'.format(asset))
             vstr: Asset.VideoStream = asset.videoStreams[0]
             media_files_dict = {}
             for mf in asset.mediaFiles + asset.mediaFilesExtra:
@@ -251,8 +250,7 @@ class ExecuteInternal:
                 #         dst=trimmed_video_file,
                 #         vf=vstr.cropdetect.filter_string()
                 #     )
-                Logger.info('asset_to_mediafile: video\n')
-                Logger.warning('{}\n'.format(command))
+                Logger.log('{}\n'.format(command), Logger.LogLevel.LOG_WARNING)
                 proc = Popen(command.split(' '))
                 proc.communicate()
                 # TODO check proc.returncode
@@ -266,8 +264,7 @@ class ExecuteInternal:
                         src=video_src,
                         dst=trimmed_video_file
                     )
-                    Logger.info('asset_to_mediafile: video\n')
-                    Logger.warning('{}\n'.format(command))
+                    Logger.log('{}\n'.format(command), Logger.LogLevel.LOG_WARNING)
                     proc = Popen(command.split(' '))
                     proc.communicate()
                     # TODO check proc.returncode
@@ -363,8 +360,7 @@ class ExecuteInternal:
                     lang=audio_stream.language,
                     dst=output
                 )
-                Logger.info('asset_to_mediafile: audio #{}\n'.format(i))
-                Logger.warning('{}\n'.format(command))
+                Logger.log('{}\n'.format(command), Logger.LogLevel.LOG_WARNING)
                 proc = Popen(command.split(' '))
                 proc.communicate()
                 # TODO check proc.returncode
@@ -376,8 +372,7 @@ class ExecuteInternal:
                 smap='-map 0:v {}'.format(' '.join(['-map {}:a'.format(_i + 1) for _i in range(len(audio_files))])),
                 dst=path
             )
-            Logger.info('asset_to_mediafile: assemble\n')
-            Logger.warning('{}\n'.format(command))
+            Logger.log('{}\n'.format(command), Logger.LogLevel.LOG_WARNING)
             proc = Popen(command.split(' '))
             proc.communicate()
             # TODO check proc.returncode
@@ -402,11 +397,11 @@ class ExecuteInternal:
             if rc == 0:
                 for path in params[3]:
                     dirs.add(os.path.dirname(path))
-                    # os.remove(path)
+                    os.remove(path)
                 for d in dirs:
                     try:
-                        Logger.info('Removing directory {}\n'.format(d))
-                        # os.rmdir(d)
+                        Logger.debug('Removing directory {}\n'.format(d), Logger.LogLevel.LOG_INFO)
+                        os.rmdir(d)
                     except:
                         Logger.warning('Failed to remove directory {}\n'.format(d))
                         pass
@@ -429,11 +424,11 @@ class ExecuteInternal:
             dirs = set([])
             for path in params:
                 dirs.add(os.path.dirname(path))
-                # os.remove(path)
+                os.remove(path)
             for d in dirs:
                 try:
-                    Logger.info('Removing directory {}\n'.format(d))
-                    # os.rmdir(d)
+                    Logger.debug('Removing directory {}\n'.format(d), Logger.LogLevel.LOG_INFO)
+                    os.rmdir(d)
                 except:
                     Logger.warning('Failed to remove directory {}\n'.format(d))
                     pass
@@ -472,8 +467,9 @@ def execute_internal(params: List[str],
         proc(params[1:], out_progress, out_final)
     except Exception as e:
         Logger.error('execute_internal failed: {}\n'.format(e))
-        for frame in traceback.extract_tb(sys.exc_info()[2]):
-            print(frame)
+        Logger.traceback(Logger.LogLevel.LOG_ERR)
+        # for frame in traceback.extract_tb(sys.exc_info()[2]):
+        #     print(frame)
         chain_error_event.set()
     Logger.log('execute_internal finished\n')
 
@@ -491,7 +487,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
                   output_is_read: Event):
     chain_enter_event.set()
     if chain_error_event.is_set():
-        Logger.error('Error event is already set\n')
+        Logger.debug('Error event is already set\n', Logger.LogLevel.LOG_ERR)
         return
     # Handle special complex cases
     if len(chain.procs) == 1 and chain.procs[0][0].startswith('ExecuteInternal.'):
@@ -506,17 +502,17 @@ def execute_chain(chain: Job.Info.Step.Chain,
     text = ['' for _ in chain.procs]
     stderr_handles = []
     pstdout = PIPE
-    Logger.info('{0}\n'.format(' \\\n|'.join([format_command(_) for _ in chain.procs])))
+    Logger.log('{0}\n'.format(' \\\n|'.join([format_command(_) for _ in chain.procs])))
     for i, c in enumerate(chain.procs):
         try:
             p = Popen(c, stdin=pstdout, stdout=PIPE, stderr=PIPE)
         except Exception as e:
-            Logger.error('Failed to launch {0}\n'.format(c[0]))
-            Logger.error('{0}\n'.format(e))
+            Logger.error('Failed to launch {}\n'.format(c[0]))
+            Logger.error('{}\n'.format(e))
             # Stop procs that already launched
             while i > 0:
                 i -= 1
-                Logger.warning('Stopping proc #{0}\n'.format(i))
+                Logger.debug('Stopping proc #{0}\n'.format(i), Logger.LogLevel.LOG_WARNING)
                 proc[i].kill()
                 proc[i].wait()
             chain_error_event.set()
@@ -535,7 +531,7 @@ def execute_chain(chain: Job.Info.Step.Chain,
         if chain_error_event.is_set():
             for i, p in enumerate(proc):
                 if p is not None:
-                    Logger.warning('Stopping proc #{0}\n'.format(i))
+                    Logger.debug('Stopping proc #{0}\n'.format(i), Logger.LogLevel.LOG_WARNING)
                     p.kill()
                     p.wait()
                 proc[i] = None
@@ -565,17 +561,17 @@ def execute_chain(chain: Job.Info.Step.Chain,
                 # Check retcode
                 rc = p.returncode
                 if chain.return_codes[i] is None:
-                    Logger.warning('Ignoring return code {} from process #{}\n'.format(rc, i))
+                    Logger.debug('Ignoring return code {} from process #{}\n'.format(rc, i), Logger.LogLevel.LOG_WARNING)
                 elif rc not in chain.return_codes[i]:
                     # Error, stop chain
-                    Logger.warning('Bad retcode in op#{0}: {1}\n'.format(i, rc))
+                    Logger.debug('Bad retcode in op#{0}: {1}\n'.format(i, rc), Logger.LogLevel.LOG_ERR)
                     chain_error_event.set()
                 proc[i] = None
         time.sleep(0.4)
     # Collect ALL outputs
     # TODO: filter out progress lines
     out_result.put(text)
-    Logger.log('Chain finished\n')
+    Logger.debug('Chain finished\n', Logger.LogLevel.LOG_INFO)
     chain_finish_event.set()
     output_is_read.wait(timeout=5)
     # for i, t in enumerate(text):
@@ -613,7 +609,7 @@ def test():
     test_chain_enter.clear()
 
     def dummy_parser(c):
-        Logger.warning('DUMMY PARSER: {}\n'.format(str(c)[:250]))
+        Logger.debug('DUMMY PARSER: {}\n'.format(str(c)[:250]), Logger.LogLevel.LOG_WARNING)
         return None
 
     parser = dummy_parser if test_chain.progress.parser is None or test_chain.progress.parser not in PARSERS else PARSERS[test_chain.progress.parser]
@@ -626,8 +622,8 @@ def test():
             c = q.flush()
             if c and j == test_chain.progress.capture:
                 parsed = parser(c)
-                Logger.log('{}\n'.format(parsed))
+                Logger.debug('{}\n'.format(parsed), Logger.LogLevel.LOG_INFO)
             time.sleep(0.1)
 
-    Logger.critical('Done\n')
+    Logger.debug('Done\n', Logger.LogLevel.LOG_CRIT)
 

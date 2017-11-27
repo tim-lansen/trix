@@ -35,14 +35,14 @@ def connect_to_db(args):
 
 # Execute a request using cursor supplied
 def request_db(cur, req, exit_on_fail=False):
-    Logger.log('Request:\n{}\n'.format(req))
+    Logger.debug('Request:\n{}\n'.format(req), Logger.LogLevel.LOG_NOTICE)
     result = True
     try:
         cur.execute(req)
     except psycopg2.Error as e:
         Logger.error('Failed to execute request\n{}\n{}\n'.format(e.pgerror, e.diag.message_detail))
-        Logger.warning('{}\n'.format(req))
-        Logger.traceback()
+        Logger.error('{}\n'.format(req), Logger.LogLevel.LOG_ERR)
+        Logger.traceback(Logger.LogLevel.LOG_ERR)
         if exit_on_fail:
             cur.connection.close()
             sys.exit(1)
@@ -64,13 +64,13 @@ def request_db_return_dl(cur, tdata, fields, condition):
     else:
         fstr = ','.join(fields)
     request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
-    Logger.log('Request:\n{}\n'.format(request))
+    Logger.debug('Request: {}\n'.format(request), Logger.LogLevel.LOG_NOTICE)
     result = []
     try:
         cur.execute(request)
     except psycopg2.Error as e:
         Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
-        Logger.traceback()
+        Logger.traceback(Logger.LogLevel.LOG_ERR)
     else:
         rows = cur.fetchall()
         for row in rows:
@@ -92,16 +92,15 @@ def request_db_return_dict(cur, tdata, key=None, fields=None, condition=''):
     else:
         fstr = ','.join(fields)
     if key not in fields:
-        Logger.warning('Key {} not in requested field list {}\n'.format(key, fields))
+        Logger.debug('Key {} not in requested field list {}\n'.format(key, fields), Logger.LogLevel.LOG_WARNING)
         key = fields[0]
     request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
-    # Logger.info('Request:\n{}\n'.format(request))
     result = {}
     try:
         cur.execute(request)
     except psycopg2.Error as e:
         Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
-        Logger.traceback()
+        Logger.traceback(Logger.LogLevel.LOG_ERR)
     else:
         rows = cur.fetchall()
         for row in rows:
@@ -159,7 +158,7 @@ class DBInterface:
         db_tables = {t[0] for t in rows}
         for t in TRIX_CONFIG.dBase.tables:
             ct = TRIX_CONFIG.dBase.tables[t]
-            Logger.warning('{}\n'.format(ct))
+            Logger.debug('{}\n'.format(ct), Logger.LogLevel.LOG_WARNING)
             if ct['relname'] in db_tables:
                 # Check table's columns
                 request = "SELECT * FROM {relname} WHERE false;".format(relname=ct['relname'])
@@ -170,14 +169,14 @@ class DBInterface:
                 # Make all column names from config lowercase
                 fields = {k[0].lower() for k in ct['fields']}
                 if len(db_fields.symmetric_difference(fields)):
-                    Logger.warning('Table {} structure is wrong\nfields:\n  c - d: {}\n  d - c: {}\n'.format(t, fields.difference(db_fields), db_fields.difference(fields)))
+                    Logger.debug('Table {} structure is wrong\nfields:\n  c - d: {}\n  d - c: {}\n'.format(t, fields.difference(db_fields), db_fields.difference(fields)), Logger.LogLevel.LOG_WARNING)
                     # Drop table
                     request = "DROP TABLE {};".format(ct['relname'])
                     request_db(cur, request)
                     db_tables.remove(ct['relname'])
             if ct['relname'] not in db_tables:
                 # Create table
-                Logger.info('Creating table {}\n'.format(t))
+                Logger.debug('Creating table {}\n'.format(t), Logger.LogLevel.LOG_INFO)
                 fields = ['{0} {1}'.format(k[0], k[1]) for k in ct['fields']]
                 if 'fields_extra' in ct:
                     fields += ['{0} ({1})'.format(k[0], k[1]) for k in ct['fields_extra']]
@@ -265,7 +264,7 @@ class DBInterface:
                 condition += ' LIMIT {}'.format(limit)
             result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], fields, condition)
             cur.close()
-        Logger.info(pformat(result) + '\n')
+        Logger.debug('{}\n'.format(pformat(result), Logger.LogLevel.LOG_INFO))
         return result
 
     # Get records from table filtered by status or status list
@@ -286,7 +285,7 @@ class DBInterface:
                 condition = ' WHERE ' + ' AND '.join(cond)
             result = request_db_return_dict(cur, TRIX_CONFIG.dBase.tables[table_name], key, fields, condition)
             cur.close()
-        Logger.info(pformat(result) + '\n')
+        Logger.debug('{}\n'.format(pformat(result), Logger.LogLevel.LOG_INFO))
         return result
 
     # Get records from table filtered by status
@@ -298,7 +297,7 @@ class DBInterface:
             cur = conn.cursor()
             result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], None, " WHERE guid='{}'".format(uid))
             cur.close()
-        Logger.info(pformat(result) + '\n')
+        Logger.debug('{}\n'.format(pformat(result), Logger.LogLevel.LOG_INFO))
         return result
 
     @staticmethod
@@ -314,7 +313,7 @@ class DBInterface:
                 " WHERE {}='{}'".format(field, value)
             )
             cur.close()
-        Logger.info(pformat(result) + '\n')
+        Logger.debug('{}\n'.format(pformat(result), Logger.LogLevel.LOG_INFO))
         return result
 
     @staticmethod

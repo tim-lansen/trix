@@ -20,9 +20,9 @@ if __name__ == '__main__':
     asset.guid.new()
     asset.name = ''
     asset.mediaFiles = [Asset.MediaFile(0), Asset.MediaFile(0), Asset.MediaFile(0)]
-    Logger.warning('{}\n'.format(asset.dumps(indent=2)))
+    Logger.debug('{}\n'.format(asset.dumps(indent=2)), Logger.LogLevel.LOG_WARNING)
     DBInterface.Asset.set(asset)
     asset = DBInterface.Asset.get(asset.guid)
-    print(asset.dumps(indent=2))
+    Logger.debug('{}\n'.format(asset.dumps(indent=2)), Logger.LogLevel.LOG_INFO)
     DBInterface.Asset.delete(asset.guid)
 

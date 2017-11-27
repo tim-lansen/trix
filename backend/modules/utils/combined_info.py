@@ -664,7 +664,7 @@ def combine_ffprobe_mediainfo(ffstr, mistr):
                     try:
                         index = track_mi[g['src']['index']]
                     except:
-                        Logger.warning('Track\'s MediaInfo does not contain StreamOrder, try default: {}\n'.format(defaultStreamOrder))
+                        Logger.debug('Track\'s MediaInfo does not contain StreamOrder, try default: {}\n'.format(defaultStreamOrder), Logger.LogLevel.LOG_WARNING)
                         index = defaultStreamOrder
                     track_ff = src_ff[index]
                     combined_track = combine_ffprobe_mediainfo_track(track_ff, track_mi, dst['class'])

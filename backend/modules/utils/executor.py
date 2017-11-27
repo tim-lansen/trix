@@ -61,18 +61,18 @@ class JobExecutor:
         def final_set(self, step, chain, proc, obj, fmap=None):
             hash = self._hash(step, chain, proc)
             if hash in self.fmap:
-                Logger.info('final_set: {} => {}\n...\n'.format(hash, str(obj)[:250]))
+                Logger.debug('final_set: {} => {}\n...\n'.format(hash, str(obj)[:250]), Logger.LogLevel.LOG_INFO)
                 if fmap:
                     fmap[hash] = obj
                 else:
                     self.fmap[hash] = obj
             else:
-                Logger.critical('final_set: no hash {} in fmap\n'.format(hash))
+                Logger.debug('final_set: no hash {} in fmap\n'.format(hash), Logger.LogLevel.LOG_ERR)
 
         def final_get(self, step, chain, proc):
             hash = self._hash(step, chain, proc)
             obj = self.fmap[hash] if hash in self.fmap else None
-            Logger.log('final_get: fmap[{}] = {}\n...\n'.format(hash, str(obj)[:250]))
+            # Logger.debug('final_get: fmap[{}] = {}\n...\n'.format(hash, str(obj)[:250]), Logger.LogLevel.LOG_NOTICE)
             return obj
 
         def reset(self):
@@ -105,7 +105,7 @@ class JobExecutor:
         chains_error = Event()
         fmap = {}
         try:
-            Logger.info("Starting job {}\n".format(ex.job.name))
+            Logger.log("Starting job {}\n".format(ex.job.name), Logger.LogLevel.LOG_INFO)
             # Register finals
             for r in ex.job.emitted.results:
                 ex.final_register(r.source.step, r.source.chain, r.source.proc, fmap)
@@ -117,7 +117,7 @@ class JobExecutor:
                 #     shutil.rmtree(path, ignore_errors=True)
                 os.makedirs(path, exist_ok=True)
             for ai, step in enumerate(ex.job.info.steps):
-                Logger.info("Step #{}\n".format(ai))
+                Logger.debug("Step #{}\n".format(ai), Logger.LogLevel.LOG_INFO)
                 # Prepare pipes
                 for pipe in step.pipes:
                     os.mkfifo(pipe)
@@ -176,7 +176,6 @@ class JobExecutor:
                     ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, job_progress))
                     time.sleep(0.5)
 
-                Logger.info('_process: exit loop\n')
                 # Step is finished, cleaning up
                 for chain in step.chains:
                     chain.progress.pos = 1.0
@@ -204,25 +203,25 @@ class JobExecutor:
                     time.sleep(1.0)
                 for ci, r in enumerate(runs):
                     if r['process'].is_alive():
-                        Logger.critical("Terminating chain {}, step {}\n".format(ci, ai))
+                        Logger.debug("Terminating chain {}, step {}\n".format(ci, ai), Logger.LogLevel.LOG_CRIT)
                         r['process'].terminate()
-                Logger.info("Step {} finished\n".format(ai))
+                Logger.debug("Step {} finished\n".format(ai), Logger.LogLevel.LOG_INFO)
                 ex.progress_output.put('{{"step":{},"progress":{:.3f}}}'.format(ai, (ai + 1.0)/len(ex.job.info.steps)))
             Logger.log("Job finished\n")
         except Exception as e:
             Logger.error("Job failed: {}\n".format(e))
-            Logger.traceback()
-            Logger.warning('{}\n'.format(ex.job.dumps()))
+            Logger.traceback(Logger.LogLevel.LOG_ERR)
+            Logger.log('{}\n'.format(ex.job.dumps()), Logger.LogLevel.LOG_WARNING)
             ex.error.set()
-        Logger.log('Put fmap: {}\n...\n'.format(str(fmap)[:250]))
+        # Logger.debug('Put fmap: {}\n...\n'.format(str(fmap)[:250]), Logger.LogLevel.LOG_NOTICE)
         ex.fmap_out.put(fmap)
         ex.running.clear()
         # Set finish event only if no error
         if ex.error.is_set():
-            Logger.error('JobExecutor._process finished with error\n')
+            Logger.debug('JobExecutor._process finished with error\n', Logger.LogLevel.LOG_WARNING)
         else:
             ex.finish.set()
-        Logger.info('JobExecutor._process done\n')
+        Logger.debug('JobExecutor._process done\n', Logger.LogLevel.LOG_INFO)
 
     def results(self):
         """
@@ -230,10 +229,10 @@ class JobExecutor:
         :return: None if no results to emit, number of emitted results if success [, 0 of False if failed]*
         """
         if self.exec.job.emitted is None or len(self.exec.job.emitted.results) == 0:
-            Logger.warning('No results to emit\n')
+            Logger.debug('No results to emit\n', Logger.LogLevel.LOG_WARNING)
             return None
         if self.exec.job.type & Job.Type.TRIGGER:
-            Logger.info("Trigger job results\n")
+            Logger.debug("Trigger job results\n", Logger.LogLevel.LOG_INFO)
             JobUtils.process_results(self.exec.job)
             return len(self.exec.job.emitted.results)
         self.exec.fmap = self.exec.fmap_out.flush()
@@ -261,7 +260,7 @@ class JobExecutor:
         cap = self.exec.progress_output.flush()
         if cap is not None:
             jcap = json.loads(cap)
-            Logger.log('{}\n'.format(jcap))
+            Logger.debug('{}\n'.format(jcap), Logger.LogLevel.LOG_NOTICE)
             self._last_captured_progress = jcap['progress']
         return self._last_captured_progress
 
@@ -269,7 +268,7 @@ class JobExecutor:
     def run(self, job: Job):
         if self.process:
             if self.process.is_alive():
-                Logger.error("JobExecutor.run: process is alive!\n")
+                Logger.debug("JobExecutor.run: process is alive!\n", Logger.LogLevel.LOG_WARNING)
                 return False
             self.process = None
 
@@ -277,7 +276,7 @@ class JobExecutor:
 
         # If job is trigger type, do not start it
         if job.type & Job.Type.TRIGGER:
-            Logger.info("Dummy job (trigger) {}\n".format(job.name))
+            Logger.debug("Dummy job (trigger) {}\n".format(job.name), Logger.LogLevel.LOG_INFO)
             self._last_captured_progress = 1.0
             self.exec.finish.set()
             return True
@@ -289,7 +288,6 @@ class JobExecutor:
         self.process.start()
         self.exec.running.wait(timeout=10.0)
         if self.exec.running.is_set():
-            Logger.info("Job execution started\n")
             return True
         Logger.error("Failed to start job execution\n")
         self.process.terminate()
@@ -302,7 +300,7 @@ class JobExecutor:
                 self.exec.force_exit.set()
                 self.process.join(timeout=8)
                 if self.process.is_alive():
-                    Logger.error("Terminating process\n")
+                    Logger.warning("Terminating process\n", Logger.LogLevel.LOG_ERR)
                     self.process.terminate()
 
 
@@ -378,14 +376,14 @@ def test():
     while working:
         # Listen to individual channel, timeout-blocking when finishing
         if job_executor.exec.error.is_set():
-            Logger.critical('job {} failed\n'.format(job.guid))
+            Logger.debug('job {} failed\n'.format(job.guid), Logger.LogLevel.LOG_CRIT)
             # job_executor.exec.reset()
             break
         if job_executor.exec.finish.is_set():
-            Logger.info('job {} finished\n'.format(job.guid))
+            Logger.debug('job {} finished\n'.format(job.guid), Logger.LogLevel.LOG_INFO)
             break
 
-        Logger.log('Job progress: {}\n'.format(job_executor.progress()))
+        Logger.debug('Job progress: {}\n'.format(job_executor.progress()), Logger.LogLevel.LOG_NOTICE)
         working = job_executor.working()
         time.sleep(1)
 
@@ -445,18 +443,18 @@ def test_combined_info():
     while working:
         # Listen to individual channel, timeout-blocking when finishing
         if job_executor.exec.error.is_set():
-            Logger.critical('job {} failed\n'.format(job.guid))
+            Logger.debug('job {} failed\n'.format(job.guid), Logger.LogLevel.LOG_CRIT)
             # job_executor.exec.reset()
             break
         if job_executor.exec.finish.is_set():
-            Logger.info('job {} finished\n'.format(job.guid))
+            Logger.debug('job {} finished\n'.format(job.guid), Logger.LogLevel.LOG_INFO)
             # if job_executor.results():
             #     JobUtils.Results.process(job_executor.exec.job)
             #     # for r in job_executor.exec.job.results:
             #     #     Logger.warning('{}\n'.format(r.dumps()))
             break
 
-        Logger.log('Job progress: {}\n'.format(job_executor.progress()))
+        Logger.debug('Job progress: {}\n'.format(job_executor.progress()), Logger.LogLevel.LOG_NOTICE)
         working = job_executor.working()
         time.sleep(1)
 

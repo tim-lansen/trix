@@ -25,7 +25,7 @@ def config_table_using_class(C, dBase):
                                 _where_[k] = []
                             _where_[k] += v
                         else:
-                            Logger.error('Bad TABLE_SETUP in class {}\n'.format(_C_.__name__))
+                            Logger.critical('Bad TABLE_SETUP in class {}\n'.format(_C_.__name__))
                             exit(1)
                 else:
                     # It's a parent class
@@ -67,7 +67,7 @@ class TrixConfig(JSONer):
             if type(self.tables) is dict:
                 for table_name in self.tables:
                     if table_name in _g_ and 'TABLE_SETUP' in _g_[table_name].__dict__:
-                        Logger.info('Using table {} definition from class\n'.format(table_name))
+                        Logger.debug('Using table {} definition from class\n'.format(table_name), Logger.LogLevel.LOG_INFO)
                         self.tables[table_name] = {}
                         config_table_using_class(_g_[table_name], self.__dict__)
                     table = self.tables[table_name]
@@ -82,10 +82,10 @@ class TrixConfig(JSONer):
                                     if type(val) is list:
                                         table[key] = val + table[key]
                                     else:
-                                        Logger.error("Table template value type {} not supported\n".format(type(val)))
+                                        Logger.debug("Table template value type {} not supported\n".format(type(val)), Logger.LogLevel.LOG_ERR)
                         # table.pop('templates')
                     except Exception as e:
-                        Logger.warning("Table {} template error\n{}\n".format(table_name, e))
+                        Logger.error("Table {} template error\n{}\n".format(table_name, e), Logger.LogLevel.LOG_WARNING)
 
     class ApiServer(JSONer):
         def __init__(self):
@@ -250,10 +250,8 @@ class TrixConfig(JSONer):
             for i, s in enumerate(self.servers):
                 self.servers_map[s.address] = i
                 for path in s.paths:
-                    Logger.log('{}\n'.format(path))
                     if path.role == path.Role.WATCH:
                         wf: TrixConfig.Storage.Watchfolder = TrixConfig.Storage.Watchfolder()
-                        print(path.dumps(expose_unmentioned=True))
                         wf.update_json({
                             'path': path.abs_path,
                             'action': path.unmentioned['action']
@@ -305,7 +303,7 @@ def check_config_conformity():
     for t in TRIX_CONFIG.dBase.tables:
         c = str_to_class(t)
         if c is None:
-            Logger.warning('No python model found for table {}\n'.format(t))
+            Logger.error('No python model found for table {}\n'.format(t), Logger.LogLevel.LOG_WARNING)
             continue
         ct = TRIX_CONFIG.dBase.tables[t]
         cfields = {f[0] for f in ct['fields']}
@@ -317,7 +315,7 @@ def check_config_conformity():
     if failed:
         Logger.critical('check_config_conformity failed, exiting\n')
         sys.exit(1)
-    Logger.info('check_config_conformity passed\n')
+    Logger.debug('check_config_conformity passed\n', Logger.LogLevel.LOG_INFO)
 
 
 check_config_conformity()
