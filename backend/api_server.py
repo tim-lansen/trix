@@ -153,7 +153,7 @@ def cancel_all_interactions(params, profile):
 
 
 if __name__ == "__main__":
-    Logger.set_level(Logger.LogLevel.TRACE)
+    Logger.set_console_level(Logger.LogLevel.TRACE)
     mount_paths({'watch'})
     api_server = WebsocketServer(port=TRIX_CONFIG.apiServer.port, host='0.0.0.0', apiClass=ApiTrix, clientClass=ApiClient)
     api_server.serve_forever()

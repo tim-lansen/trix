@@ -2,9 +2,6 @@
 # tim.lansen@gmail.com
 
 # Worker node
-# Run 'python worker.py' on target computer
-# The worker will use it's IP address as part of name: "<IP address>#<index>"
-# The worker will first try to get from DB list of
 # Interface: DB channel for offering a complex job or immediate execution
 
 
@@ -13,6 +10,8 @@ import sys
 import uuid
 import time
 import shutil
+import platform
+from multiprocessing import Process, Event, Queue
 import modules.utils.mount_paths
 # from modules.utils.non_daemonic_pool import NonDaemonicPool
 # from typing import List
@@ -20,6 +19,7 @@ from modules.config import *
 from modules.utils.log_console import Logger, tracer
 from modules.utils.database import DBInterface
 from modules.utils.executor import JobExecutor
+from modules.utils.node_utils import node_abilities, node_abilities_to_set
 from modules.utils.cpuinfo import get_cpu_info
 from modules.models import *
 
@@ -117,11 +117,12 @@ class Worker:
         if not self.job_executor.run(job):
             self._revert_("Failed to start job execution {}\n".format(self.node.job))
 
-    def __init__(self, _name, _channel):
+    def __init__(self, name, channel, abilities_mask):
         self.node = Node()
-        self.node.name = _name
-        self.node.channel = _channel
+        self.node.name = name
+        self.node.channel = channel
         self.node.guid = str(uuid.uuid4())
+        self.node.roleMask = abilities_mask
         self.job_executor: JobExecutor = JobExecutor()
 
     Vectors = {
@@ -191,78 +192,46 @@ class Worker:
         DBInterface.Node.remove(self.node, False)
 
 
-def launch_node(name, channel, job_types):
-    worker = Worker(name, channel)
+def launch_node(node_index, abilities):
+    Logger.set_console_level(Logger.LogLevel.LOG_NOTICE)
+    name = '{}_{:02d}'.format(platform.node().replace('-', '_'), node_index)
+    channel = '{}_ch'.format(name)
+    worker = Worker(name, channel, abilities)
     worker.run()
-    return name
+    return node_index
 
 
 def run_worker():
-    # if len(sys.argv) == 1:
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect((TRIX_CONFIG.dBase.connection.host, 1))
-    ip_address = s.getsockname()[0]
-    mach = DBInterface.Machine.get_by_ip(ip_address)
-    if mach is None:
-        # No machine with this IP is registered in DB, get setup from config and register
-        if ip_address in TRIX_CONFIG.machines.unmentioned:
-            tmpl = TRIX_CONFIG.machines.unmentioned[ip_address]
+    if not modules.utils.mount_paths.mount_paths():
+        Logger.critical('Failed to mount all necessary paths\n')
+        exit(1)
+    abilities = node_abilities()
+    processes = []
+    Logger.debug('Machine abilities:\n{}\n'.format(node_abilities_to_set(abilities)))
+    for idx, am in enumerate(TRIX_CONFIG.nodes.roles):
+        mask = abilities & am
+        if mask != 0:
+            with open(os.devnull, 'w') as nul:
+                proc = Process(target=launch_node, name='trix-worker-node#{:02d}'.format(idx), args=(idx, mask))
+                proc.start()
+                processes.append(proc)
         else:
-            tmpl = TRIX_CONFIG.machines.default
-        mach = Machine()
-        mach.guid.new()
-        mach.update_json(tmpl)
-        # superhack
-        if os.name == 'nt' and mach.tmp.startswith('/'):
-            mach.tmp = 'C:\\' + mach.tmp[1:].replace('/', '\\')
-        mach.hardware.cpu = get_cpu_info()
-        if mach.name is None:
-            mach.name = 'Machine {}'.format(ip_address)
-        mach.ip = ip_address
-        DBInterface.Machine.register(mach)
-
-    ars = []
-    for ni, nj in enumerate(mach.node_job_types):
-        name = '{}_{}'.format(ip_address, ni)
-        channel = 'ch_{}'.format(name.replace('.', '_'))
-        tmp = os.path.join(mach.tmp, 'trix_{:02d}'.format(ni))
-        if not dir_clear_create(tmp):
-            Logger.critical('Worker {}: failed to create directory {}\n'.format(ip_address, tmp))
-            exit(1)
-        ars.append([name, channel, nj])
-    # Starting child node with params
-    # with NonDaemonicPool(processes=len(mach.node_job_types)) as pool:
-    #     # for ni, nj in enumerate(mach.node_job_types):
-    #     for a in ars:
-    #         # name = '{}_{}'.format(ip_address, ni)
-    #         # channel = 'ch_{}'.format(name.replace('.', '_'))
-    #         # params = {'name': name, 'job_types': nj}
-    #         r = pool.apply_async(launch_node, args=tuple(a), callback=lambda x: print('FINISHED:', x), error_callback=lambda e: print('ERROR!', e))
-    #         a.append(r)
-    #
-    #     falling = False
-    #     while 1:
-    #         ready = [_[3].ready() for _ in ars]
-    #         finished_count = ready.count(True)
-    #         if finished_count > 0:
-    #             if finished_count == len(ars):
-    #                 break
-    #             if not falling:
-    #                 falling = True
-    #                 # Send notifications (only once)
-    #                 notes = [[ars[_][1], 'finish'] for _ in range(len(ars)) if not ready[_]]
-    #                 DBInterface.notify_list(notes)
-    #         time.sleep(4)
-
-    Logger.critical('Worker {} is done\n'.format(ip_address))
+            Logger.debug('Node {} has no suggested abilities:\n{}\n'.format(
+                idx,
+                node_abilities_to_set(am)
+            ), Logger.LogLevel.LOG_ERR)
+    # Start monitoring
+    if len(processes):
+        Logger.debug('Machine monitor started\n')
+        while 1:
+            if [_.is_alive() for _ in processes].count(True) == 0:
+                break
+            time.sleep(3)
+        Logger.debug('All processes are down\n')
+    else:
+        Logger.debug('No processes to start\n')
 
 
 if __name__ == '__main__':
-    Logger.set_level(Logger.LogLevel.LOG_LOG)
-    if len(sys.argv) == 3:
-        launch_node(sys.argv[1], sys.argv[2], None)
-    else:
-        if not modules.utils.mount_paths.mount_paths():
-            Logger.critical('Failed to mount all necessary paths\n')
-    #         run_worker()
+    # Logger.set_level(Logger.LogLevel.LOG_NOTICE)
+    run_worker()

@@ -37,17 +37,18 @@
     "host": "trix-nginx",
     "port": 9001
   },
-  "machines": {
-    "comment": "Machine templates",
-    "default": {"node_count": 4, "node_job_types": [[0, 1, 2], [0, 1, 2], [0, 1, 2], [3]], "tmp": "/tmp"},
-    "127.0.0.1": {"name": "local machine", "node_count": 3, "node_job_types": [[0], [1, 2], [3]]}
+  "nodes": {
+    "comment": "Node role masks by node index",
+    "roles": [
+      "VIDEO_ENCODER", "VIDEO_ENCODER", "VIDEO_ENCODER", "AUDIO_ENCODER", "COMPILER", "CONCATENATOR"
+    ]
   },
   "storage": {
     "servers": [
       {
         "name": "server1",
         "id": "server1_id",
-        "address": "tlansen",
+        "hostname": "tlansen",
         "filesystem": "cifs",
         "shares": {
           "crude": "/shared",
@@ -90,7 +91,7 @@
       {
         "name": "server2",
         "id": "server2_id",
-        "address": "tlansen",
+        "hostname": "tlansen",
         "filesystem": "cifs",
         "shares": {
           "cache": "/shared"

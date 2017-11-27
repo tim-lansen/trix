@@ -31,6 +31,6 @@ def translate_models_to_cs(basepath=None, prefix='', suffix='_py'):
 
 
 if __name__ == '__main__':
-    Logger.set_level(Logger.LogLevel.LOG_DEBUG)
+    Logger.set_console_level(Logger.LogLevel.LOG_DEBUG)
     models_dir = os.path.join(os.path.dirname(os.path.dirname(sys.argv[0])), 'interface', 'web', 'js', 'models_py')
     translate_models_to_cs(basepath=models_dir)

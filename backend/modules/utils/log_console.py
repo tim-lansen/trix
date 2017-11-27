@@ -94,8 +94,12 @@ class Logger:
     }
 
     @staticmethod
-    def set_level(level):
-        Logger.LOG_LEVEL = level
+    def set_console_level(level):
+        Logger.LOG_CONSOLE_LEVEL = level
+
+    @staticmethod
+    def set_file_level(level):
+        Logger.LOG_FILE_LEVEL = level
 
     @staticmethod
     def _log_file_string(string, level, *args, **kwargs):
@@ -192,7 +196,7 @@ def test_logger(a=1, b=2, *args, **kwargs):
     Logger.exception('Exception')
 
 def test():
-    Logger.set_level(Logger.LogLevel.TRACE)
+    Logger.set_console_level(Logger.LogLevel.TRACE)
     Console.write_console_colored('test!\ntest1\ntest2\n', color=Console.Colormap.magenta, invert=True, hi=2)
     Console.write_console_colored('test!\ntest1\ntest2\n', color=Console.Colormap.magenta, invert=False, hi=1)
     Console.rawdemo()

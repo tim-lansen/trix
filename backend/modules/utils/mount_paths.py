@@ -82,7 +82,7 @@ def mount_paths(roles: set = None):
             # Logger.warning('{}\n'.format(path.dumps()))
             if roles is None or path.role in dr:
                 dirs_to_create.append(path.abs_path)
-                sid = '{}:{}'.format(server.address, path.share)
+                sid = '{}:{}'.format(server.hostname, path.share)
                 shares_to_mount[sid] = [server, path.share]
                 Logger.error('{}\n'.format(path.abs_path))
 

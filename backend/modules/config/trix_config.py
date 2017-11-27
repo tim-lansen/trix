@@ -3,6 +3,7 @@
 
 import os
 import sys
+import json
 from typing import List
 from modules.models import *
 from modules.utils.log_console import Logger, tracer
@@ -99,6 +100,47 @@ class TrixConfig(JSONer):
             self.comment = None
             self.default = None
 
+    class Nodes(JSONer):
+
+        class Role:
+            TRIGGER = 0x0001
+            AUDIO_ENCODER = Node.Abilities.FFMPEG | Node.Abilities.SOX
+            VIDEO_ENCODER = Node.Abilities.FFMPEG | Node.Abilities.X26X
+            AV_ENCODER = AUDIO_ENCODER | VIDEO_ENCODER
+            CONCATENATOR = Node.Abilities.FFMPEG | Node.Abilities.MP4BOX | Node.Abilities.CACHE
+            COMPILER = Node.Abilities.FFMPEG | Node.Abilities.MP4BOX
+
+        def __init__(self):
+            super().__init__()
+            # List of roles suggested for nodes
+            self.roles: List[int] = []
+
+        def update_str(self, json_str):
+            j = json.loads(json_str)
+            self.update_json(j)
+
+        def update_json(self, json_obj):
+            d = TrixConfig.Nodes.Role.__dict__
+            err = False
+            if 'roles' in json_obj:
+                if type(json_obj['roles']) is list:
+                    for v in json_obj['roles']:
+                        if type(v) is str:
+                            if v in d:
+                                v = d[v]
+                            else:
+                                Logger.error('Unknown role {}\n'.format(v))
+                                err = True
+                                continue
+                        elif type(v) is not int:
+                            Logger.error('Role: bad value type {} ({})\n'.format(v, type(v)))
+                            err = True
+                            continue
+                        self.roles.append(v)
+            if err:
+                Logger.critical('Exiting due to critical error(s)\n')
+                exit(1)
+
     class Storage(JSONer):
         class Server(JSONer):
             class Path(JSONer):
@@ -140,7 +182,7 @@ class TrixConfig(JSONer):
                 super().__init__()
                 self.name = None
                 # self.id = None
-                self.address = None
+                self.hostname = None
                 self.filesystem = None
                 # Typical 'share' element example:
                 # "store": "/mount/disk/storage"
@@ -155,17 +197,17 @@ class TrixConfig(JSONer):
                 if share in self.shares:
                     if self.filesystem == 'cifs':
                         # example: //TLANSEN/web
-                        return '//{}/{}'.format(self.address, share)
+                        return '//{}/{}'.format(self.hostname, share)
                     elif self.filesystem == 'nfs' or self.filesystem == 'sshfs':
                         # example: TLANSEN:/shared/web
-                        return '{}:{}/{}'.format(self.address, self.shares[share], share)
+                        return '{}:{}/{}'.format(self.hostname, self.shares[share], share)
                 return None
 
             def local_address(self, subdir):
                 # On Windows we use network address
                 if os.name == 'nt':
-                    return r'\\{}\{}'.format(self.address, subdir)
-                return '/mnt/{}/{}'.format(self.address, subdir)
+                    return r'\\{}\{}'.format(self.hostname, subdir)
+                return '/mnt/{}/{}'.format(self.hostname, subdir)
 
             def update_json(self, json_obj):
                 super().update_json(json_obj)
@@ -248,7 +290,7 @@ class TrixConfig(JSONer):
             self.servers_map = {}
             self.watchfolders = []
             for i, s in enumerate(self.servers):
-                self.servers_map[s.address] = i
+                self.servers_map[s.hostname] = i
                 for path in s.paths:
                     if path.role == path.Role.WATCH:
                         wf: TrixConfig.Storage.Watchfolder = TrixConfig.Storage.Watchfolder()
@@ -276,7 +318,7 @@ class TrixConfig(JSONer):
         super().__init__()
         self.dBase = self.DBase()
         self.apiServer = self.ApiServer()
-        self.machines = self.Machines()
+        self.nodes = self.Nodes()
         self.storage = self.Storage()
 
 
