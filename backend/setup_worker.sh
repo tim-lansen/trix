@@ -27,6 +27,17 @@ sudo python3.5 -m pip install --upgrade pip
 sudo python3.5 -m pip install psycopg2
 sudo python3.5 -m pip install Unidecode
 sudo python3.5 -m pip install python_slugify
+sudo python3.5 -m pip install psutil
+# content.7.txt
+# ===================
+# NVIDIA CUDA 9.0
+# ===================
+wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.0.176-1_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu1604_9.0.176-1_amd64.deb
+sudo apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
+sudo apt-get update
+sudo apt-get install cuda-9-0
+
 # ===================
 # Tools
 # ===================
@@ -37,7 +48,7 @@ sudo apt-get install gpac
 # ===================
 # x265
 # ===================
-sudo apt-get install -y yasm libnuma-dev mercurial cmake cmake-curses-gui build-essential
+
 cd ~/
 hg clone https://bitbucket.org/multicoreware/x265
 cd x265/build/linux
