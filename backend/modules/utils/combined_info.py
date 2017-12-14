@@ -16,6 +16,10 @@ from .types import Guid, Rational, guess_type
 from .log_console import Logger, tracer
 
 
+#TODO get frame side data
+# ffprobe -print_format json -v quiet -show_frames -show_entries frame=side_data -select_streams v:0 -read_intervals %+00:00:00.01
+
+
 def get_ffprobe_info(filename, refine_duration=True):
 
     # def get_real_duration(src, codec_type, idx, format_duration):
