@@ -17,7 +17,7 @@ from .log_console import Logger, tracer
 
 
 #TODO get frame side data
-# ffprobe -print_format json -v quiet -show_frames -show_entries frame=side_data -select_streams v:0 -read_intervals %+00:00:00.01
+# 'ffprobe -print_format json -v quiet -show_frames -show_entries frame=side_data -select_streams v:0 -read_intervals %+00:00:00.01'
 
 
 def get_ffprobe_info(filename, refine_duration=True):
@@ -69,8 +69,10 @@ def get_ffprobe_info(filename, refine_duration=True):
     #         return None
     #     return {'pts_time_first': pts_time_first, 'pts_time_last': pts_time_last, 'duration': pts_time_last - pts_time_first}
 
-    proc = Popen(['ffprobe', '-show_streams', '-show_format', '-print_format', 'json', filename], stderr=PIPE, stdout=PIPE)
+    proc = Popen('ffprobe -print_format json -v quiet -show_streams -show_format {}'.format(filename).split(' '), stderr=PIPE, stdout=PIPE)
     output, error = proc.communicate()
+    # proc = Popen('ffprobe -print_format json -v quiet -show_frames -show_entries frame=side_data -select_streams v:0 -read_intervals %+00:00:00.01'.format(filename).split(' '), stderr=PIPE, stdout=PIPE)
+    # output, error = proc.communicate()
     return output.decode()
 
 
