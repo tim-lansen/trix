@@ -304,6 +304,3 @@ class ApiTrix(ApiClassBase):
 
     def message_received(self, client: ApiClient, server, msg):
         self.dispatch(msg, client)
-
-
-
