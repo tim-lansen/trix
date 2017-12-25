@@ -1,6 +1,22 @@
 
 
-execute_and
+check_exe () {
+    local a=`eval which $1`
+    if [ -n "$a" ]; then
+        echo `eval $@`
+    fi
+}
+
+# check_XXX echo nothing if succeeded
+
+check_nasm () {
+    local a=$(check_exe "nasm" "-v")
+    local b=${a//version 2.13/xxx}
+    if [ "$a" == "$b" ]; then
+        echo "$a"
+    fi
+}
+
 
 # ===================
 # Quicker boot:
@@ -51,16 +67,13 @@ echo '  IdentityFile ~/.ssh/trix_node_rsa' >>.ssh/config
 echo '  User tim'  >>.ssh/config
 
 git clone -b master git@gitlab.dev.ivi.ru:tlansen/trix.git
-mkdir .ssh
-cp trix/backend/keys/trix_node_rsa .ssh/
-chmod 400 .ssh/trix_node_rsa
-sudo cp trix/nvenc_sdk_include/* /usr/include/
 
-sudo cp /etc/apt/sources.list /etc/apt/sources.list.backup
-sudo sed -i '/# deb-src/s/^#//g' /etc/apt/sources.list
+sudo su -
+cp /home/tim/trix/nvenc_sdk_include/* /usr/include/
+cp /etc/apt/sources.list /etc/apt/sources.list.backup
+sed -i -r "s/# ?deb-src/deb-src/" /etc/apt/sources.list
 
-sudo cp trix/sources.list /etc/apt/
-sudo apt-get update
+apt-get update
 # ===================
 # CIFS support (needed for hostname resolving)
 # ===================
@@ -76,12 +89,26 @@ sudo sed -i '/user_allow_other/s/^#//g' /etc/fuse.conf
 # ===================
 # Python: psycopg2, Unidecode, python_slugify
 # ===================
-sudo apt-get install -y python3-pip
-sudo python3.5 -m pip install --upgrade pip
-sudo python3.5 -m pip install psycopg2
-sudo python3.5 -m pip install Unidecode
-sudo python3.5 -m pip install python_slugify
-sudo python3.5 -m pip install psutil
+#sudo apt-get install -y python3-pip
+#sudo python3.5 -m pip install --upgrade pip
+#sudo python3.5 -m pip install psycopg2
+#sudo python3.5 -m pip install Unidecode
+#sudo python3.5 -m pip install python_slugify
+#sudo python3.5 -m pip install psutil
+
+sudo add-apt-repository ppa:jonathonf/python-3.6
+sudo apt-get update
+sudo apt-get install python3.6
+sudo apt-get install python3-pip
+python3.6 -m pip install --upgrade pip
+sudo python3.6 -m pip install psycopg2
+sudo -H python3.6 -m pip install Unidecode
+sudo -H python3.6 -m pip install python_slugify
+sudo -H python3.6 -m pip install --upgrade wheel
+sudo -H python3.6 -m pip install --upgrade pip
+sudo ln -s /usr/include/python3.5m /usr/include/python3.6m
+sudo -H python3.6 -m pip install psutil
+
 # content.7.txt
 # ===================
 # NVIDIA CUDA 9.0
@@ -100,9 +127,10 @@ cd ffmpeg_build
 ../ffmpeg/configure --extra-version=ivi.ru --disable-debug\
  --enable-nonfree --enable-libopenjpeg --enable-libwavpack --enable-libx265 --enable-libopencore-amrwb --enable-libvorbis --enable-libpulse --enable-libtwolame --enable-gnutls --enable-zlib\
  --enable-iconv --enable-bzlib --enable-avisynth --enable-fontconfig --enable-libmp3lame --enable-libxvid --enable-libwebp --enable-libtheora --enable-libcdio --enable-version3 --enable-libbluray --enable-libgsm\
- --enable-nvenc --enable-libopencore-amrnb --enable-swscale --enable-libopencv --enable-libvo-amrwbenc --cpu=native --enable-libopus --enable-libdc1394 --enable-libvpx --enable-librtmp --enable-gpl\
+ --enable-libopencore-amrnb --enable-swscale --enable-libopencv --enable-libvo-amrwbenc --cpu=native --enable-libopus --enable-libdc1394 --enable-libvpx --enable-librtmp --enable-gpl\
  --enable-libx264 --enable-libsnappy --enable-cuvid --enable-libcaca --enable-libfdk-aac --enable-libspeex --enable-pthreads --enable-libfreetype --enable-libgme --enable-libsoxr --enable-vaapi --enable-libbs2b\
- --enable-lzma --enable-cuda --enable-libmodplug --enable-vdpau --enable-libass --enable-frei0r
+ --enable-lzma --enable-cuda --enable-libmodplug --enable-vdpau --enable-libass --enable-frei0r\
+ --enable-nvenc
 make
 sudo make install
 # ===================
@@ -128,6 +156,7 @@ sudo make install
 # ===================
 
 cd ~/
+sudo apt-get install -y cmake mercurial
 hg clone https://bitbucket.org/multicoreware/x265
 cd x265/build/linux
 
@@ -143,21 +172,6 @@ cmake -G "Unix Makefiles" -D NATIVE_BUILD=ON -D STATIC_LINK_CRT=ON -D ENABLE_SHA
 make
 sudo mv x265 /usr/local/bin/x265.12
 
-#./make-Makefiles.bash
-# NATIVE_BUILD=ON
-# STATIC_LINK_CRT=ON
-# ENABLE_SHARED=OFF
-#make
-#sudo mv x265 /usr/local/bin/x265.08
-#./make-Makefiles.bash
-# HIGH_BIT_DEPTH=ON
-#make
-#sudo mv x265 /usr/local/bin/x265.10
-#./make-Makefiles.bash
-# MAIN12=ON
-#make
-#sudo mv x265 /usr/local/bin/x265.12
-
 # ===================
 # x264
 # ===================
@@ -172,6 +186,14 @@ sudo mv x264 /usr/local/bin/x264.08
 make
 sudo mv x264 /usr/local/bin/x264.10
 
+# NGINX
+
+git clone https://github.com/nginx/nginx.git
+cd nginx/
+auto/configure --with-ld-opt="-L /usr/local/lib" --prefix=/opt/nginx --with-debug --with-cc-opt="-O0"
+make
+sudo make install
+
 # ===================
 # cleanup
 # ===================
@@ -184,5 +206,4 @@ rm -rf nasm-2.13.01 x264  x265
 # ===================
 sudo mkdir -p /www/trix/bin/backend
 sudo python3.5 ~/trix/backend/conform_to_python3.5.py /www/trix/bin/backend
-
 
