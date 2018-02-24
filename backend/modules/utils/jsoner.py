@@ -125,8 +125,8 @@ class JSONer:
         # Check if there is a child class with the same name (capitalized)
         #  declared in current class (preferred) or in global space
         # subclass = None
-        if name == 'storage':
-            print('sto')
+        # if name == 'storage':
+        #     print('sto')
         is_root = False
         try:
             subclass = getattr(self, class_name)

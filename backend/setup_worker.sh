@@ -194,6 +194,52 @@ auto/configure --with-ld-opt="-L /usr/local/lib" --prefix=/opt/nginx --with-debu
 make
 sudo make install
 
+# To use HTTPS and nginx-vod-module
+nginx_with_vod_and_ssl () {
+    cd ~/
+    git clone https://github.com/kaltura/nginx-vod-module.git
+    git clone https://github.com/openssl/openssl.git
+    cd nginx
+    auto/configure --add-module=/home/tim/nginx-vod-module --with-ld-opt="-L /usr/local/lib -pthread" --prefix=/opt/nginx --with-debug --with-cc-opt="-O0" --with-http_ssl_module --with-http_v2_module --with-openssl=/home/tim/openssl/ --with-threads --with-stream --with-stream_ssl_module
+
+    # Create cert
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt
+
+    # Create file /opt/nginx/conf/cert.conf:
+    echo "ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;">/opt/nginx/conf/cert.conf
+    echo "ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;">>/opt/nginx/conf/cert.conf
+    echo "ssl_protocols TLSv1 TLSv1.1 TLSv1.2;">>/opt/nginx/conf/cert.conf
+    echo "ssl_prefer_server_ciphers on;">>/opt/nginx/conf/cert.conf
+    echo "ssl_ciphers \"EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH\";">>/opt/nginx/conf/cert.conf
+    echo "ssl_ecdh_curve secp384r1;">>/opt/nginx/conf/cert.conf
+    echo "ssl_session_cache shared:SSL:10m;">>/opt/nginx/conf/cert.conf
+    echo "ssl_session_tickets off;">>/opt/nginx/conf/cert.conf
+    echo "ssl_stapling on;">>/opt/nginx/conf/cert.conf
+    echo "ssl_stapling_verify on;">>/opt/nginx/conf/cert.conf
+    echo "resolver 8.8.8.8 8.8.4.4 valid=300s;">>/opt/nginx/conf/cert.conf
+    echo "resolver_timeout 5s;">>/opt/nginx/conf/cert.conf
+    echo "# Disable preloading HSTS for now.  You can use the commented out header line that includes">>/opt/nginx/conf/cert.conf
+    echo "# the "preload" directive if you understand the implications.">>/opt/nginx/conf/cert.conf
+    echo "#add_header Strict-Transport-Security \"max-age=63072000; includeSubdomains; preload\";">>/opt/nginx/conf/cert.conf
+    echo "add_header Strict-Transport-Security \"max-age=63072000; includeSubdomains\";">>/opt/nginx/conf/cert.conf
+    echo "add_header X-Frame-Options DENY;">>/opt/nginx/conf/cert.conf
+    echo "add_header X-Content-Type-Options nosniff;">>/opt/nginx/conf/cert.conf
+    echo "ssl_dhparam /etc/ssl/certs/dhparam.pem;">>/opt/nginx/conf/cert.conf
+
+    # Diffie-Hellman
+    sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+
+    # In /opt/nginx/conf/nginx.conf:
+    #   .....
+    #   server {
+    #       listen 80;
+    #       listen [::]:80;
+    #       listen 443 ssl http2;
+    #       listen [::]:443 ssl http2;
+    #       include cert.conf;
+    #   .....
+}
+
 # ===================
 # cleanup
 # ===================
