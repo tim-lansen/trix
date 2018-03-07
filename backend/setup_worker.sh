@@ -96,8 +96,8 @@ sudo sed -i '/user_allow_other/s/^#//g' /etc/fuse.conf
 #sudo python3.5 -m pip install python_slugify
 #sudo python3.5 -m pip install psutil
 
-sudo add-apt-repository ppa:jonathonf/python-3.6
-sudo apt-get update
+add-apt-repository ppa:jonathonf/python-3.6
+apt-get update
 sudo apt-get install python3.6
 sudo apt-get install python3-pip
 python3.6 -m pip install --upgrade pip
@@ -156,19 +156,19 @@ sudo make install
 # ===================
 
 cd ~/
-sudo apt-get install -y cmake mercurial
+sudo apt-get install -y cmake mercurial build-essential yasm
 hg clone https://bitbucket.org/multicoreware/x265
 cd x265/build/linux
 
-cmake -G "Unix Makefiles" -D NATIVE_BUILD=ON -D STATIC_LINK_CRT=ON -D ENABLE_SHARED=OFF HIGH_BIT_DEPTH=OFF ../../source
+cmake -G "Unix Makefiles" -D NATIVE_BUILD=ON -D STATIC_LINK_CRT=ON -D ENABLE_SHARED=OFF -D HIGH_BIT_DEPTH=OFF -D MAIN12=OFF ../../source
 make
 sudo mv x265 /usr/local/bin/x265.08
 
-cmake -G "Unix Makefiles" -D NATIVE_BUILD=ON -D STATIC_LINK_CRT=ON -D ENABLE_SHARED=OFF HIGH_BIT_DEPTH=ON MAIN12=OFF ../../source
+cmake -G "Unix Makefiles" -D NATIVE_BUILD=ON -D STATIC_LINK_CRT=ON -D ENABLE_SHARED=OFF -D HIGH_BIT_DEPTH=ON -D MAIN12=OFF ../../source
 make
 sudo mv x265 /usr/local/bin/x265.10
 
-cmake -G "Unix Makefiles" -D NATIVE_BUILD=ON -D STATIC_LINK_CRT=ON -D ENABLE_SHARED=OFF HIGH_BIT_DEPTH=ON MAIN12=ON ../../source
+cmake -G "Unix Makefiles" -D NATIVE_BUILD=ON -D STATIC_LINK_CRT=ON -D ENABLE_SHARED=OFF -D HIGH_BIT_DEPTH=ON -D MAIN12=ON ../../source
 make
 sudo mv x265 /usr/local/bin/x265.12
 
@@ -187,7 +187,7 @@ make
 sudo mv x264 /usr/local/bin/x264.10
 
 # NGINX
-
+cd ~/
 git clone https://github.com/nginx/nginx.git
 cd nginx/
 auto/configure --with-ld-opt="-L /usr/local/lib" --prefix=/opt/nginx --with-debug --with-cc-opt="-O0"
