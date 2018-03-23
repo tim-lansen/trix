@@ -4,7 +4,6 @@
 from typing import List
 from modules.models.record import *
 from modules.utils.types import Rational
-from enum import Enum
 
 
 class MediaFile(Record):
@@ -428,7 +427,7 @@ class MediaFile(Record):
             # ID of mediafile that consists of extracted subtitles track
             self.extract = None
 
-    class Role():
+    class Role:
         ORIGINAL = 0
         TRANSIT = 1
         PREVIEW = 2
@@ -443,18 +442,10 @@ class MediaFile(Record):
         def __init__(self):
             super().__init__()
 
-    class XRole(Enum):
-        ORIGINAL = 0
-        TRANSIT = 1
-        PREVIEW = 2
-    if isinstance(asdasd, Enum):
-        adsasd
-
-
     def __init__(self, name='', guid=0):
         super().__init__(name=name, guid=guid)
         # This flag is set when media file is created as reference of media component (video or audio channel)
-        self.role = self.XRole.PREVIEW
+        self.role = self.Role.PREVIEW
         #self.role = MediaFile.Role.ORIGINAL
         # Master mediafile: guid of source media
         self.master = self.Master()

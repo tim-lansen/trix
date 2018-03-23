@@ -124,13 +124,7 @@ sudo apt-get install -y libfdk-aac-dev libopencv-dev libopenjp2-7-dev
 git clone https://git.ffmpeg.org/ffmpeg.git
 mkdir ffmpeg_build
 cd ffmpeg_build
-../ffmpeg/configure --extra-version=ivi.ru --disable-debug\
- --enable-nonfree --enable-libopenjpeg --enable-libwavpack --enable-libx265 --enable-libopencore-amrwb --enable-libvorbis --enable-libpulse --enable-libtwolame --enable-gnutls --enable-zlib\
- --enable-iconv --enable-bzlib --enable-avisynth --enable-fontconfig --enable-libmp3lame --enable-libxvid --enable-libwebp --enable-libtheora --enable-libcdio --enable-version3 --enable-libbluray --enable-libgsm\
- --enable-libopencore-amrnb --enable-swscale --enable-libopencv --enable-libvo-amrwbenc --cpu=native --enable-libopus --enable-libdc1394 --enable-libvpx --enable-librtmp --enable-gpl\
- --enable-libx264 --enable-libsnappy --enable-cuvid --enable-libcaca --enable-libfdk-aac --enable-libspeex --enable-pthreads --enable-libfreetype --enable-libgme --enable-libsoxr --enable-vaapi --enable-libbs2b\
- --enable-lzma --enable-cuda --enable-libmodplug --enable-vdpau --enable-libass --enable-frei0r\
- --enable-nvenc
+../ffmpeg/configure --extra-version=ivi.ru --disable-debug --enable-nonfree --enable-libopenjpeg --enable-libwavpack --enable-libx265 --enable-libopencore-amrwb --enable-libvorbis --enable-libpulse --enable-libtwolame --enable-gnutls --enable-zlib --enable-iconv --enable-bzlib --enable-avisynth --enable-fontconfig --enable-libmp3lame --enable-libxvid --enable-libwebp --enable-libtheora --enable-libcdio --enable-version3 --enable-libbluray --enable-libgsm --enable-libopencore-amrnb --enable-swscale --enable-libopencv --enable-libvo-amrwbenc --cpu=native --enable-libopus --enable-libdc1394 --enable-libvpx --enable-librtmp --enable-gpl --enable-libx264 --enable-libsnappy --enable-cuvid --enable-libcaca --enable-libfdk-aac --enable-libspeex --enable-pthreads --enable-libfreetype --enable-libgme --enable-libsoxr --enable-vaapi --enable-libbs2b --enable-lzma --enable-cuda --enable-libmodplug --enable-vdpau --enable-libass --enable-frei0r --enable-nvenc
 make
 sudo make install
 # ===================

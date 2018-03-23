@@ -13,6 +13,46 @@ from .ffmpeg_utils import DEVNULL
 from .parsers import Parsers
 
 
+"""
+Новый способ нарезки на слайсы (ffmpeg-only)
+
+1. Сканируем участок
+ffmpeg -nostats -y -ss 200 -i E:\media\avatar.1080p.mp4 -t 230 -map v -copyts -vf "select=gte(scene\,0.3),showinfo" -f null nul
+[Parsed_showinfo_1 @ 000002a0c760d1c0] n:   0 pts:2655232 pts_time:207.44  pos:109117394 fmt:rgb24 sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:F67B5321 plane_checksum:[F67B5321] mean:[39] stdev:[39.8]
+
+ffmpeg -nostats -y -ss 220 -i E:\media\avatar.1080p.mp4 -t 230 -map v -copyts -vf "select=gte(scene\,0.3),showinfo" -f null nul
+[Parsed_showinfo_1 @ 000001a6b0ed48c0] n:   0 pts:2818048 pts_time:220.16  pos:117139028 fmt:rgb24 sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:534FCDE9 plane_checksum:[534FCDE9] mean:[64] stdev:[54.5]
+
+ffmpeg -nostats -y -ss 230 -i E:\media\avatar.1080p.mp4 -t 240 -map v -copyts -vf "select=gte(scene\,0.3),showinfo" -f null nul
+[Parsed_showinfo_1 @ 0000024817d03e00] n:   0 pts:2982912 pts_time:233.04  pos:128364608 fmt:rgb24 sar:1/1 s:1920x1080 i:P iskey:0 type:P checksum:00C47242 plane_checksum:[00C47242] mean:[98] stdev:[49.3]
+
+pts_time:207.44
+pts_time:220.16
+pts_time:233.04
+
+2. Команды (грязный хак - ниже по пайпу читаем только фрагмент, т.к. первая команда будет читать файл до конца)
+ffmpeg -y -ss 207 -i E:\media\avatar.1080p.mp4 -map v -vsync 1 -vf "select=gte(t\,0.44)*lt(t\,12.72)" -c:v libx264 -flags cgop -preset slow -x264opts "keyint=50:min_keyint=9:ref=2:bframes=3" T:\temp\p1.h264 -map v -f rawvideo -|ffmpeg -f rawvideo -y -loglevel error -s 1920:1080 -r 25 -pix_fmt yuv420p -i - -t 14 -f null nul
+
+ffmpeg -y -ss 220 -i E:\media\avatar.1080p.mp4 -map v -vsync 1 -vf "select=gte(t\,0.16)*lt(t\,12.88)" -c:v libx264 -flags cgop -preset slow -x264opts "keyint=50:min_keyint=9:ref=2:bframes=3" T:\temp\p2.h264 -map v -f rawvideo -|ffmpeg -f rawvideo -y -loglevel error -s 1920:1080 -r 25 -pix_fmt yuv420p -i - -t 14 -f null nul
+
+собираем
+echo file p1.h264 >list
+echo file p2.h264 >>list
+ffmpeg -y -loglevel error -stats -f concat -i list -c copy pallc.mp4
+
+проверяем
+ffmpeg -y -ss 207 -i E:\media\avatar.1080p.mp4 -map v -vsync 1 -vf "select=gte(t\,0.44)*lt(t\,25.6)" -c:v libx264 -flags cgop -preset slow -x264opts "keyint=50:min_keyint=9:ref=2:bframes=3" T:\temp\pall.mp4 -map v -f rawvideo -|ffmpeg -f rawvideo -y -loglevel error -s 1920:1080 -r 25 -pix_fmt yuv420p -i - -t 26 -f null nul
+
+ffprobe -v quiet -show_streams -count_frames pallc.mp4|find "nb_fra"
+nb_frames=640
+
+ffprobe -v quiet -show_streams -count_frames pall.mp4|find "nb_fra"
+nb_frames=640
+
+
+"""
+
+
 def create_slices(mf: MediaFile, vti=0, number_of_slices=48, min_slice_duration=48, first_slice_duration=120, overlap_time=15, start_frame=0, pattern_length=8):
     pattern_search_distance = start_frame + 32 * pattern_length
     vt = mf.videoTracks[vti]

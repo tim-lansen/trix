@@ -88,6 +88,8 @@ u_int32_t adler32(void * buffer, u_int count, u_int step, u_int32_t buf_size)
 }
 
 
+// Calculate content difference using sum of squares of absolute differences per pixel
+// for 8-bit formats
 u_int64_t diff_08(void * buffer1, void * buffer2, u_int count, u_int step, u_int32_t buf_size)
 {
     u_int8_t * b1 = (unsigned char *)buffer1;
@@ -110,6 +112,8 @@ u_int64_t diff_08(void * buffer1, void * buffer2, u_int count, u_int step, u_int
 }
 
 
+// Calculate content difference using sum of squares of absolute differences per pixel
+// for >8 bit formats
 u_int64_t diff_16(void * buffer1, void * buffer2, u_int count, u_int step, u_int32_t buf_size)
 {
     u_int16_t * b1 = (u_int16_t *)buffer1;
@@ -209,7 +213,6 @@ unsigned char * FrameBuffer::get_frame_pointer(unsigned int i)
 }
 
 
-
 CRCPattern::CRCPattern()
     : m_type(pattern_undefined)
     , m_pattern_length(0x7FFFFFFF)
@@ -252,6 +255,7 @@ bool CRCPattern::operator == (CRCPattern &b)
 }
 
 
+// Calculate difference between two frames
 void CRCPattern::dif_frame()
 {
     if(m_frame) {
@@ -277,6 +281,7 @@ void CRCPattern::dif_frame()
 }
 
 
+// Scene detection
 bool CRCPattern::is_scene()
 {
     if(m_frame <= m_frame_buffer.m_capacity)
@@ -293,6 +298,7 @@ bool CRCPattern::is_scene()
 }
 
 
+// Calculate CRC for part of frame
 void CRCPattern::crc_frame()
 {
     // Calculate CRCs for given frame number
