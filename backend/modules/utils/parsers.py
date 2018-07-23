@@ -82,6 +82,20 @@ class Parsers:
         return None, None, None
 
     @staticmethod
+    def parse_line_headless(line):
+        """
+        Special ffmpeg info parser
+        :param line: a string to parse in form '<key1>:<val1> <key2>:<val2>...'
+        :return: array [(<key>, <val>), (<key>, <val>), ...]
+        """
+        lt = Parsers.PTR.sub(lambda m: Parsers.PSP.sub(',', m.group()), Parsers.FIX.sub(']', ' ' + line))
+        # Capture info
+        capture = Parsers.PATTERN_PARSE_FILTER.findall(lt)
+        if len(capture) > 0:
+            return capture
+        return None
+
+    @staticmethod
     def parse_auto(line):
         """
         Auto-select handler

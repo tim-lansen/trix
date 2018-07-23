@@ -5,5 +5,6 @@ import modules.utils.slices
 
 
 if __name__ == '__main__':
-    modules.utils.slices.test()
+
+    modules.utils.slices.test2()
 

@@ -5,7 +5,7 @@
 import re
 import uuid
 import math
-from .log_console import Logger, tracer
+from modules.utils.log_console import Logger, tracer
 
 
 class Guid:
@@ -210,6 +210,10 @@ class Rational:
 
     def __str__(self):
         return '{n}{s}{d}'.format(n=self._n, s=self._s, d=self._d)
+
+    def __float__(self):
+        self._calc()
+        return self._v
 
 
 def guess_type(v):

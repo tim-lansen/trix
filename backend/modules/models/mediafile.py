@@ -179,6 +179,7 @@ class MediaFile(Record):
         FIELD_ORDER     = {'src': [['mi', 'ScanOrder']], 'def': 'PFF'}
         FPS             = {'src': [['ff', 'r_frame_rate']]}
         FPS_AVG         = {'src': [['ff', 'avg_frame_rate']]}
+        TIME_BASE       = {'src': [['ff', 'time_base']]}
         START_TIME      = {'src': [['ff', 'start_time']]}
         DELAY           = {'src': [['mi', 'Delay']]}
         DISPOSITION     = {'src': [['ff', 'disposition']]}
@@ -221,6 +222,10 @@ class MediaFile(Record):
                 super().__init__(*args)
 
         class Fps_avg(Rational):
+            def __init__(self, *args):
+                super().__init__(*args)
+
+        class Time_base(Rational):
             def __init__(self, *args):
                 super().__init__(*args)
 
@@ -275,6 +280,7 @@ class MediaFile(Record):
             self.field_order = 'PFF'
             self.fps: self.Fps = self.Fps(25, 1)
             self.fps_avg: self.Fps_avg = self.Fps_avg(25, 1)
+            self.time_base: self.Time_base = None #self.Time_base(1, 1)
             self.start_time = 0.0
             self.delay = 0
             self.disposition = self.Disposition()
@@ -290,21 +296,34 @@ class MediaFile(Record):
             self.segments: List[self.Segment] = []
 
         @staticmethod
-        def fit_video(src, dst, dw: int, dh: int, size_round=2):
-            # Fit video into given display size, rounding dimensions by 2^size_round
+        def fit_video(src, dst, dw: int, dh: int, round_w=3, round_h=2):
+            """
+            Fit video into given display size, rounding dimensions to 2^round_*
+            :param src: source VideoTrack object
+            :param dst: target VideoTrack object
+            :param dw: display width
+            :param dh: display height
+            :param round_w: horizontal round value
+            :param round_h: vertical round value
+            :return:
+            """
+
+            # src, dst:
             # dw, dh: display boundaries
-            sr2p = pow(2, size_round)
+            sr2pw = pow(2, round_w)
+            sr2ph = pow(2, round_h)
             ssw = src.par.val() * src.width
             kw = dw / ssw
             kh = dh / src.height
             display_width = dw
             display_height = dh
             if abs(kw - kh) > 0.00001:
-                mask = 0x10000 - sr2p
+                maskw = 0x10000 - sr2pw
+                maskh = 0x10000 - sr2ph
                 if kw < kh:
-                    display_height = mask & (min(int(kw * src.height), dh) + (sr2p >> 1))
+                    display_height = maskh & (min(int(kw * src.height), dh) + (sr2pw >> 1))
                 else:
-                    display_width = mask & (min(int(kh * ssw), dw)  + (sr2p >> 1))
+                    display_width = maskw & (min(int(kh * ssw), dw)  + (sr2ph >> 1))
             dst.width = display_width
             dst.height = display_height
 

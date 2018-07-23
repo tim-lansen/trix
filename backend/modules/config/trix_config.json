@@ -1,7 +1,7 @@
 {
   "dBase": {
     "connection": {
-      "host": "trix-db",
+      "host": "192.168.33.142",
       "port": 5432,
       "dbname": "trix_db"
     },
@@ -34,7 +34,7 @@
     }
   },
   "apiServer": {
-    "host": "trix-nginx",
+    "host": "10.10.14.32",
     "port": 9001
   },
   "nodes": {
@@ -48,7 +48,7 @@
       {
         "name": "server1",
         "id": "server1_id",
-        "hostname": "tlansen",
+        "hostname": "10.10.14.32",
         "filesystem": "cifs",
         "shares": {
           "crude": "/shared",
