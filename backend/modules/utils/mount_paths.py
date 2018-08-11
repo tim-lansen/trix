@@ -193,14 +193,14 @@ def mount_paths(roles: set = None):
                 dirs_to_create.append(path.mount_path)
                 sid = '{}:{}'.format(server.hostname, path.share)
                 shares_to_mount[sid] = [server, path.share]
-                Logger.error('{}\n'.format(path.mount_path))
 
     for sid in shares_to_mount:
         server, share = shares_to_mount[sid]
-        mount_share(server, share)
+        Logger.error('Share: {}  server: {}  Mount point: {}\n'.format(share, server.hostname, server.mount_point))
+        # mount_share(server, share)
 
-    for dtc in dirs_to_create:
-        _make_dirs_(dtc)
+    # for dtc in dirs_to_create:
+    #     _make_dirs_(dtc)
 
     # try:
     #     for wf in TRIX_CONFIG.storage.watchfolders:
