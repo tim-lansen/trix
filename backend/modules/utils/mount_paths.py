@@ -8,6 +8,7 @@ import platform
 from subprocess import call, Popen, PIPE
 from modules.config.trix_config import TrixConfig, TRIX_CONFIG
 from modules.utils.log_console import Logger
+from .log_console import tracer
 from pprint import pformat
 
 
@@ -59,6 +60,7 @@ def get_mounts():
     return mounts
 
 
+@tracer
 def mount_share(server: TRIX_CONFIG.Storage.Server, share: str):
     exit(2)
     mounts = get_mounts()
@@ -182,17 +184,16 @@ def mount_paths(roles: set = None):
     dirs_to_create = []
     shares_to_mount = {}
     for server in TRIX_CONFIG.storage.servers:
-        for path in server.paths:
+        paths = [_ for _ in server.paths if roles is None or _.role in dr]
+        for path in paths:
             Logger.warning('{}\n'.format(path.dumps()))
-            if roles is None or path.role in dr:
-                if server.hostname == platform.node():
-                    # Local resources
-                    local_share(server, path.share)
-                else:
-                    dirs_to_create.append(path.abs_path)
-                    sid = '{}:{}'.format(server.hostname, path.share)
-                    shares_to_mount[sid] = [server, path.share]
-                    Logger.error('{}\n'.format(path.abs_path))
+            if server.hostname == platform.node():
+                local_share(server, path.share)
+            else:
+                dirs_to_create.append(path.mount_path)
+                sid = '{}:{}'.format(server.hostname, path.share)
+                shares_to_mount[sid] = [server, path.share]
+                Logger.error('{}\n'.format(path.mount_path))
 
     for sid in shares_to_mount:
         server, share = shares_to_mount[sid]

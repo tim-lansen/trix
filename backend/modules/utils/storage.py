@@ -41,8 +41,8 @@ class Storage:
             path: TrixConfig.Storage.Server.Path = TrixConfig.Storage.Server.Path(path=paths[i][pn], server=TRIX_CONFIG.storage.servers[i])
             if guid:
                 path.sub_path += os.path.sep + guid
-                if path.abs_path:
-                    path.abs_path += os.path.sep + guid
+                if path.mount_path:
+                    path.mount_path += os.path.sep + guid
                 if path.web_path:
                     path.web_path += '/' + guid
         else:
@@ -56,5 +56,5 @@ def test_storage():
     for server in TRIX_CONFIG.storage.servers:
         for path in server.paths:
             p = Storage.storage_path(path.role, str(uuid.uuid4()))
-            Logger.log('{}\n'.format(p.abs_path))
+            Logger.log('{}\n'.format(p.mount_path))
 
