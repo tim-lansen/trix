@@ -143,7 +143,8 @@ def local_share(server: TRIX_CONFIG.Storage.Server, share: str):
                 exit(1)
         else:
             # Try to create directory
-            _wrap_call_(command=['mkdir', '-p', local_path], need_root=False)
+            _wrap_call_(command=['mkdir', '-p', local_path])
+            _wrap_call_(command=['chown', 'tim', local_path])
     if not os.path.islink(mount_point):
         _wrap_call_(command=['ln', '-s', local_path, mount_point], need_root=False)
 
