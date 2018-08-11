@@ -53,14 +53,9 @@ def get_mounts():
     x = parse.findall(res[0].decode())
     mounts = {}
     for m in x:
-        Logger.info('{}\n'.format(m))
         if m[0] not in mounts:
             mounts[m[0]] = set([])
         mounts[m[0]].add(m[1])
-    # rmounts = {_[1]: _[0] for _ in x}
-    # mounts = dict(x)
-    # Logger.error('{}\n'.format(pformat(mounts)))
-    # Logger.error('{}\n'.format(pformat(rmounts)))
     return mounts
 
 
