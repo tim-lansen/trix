@@ -79,36 +79,21 @@ def mount_share(server: TRIX_CONFIG.Storage.Server, share: str):
     network_address = server.network_address(share)
     mount_point = server.mount_point(share)
     Logger.error('Share: {}  server: {}  address: {}  mount point: {}\n'.format(share, server.hostname, network_address, mount_point))
-    return
-    # if server.hostname == platform.node():
-        # Locally [create and] link resources
 
-    # Special case for cache host
-    # if share == 'cache' and server.hostname == platform.node():
-    #     np = 'ramfs'
-    # else:
-
-    return
-    if np in mounts:
+    if network_address in mounts:
         # Mount point must match desired pattern
-        if mount_point == mounts[np]:
-            Logger.log('{} is already mounted to {}\n'.format(np, mounts[np]))
+        if mount_point in mounts[network_address]:
+            Logger.log('{} is already mounted to {}\n'.format(network_address, mount_point))
             return
-        Logger.warning('{} is mounted to {} (must be {})\n'.format(np, mounts[np], mount_point))
-        _wrap_call_(command=['umount', mounts[np]], error='Failed to unmount {}\n'.format(mounts[np]))
-        _wrap_call_(command=['rmdir', mounts[np]], error='Failed to remove {}\n'.format(mounts[np]))
-    _wrap_call_(command=['mkdir', '-p', mount_point])
-    Logger.info('Mounting {} to {}\n'.format(np, mount_point))
-    if server.hostname == platform.node():
-        if share == 'cache':
-            # Create RAMFS, mount it
-            _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', mount_point])
-            _wrap_call_(command=['chmod', '777', mount_point])
-        else:
-            Logger.critical('MOUNT LOCAL: {} to {}\n'.format(mount_point, np))
-    else:
-        _wrap_call_(command=['chmod', '777', mount_point])
-        _wrap_call_(**server.mount_command(np, mount_point))
+        Logger.warning('{} is mounted to {} (must be {})\n'.format(network_address, mounts[network_address], mount_point))
+        for mp in mounts[network_address]:
+            _wrap_call_(command=['umount', mp], error='Failed to unmount {}\n'.format(mp))
+            _wrap_call_(command=['rmdir', mp], error='Failed to remove {}\n'.format(mp))
+    if not os.path.isdir(mount_point):
+        _wrap_call_(command=['mkdir', '-p', mount_point])
+        _wrap_call_(command=['chown', 'tim', mount_point])
+    Logger.info('Mounting {} to {}\n'.format(network_address, mount_point))
+    _wrap_call_(**server.mount_command(network_address, mount_point))
 
 
 def local_share(server: TRIX_CONFIG.Storage.Server, share: str):
