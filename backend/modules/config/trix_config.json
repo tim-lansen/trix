@@ -51,13 +51,13 @@
         "hostname": "trix-office-1",
         "filesystem": "sshfs",
         "comment.filesystem": "cifs|nfs|sshfs",
+        "comment.shares": "<share name>: <server's local path>",
         "shares": {
-          "crude": "/shared",
-          "store": "/shared",
-          "web": "/shared",
-          "cache": ""
+          "crude": "/mnt/data/shared",
+          "store": "/mnt/data/shared",
+          "web": "/mnt/data/html"
         },
-        "comment": "in case of nfs, shares and sub_path(s) must be absolute",
+        "comment.paths": "",
         "paths": [
           {
             "role": "archive",
@@ -96,7 +96,7 @@
         "hostname": "trix-office-1",
         "filesystem": "sshfs",
         "shares": {
-          "ramcache": "/mnt"
+          "ramcache": "/mnt/cache"
         },
         "paths": [
           {

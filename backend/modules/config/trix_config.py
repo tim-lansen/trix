@@ -189,7 +189,7 @@ class TrixConfig(JSONer):
                             self.web_path = path.web_path
                             self.abs_path = path.abs_path
                     if self.share is not None and self.sub_path is not None and server is not None:
-                        self.abs_path = server.local_address(os.path.sep.join([self.share, self.sub_path]))
+                        self.abs_path = server.mount_point(os.path.sep.join([self.share, self.sub_path]))
 
             def __init__(self):
                 super().__init__()
@@ -216,11 +216,14 @@ class TrixConfig(JSONer):
                         return '{}:{}/{}'.format(self.hostname, self.shares[share], share)
                 return None
 
-            def local_address(self, subdir):
-                # On Windows we use network address
-                if os.name == 'nt':
-                    return r'\\{}\{}'.format(self.hostname, subdir)
+            def mount_point(self, subdir):
+                # # On Windows we use network address
+                # if os.name == 'nt':
+                #     return r'\\{}\{}'.format(self.hostname, subdir)
                 return '/mnt/{}/{}'.format(self.hostname, subdir)
+
+            def share_local_path(self, share):
+                return self.shares[share]
 
             def update_json(self, json_obj):
                 super().update_json(json_obj)
