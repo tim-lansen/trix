@@ -81,9 +81,10 @@ def mount_paths(roles: set = None):
     def _make_dirs_(_d, _pin=False):
         if not os.path.isdir(_d):
             Logger.info('Creating directory {}\n'.format(_d))
-            # _wrap_call_(command=['mkdir', '-p', _d])
-            # _wrap_call_(command=['chmod', '777', _d])
-            os.makedirs(_d)
+            _wrap_call_(command=['mkdir', '-p', _d])
+            _wrap_call_(command=['chown', 'tim', _d])
+            _wrap_call_(command=['chmod', '777', _d], need_root=False)
+            # os.makedirs(_d)
             # Pin the folder to prevent it's deletion
             if _pin:
                 with open(os.path.join(_d, '.pin'), 'w') as _f:
