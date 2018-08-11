@@ -181,7 +181,7 @@ def mount_paths(roles: set = None):
             if server.hostname == platform.node():
                 local_share(server, path.share)
             else:
-                dirs_to_create.append(path.mount_path)
+                dirs_to_create.append(path.abs_path)
                 sid = '{}:{}'.format(server.hostname, path.share)
                 shares_to_mount[sid] = [server, path.share]
 

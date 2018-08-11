@@ -148,7 +148,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         preview = v.ref_add()
         preview.name = 'preview-video'
         vout_refs.append(preview)
-        preview.source.path = os.path.join(dir_preview.mount_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
+        preview.source.path = os.path.join(dir_preview.abs_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
         preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
         outputs.append('-map [pv{sti}] -c:v libx264 -preset fast -g 20 -b:v 320k {path}'.format(sti=sti, path=preview.source.path))
         # vout_arch.append(mediafile)
@@ -172,7 +172,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             s.extract = subtitles.guid
             subtitles.master.set(mediafile.guid.guid)
             subtitles.subTracks.append(st)
-            subtitles.source.path = os.path.join(dir_transit.mount_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
+            subtitles.source.path = os.path.join(dir_transit.abs_path, '{}.s{:02d}.extract.mkv'.format(mediafile.guid, sti))
             outputs.append('-map 0:s:{sti} -c:s copy {path}'.format(sti=sti, path=subtitles.source.path))
             vout_trans.append(subtitles)
         # ci = 0
@@ -180,7 +180,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
         vout_refs.append(subtitles_preview)
         subtitles_preview.master.set(subtitles.guid.guid)
         subtitles_preview.Role = MediaFile.Role.PREVIEW
-        subtitles_preview.source.path = os.path.join(dir_preview.mount_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
+        subtitles_preview.source.path = os.path.join(dir_preview.abs_path, '{}.s{:02d}.preview.vtt'.format(subtitles.guid, sti))
         subtitles_preview.source.url = '{}/{}.s{:02d}.preview.vtt'.format(dir_preview.web_path, subtitles.guid, sti)
         outputs.append('-map 0:s:{sti} -c:s webvtt {path}'.format(sti=sti, path=subtitles_preview.source.path))
         st.previews.append(str(subtitles_preview.guid))
@@ -197,7 +197,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             a.extract = audio.guid
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
-            audio.source.path = os.path.join(dir_transit.mount_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
+            audio.source.path = os.path.join(dir_transit.abs_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
             outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.path))
             vout_trans.append(audio)
         # Add silencedetect filter for 1st audio track only
@@ -207,7 +207,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
             vout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
             audio_preview.Role = MediaFile.Role.PREVIEW
-            audio_preview.source.path = os.path.join(dir_preview.mount_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
+            audio_preview.source.path = os.path.join(dir_preview.abs_path, '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
             audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti, ci)
             if audio_filter is None:
                 audio_filter = '[0:a:{sti}]pan=mono|c0=c{ci}[ap_{sti:02d}_{ci:02d}]'.format(sti=sti, ci=ci)
@@ -223,12 +223,12 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
     Logger.log('{}\n'.format(command_cli))
 
     # Create dirs if needed
-    if len(vout_refs) and not os.path.isdir(dir_preview.mount_path):
-        Logger.log('Creating dir: {}\n'.format(dir_preview.mount_path))
-        os.makedirs(dir_preview.mount_path)
-    if len(vout_trans) and not os.path.isdir(dir_transit.mount_path):
-        Logger.log('Creating dir: {}\n'.format(dir_transit.mount_path))
-        os.makedirs(dir_transit.mount_path)
+    if len(vout_refs) and not os.path.isdir(dir_preview.abs_path):
+        Logger.log('Creating dir: {}\n'.format(dir_preview.abs_path))
+        os.makedirs(dir_preview.abs_path)
+    if len(vout_trans) and not os.path.isdir(dir_transit.abs_path):
+        Logger.log('Creating dir: {}\n'.format(dir_transit.abs_path))
+        os.makedirs(dir_transit.abs_path)
 
     proc = Popen(command_py.split(' '), stdin=sys.stdin, stderr=PIPE)
     pipe_nowait(proc.stderr)
@@ -399,7 +399,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
         # preview = vt.ref_add()
         preview.name = 'preview'
         vout_refs.append(preview)
-        preview.source.path = os.path.join(dir_preview.mount_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
+        preview.source.path = os.path.join(dir_preview.abs_path, '{}.v{}.preview.mp4'.format(mediafile.guid, sti))
         preview.source.url = '{}/{}.v{}.preview.mp4'.format(dir_preview.web_path, mediafile.guid, sti)
         # preview.source.url
         outputs.append(
@@ -429,7 +429,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
             a.extract = audio.guid
             audio.master.set(mediafile.guid.guid)
             audio.audioTracks.append(at)
-            audio.source.path = os.path.join(dir_transit.mount_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
+            audio.source.path = os.path.join(dir_transit.abs_path, '{}.a{:02d}.extract.mkv'.format(mediafile.guid, sti))
             outputs.append('-map 0:a:{sti} -c:a copy {path}'.format(sti=sti, path=audio.source.path))
         vout_trans.append(audio)
         # Add silencedetect filter for 1st audio track only
@@ -439,7 +439,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
             vout_refs.append(audio_preview)
             audio_preview.master.set(audio.guid.guid)
             audio_preview.role = MediaFile.Role.PREVIEW
-            audio_preview.source.path = os.path.join(dir_preview.mount_path,
+            audio_preview.source.path = os.path.join(dir_preview.abs_path,
                                                      '{}.a{:02d}.c{:02d}.preview.mp4'.format(audio.guid, sti, ci))
             audio_preview.source.url = '{}/{}.a{:02d}.c{:02d}.preview.mp4'.format(dir_preview.web_path, audio.guid, sti,
                                                                                   ci)
@@ -466,12 +466,12 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
     Logger.log('{}\n'.format(command_cli))
 
     # Create dirs if needed
-    if len(vout_refs) and not os.path.isdir(dir_preview.mount_path):
-        Logger.log('Creating dir: {}\n'.format(dir_preview.mount_path))
-        os.makedirs(dir_preview.mount_path)
-    if len(vout_trans) and not os.path.isdir(dir_transit.mount_path):
-        Logger.log('Creating dir: {}\n'.format(dir_transit.mount_path))
-        os.makedirs(dir_transit.mount_path)
+    if len(vout_refs) and not os.path.isdir(dir_preview.abs_path):
+        Logger.log('Creating dir: {}\n'.format(dir_preview.abs_path))
+        os.makedirs(dir_preview.abs_path)
+    if len(vout_trans) and not os.path.isdir(dir_transit.abs_path):
+        Logger.log('Creating dir: {}\n'.format(dir_transit.abs_path))
+        os.makedirs(dir_transit.abs_path)
 
     proc = Popen(command_py.split(' '), stdin=sys.stdin, stderr=PIPE)
     pipe_nowait(proc.stderr)

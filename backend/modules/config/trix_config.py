@@ -178,7 +178,8 @@ class TrixConfig(JSONer):
                     # WEB access path
                     self.web_path = web_path
                     # local access path
-                    self.mount_path = None
+                    self.abs_path = None
+                    self.mount_point = None
                     if path is not None:
                         if type(path) is dict:
                             self.update_json(path)
@@ -187,9 +188,10 @@ class TrixConfig(JSONer):
                             self.share = path.share
                             self.sub_path = path.sub_path
                             self.web_path = path.web_path
-                            self.mount_path = path.mount_path
+                            self.abs_path = path.abs_path
                     if self.share is not None and self.sub_path is not None and server is not None:
-                        self.mount_path = server.mount_point(os.path.sep.join([self.share, self.sub_path]))
+                        self.mount_point = server.mount_point(share)
+                        self.abs_path = os.path.sep.join([self.mount_point, self.sub_path])
 
             def __init__(self):
                 super().__init__()
@@ -312,7 +314,7 @@ class TrixConfig(JSONer):
                     if path.role == path.Role.WATCH:
                         wf: TrixConfig.Storage.Watchfolder = TrixConfig.Storage.Watchfolder()
                         wf.update_json({
-                            'path': path.mount_path,
+                            'path': path.abs_path,
                             'action': path.unmentioned['action']
                         })
                         self.watchfolders.append(wf)
