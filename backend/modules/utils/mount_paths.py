@@ -68,6 +68,7 @@ def refresh_server_mount_base(server: TRIX_CONFIG.Storage.Server):
             exit(1)
     else:
         _wrap_call_(command=['mkdir', '-p', path])
+        _wrap_call_(command=['chown', 'tim', path])
 
 
 def mount_share(server: TRIX_CONFIG.Storage.Server, share: str):
