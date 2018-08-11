@@ -53,6 +53,7 @@ def get_mounts():
     x = [parse.findall(res[0].decode())]
     mounts = {}
     for m in x:
+        Logger.info('{}\n'.format(m))
         if m[0] not in mounts:
             mounts[m[0]] = set([])
         mounts[m[0]].add(m[1])
