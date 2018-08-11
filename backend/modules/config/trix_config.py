@@ -218,10 +218,12 @@ class TrixConfig(JSONer):
                         return '{}:{}/{}'.format(self.hostname, self.shares[share], share)
                 return None
 
-            def mount_point(self, subdir):
+            def mount_point(self, subdir=None):
                 # # On Windows we use network address
                 # if os.name == 'nt':
                 #     return r'\\{}\{}'.format(self.hostname, subdir)
+                if subdir is None:
+                    return '/mnt/{}'.format(self.hostname)
                 return '/mnt/{}/{}'.format(self.hostname, subdir)
 
             def share_local_path(self, share):

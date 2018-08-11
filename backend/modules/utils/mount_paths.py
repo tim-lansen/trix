@@ -60,7 +60,19 @@ def get_mounts():
     return mounts
 
 
+def refresh_server_mount_base(server: TRIX_CONFIG.Storage.Server):
+    path = server.mount_point()
+    if os.path.exists(path):
+        if os.path.isfile(path) or os.path.islink(path):
+            Logger.critical('local path {} is occupied\n')
+            exit(1)
+    else:
+        _wrap_call_(command=['mkdir', '-p', path])
+
+
 def mount_share(server: TRIX_CONFIG.Storage.Server, share: str):
+
+    refresh_server_mount_base(server)
     mounts = get_mounts()
 
     network_address = server.network_address(share)
@@ -100,6 +112,7 @@ def mount_share(server: TRIX_CONFIG.Storage.Server, share: str):
 
 def local_share(server: TRIX_CONFIG.Storage.Server, share: str):
 
+    refresh_server_mount_base(server)
     mounts = get_mounts()
 
     # Server local resource path
@@ -175,6 +188,7 @@ def mount_paths(roles: set = None):
     dirs_to_create = []
     shares_to_mount = {}
     for server in TRIX_CONFIG.storage.servers:
+
         paths = [_ for _ in server.paths if roles is None or _.role in dr]
         for path in paths:
             Logger.warning('{}\n'.format(path.dumps()))
