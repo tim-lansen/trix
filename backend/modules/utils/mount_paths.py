@@ -130,7 +130,7 @@ def local_share(server: TRIX_CONFIG.Storage.Server, share: str):
                 Logger.warning('RAMFS is mounted to {} (must be {})\n'.format(mounts['ramfs'], local_path))
                 # Release all RAMFS mounts
                 for m in mounts['ramfs']:
-                    _wrap_call_(command=['umount', mounts['ramfs']])
+                    _wrap_call_(command=['umount', m])
                 # Mount RAMFS
                 _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', local_path])
                 _wrap_call_(command=['chown', 'tim', local_path])
