@@ -37,30 +37,33 @@ def mount_share(server: TRIX_CONFIG.Storage.Server, share: str, mounts):
         mounts = dict(parse.findall(res[0].decode()))
 
     # Special case for cache host
-    if share == 'cache' and server.hostname == platform.node():
-        np = 'ramfs'
-    else:
-        np = server.network_address(share)
-    desired_mp = server.local_address(share)
+    # if share == 'cache' and server.hostname == platform.node():
+    #     np = 'ramfs'
+    # else:
+    np = server.network_address(share)
+    mount_point = server.local_address(share)
+    Logger.critical('NP: {}  MP: {}\n'.format(np, mount_point))
+    return
     if np in mounts:
         # Mount point must match desired pattern
-        if desired_mp == mounts[np]:
+        if mount_point == mounts[np]:
             Logger.log('{} is already mounted to {}\n'.format(np, mounts[np]))
             return
-        Logger.warning('{} is mounted to {} (must be {})\n'.format(np, mounts[np], desired_mp))
+        Logger.warning('{} is mounted to {} (must be {})\n'.format(np, mounts[np], mount_point))
         _wrap_call_(command=['umount', mounts[np]], error='Failed to unmount {}\n'.format(mounts[np]))
         _wrap_call_(command=['rmdir', mounts[np]], error='Failed to remove {}\n'.format(mounts[np]))
-    _wrap_call_(command=['mkdir', '-p', desired_mp])
-    Logger.info('Mounting {} to {}\n'.format(np, desired_mp))
+    _wrap_call_(command=['mkdir', '-p', mount_point])
+    Logger.info('Mounting {} to {}\n'.format(np, mount_point))
     if server.hostname == platform.node():
         if share == 'cache':
-            _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', desired_mp])
-            _wrap_call_(command=['chmod', '777', desired_mp])
+            # Create RAMFS, mount it
+            _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', mount_point])
+            _wrap_call_(command=['chmod', '777', mount_point])
         else:
-            Logger.critical('MOUNT LOCAL: {} to {}\n'.format(desired_mp, np))
+            Logger.critical('MOUNT LOCAL: {} to {}\n'.format(mount_point, np))
     else:
-        _wrap_call_(command=['chmod', '777', desired_mp])
-        _wrap_call_(**server.mount_command(np, desired_mp))
+        _wrap_call_(command=['chmod', '777', mount_point])
+        _wrap_call_(**server.mount_command(np, mount_point))
 
 
 def mount_paths(roles: set = None):

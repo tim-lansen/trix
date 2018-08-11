@@ -54,7 +54,8 @@
         "shares": {
           "crude": "/shared",
           "store": "/shared",
-          "web": "/shared"
+          "web": "/shared",
+          "cache": ""
         },
         "comment": "in case of nfs, shares and sub_path(s) must be absolute",
         "paths": [
