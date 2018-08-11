@@ -52,9 +52,12 @@ def mount_share(server: TRIX_CONFIG.Storage.Server, share: str, mounts):
         _wrap_call_(command=['rmdir', mounts[np]], error='Failed to remove {}\n'.format(mounts[np]))
     _wrap_call_(command=['mkdir', '-p', desired_mp])
     Logger.info('Mounting {} to {}\n'.format(np, desired_mp))
-    if share == 'cache' and server.hostname == platform.node():
-        _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', desired_mp])
-        _wrap_call_(command=['chmod', '777', desired_mp])
+    if server.hostname == platform.node():
+        if share == 'cache':
+            _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', desired_mp])
+            _wrap_call_(command=['chmod', '777', desired_mp])
+        else:
+            Logger.critical('MOUNT LOCAL: {} to {}\n'.format(desired_mp, np))
     else:
         _wrap_call_(command=['chmod', '777', desired_mp])
         _wrap_call_(**server.mount_command(np, desired_mp))
