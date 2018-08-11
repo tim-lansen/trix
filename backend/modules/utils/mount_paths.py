@@ -39,7 +39,7 @@ def _wrap_call_(command, need_root=True, stdin_pass=False, error=None, std=None)
 def symlink_origin(symlink):
     proc = Popen('ls -ld "{}"'.format(symlink), stdout=PIPE, shell=True)
     s = proc.communicate()
-    x = re.findall(r'^.+?(/.+) -\> (/.+)$', s[0])
+    x = re.findall(r'^.+?(/.+) -\> (/.+)$', s[0].decode())
     if len(x) == 1 and len(x[0]) == 2:
         return x[0][1]
     return None
