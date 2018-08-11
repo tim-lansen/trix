@@ -3,7 +3,7 @@
 # tim.lansen@gmail.com
 
 
-from modules.utils.abs_paths import test_mount_paths
+from modules.utils.mount_paths import test_mount_paths
 from modules.utils.storage import test_storage
 
 

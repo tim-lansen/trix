@@ -17,7 +17,7 @@ from modules.config import TRIX_CONFIG
 from modules.models import Fileset
 from .job_utils import JobUtils
 from modules.utils.database import DBInterface
-from modules.utils.abs_paths import mount_paths
+from modules.utils.mount_paths import mount_paths
 
 
 def process_file(root, fn, paths: dict):
