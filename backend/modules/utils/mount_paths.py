@@ -174,7 +174,7 @@ def mount_paths(roles: set = None):
             Logger.info('Creating directory {}\n'.format(_d))
             _wrap_call_(command=['mkdir', '-p', _d])
             _wrap_call_(command=['chown', 'tim', _d])
-            _wrap_call_(command=['chmod', '777', _d], need_root=False)
+            # _wrap_call_(command=['chmod', '777', _d], need_root=False)
             # os.makedirs(_d)
             # Pin the folder to prevent it's deletion
             if _pin:
@@ -186,7 +186,7 @@ def mount_paths(roles: set = None):
         dr = {TrixConfig.Storage.Server.Path.RoleMap[_] for _ in roles if _ in TrixConfig.Storage.Server.Path.RoleMap}
     else:
         dr = set([])
-    dirs_to_create = []
+    dirs_to_create = set([])
     shares_to_mount = {}
     for server in TRIX_CONFIG.storage.servers:
 
@@ -196,7 +196,8 @@ def mount_paths(roles: set = None):
             if server.hostname == platform.node():
                 local_share(server, path.share)
             else:
-                dirs_to_create.append(path.abs_path)
+                dirs_to_create.add(path.abs_path)
+                # Excluding unnecessary calls to mount_share()
                 sid = '{}:{}'.format(server.hostname, path.share)
                 shares_to_mount[sid] = [server, path.share]
 
@@ -204,8 +205,8 @@ def mount_paths(roles: set = None):
         server, share = shares_to_mount[sid]
         mount_share(server, share)
 
-    # for dtc in dirs_to_create:
-    #     _make_dirs_(dtc)
+    for dtc in dirs_to_create:
+        _make_dirs_(dtc)
 
     # try:
     #     for wf in TRIX_CONFIG.storage.watchfolders:
