@@ -50,7 +50,7 @@ def get_mounts():
     parse = re.compile(r'^(.+?)\s+on\s+(.+?)\s', re.M)
     proc = Popen("mount", stdout=PIPE, stderr=PIPE)
     res = proc.communicate()
-    x = [parse.findall(res[0].decode())]
+    x = parse.findall(res[0].decode())
     mounts = {}
     for m in x:
         Logger.info('{}\n'.format(m))
