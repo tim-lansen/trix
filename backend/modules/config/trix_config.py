@@ -214,8 +214,8 @@ class TrixConfig(JSONer):
                         # example: //TLANSEN/web
                         return '//{}/{}'.format(self.hostname, share)
                     elif self.filesystem == 'nfs' or self.filesystem == 'sshfs':
-                        # example: TLANSEN:/shared/web
-                        return '{}:{}/{}'.format(self.hostname, self.shares[share], share)
+                        # example: TLANSEN:/mnt/data/shared
+                        return '{}:{}'.format(self.hostname, self.shares[share])
                 return None
 
             def mount_point(self, subdir=None):
