@@ -196,7 +196,7 @@ def mount_paths(roles: set = None):
 
     for sid in shares_to_mount:
         server, share = shares_to_mount[sid]
-        Logger.error('Share: {}  server: {}  Mount point: {}\n'.format(share, server.hostname, server.mount_point()))
+        Logger.error('Share: {}  server: {}  Mount point: {}\n'.format(share, server.hostname, server.mount_point('')))
         # mount_share(server, share)
 
     # for dtc in dirs_to_create:
