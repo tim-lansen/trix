@@ -190,7 +190,7 @@ class TrixConfig(JSONer):
                             self.web_path = path.web_path
                             self.abs_path = path.abs_path
                     if self.share is not None and self.sub_path is not None and server is not None:
-                        self.mount_point = server.mount_point(share)
+                        self.mount_point = server.mount_point(self.share)
                         self.abs_path = os.path.sep.join([self.mount_point, self.sub_path])
 
             def __init__(self):
