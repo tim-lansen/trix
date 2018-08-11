@@ -167,19 +167,11 @@ def mount_paths(roles: set = None):
                 with open(os.path.join(_d, '.pin'), 'w') as _f:
                     _f.write('.pin')
 
-    dr = set([])
+    # Translate role strings to integers
     if roles:
-        for r in roles:
-            if type(r) is str:
-                if r.upper() in TrixConfig.Storage.Server.Path.Role.__dict__:
-                    r = TrixConfig.Storage.Server.Path.Role.__dict__[r.upper()]
-                    dr.add(r)
-                else:
-                    Logger.error('Cannot find any path with role "{}"\n'.format(r))
-            elif type(r) is int:
-                dr.add(r)
-            else:
-                Logger.error('Role has unsoupported type: "{}" ({})\n'.format(r, type(r)))
+        dr = {TrixConfig.Storage.Server.Path.RoleMap[_] for _ in roles if _ in TrixConfig.Storage.Server.Path.RoleMap}
+    else:
+        dr = set([])
     dirs_to_create = []
     shares_to_mount = {}
     for server in TRIX_CONFIG.storage.servers:
