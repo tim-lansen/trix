@@ -96,12 +96,12 @@
         "hostname": "trix-office-1",
         "filesystem": "sshfs",
         "shares": {
-          "cache": "/mnt/cache"
+          "ramcache": "/mnt"
         },
         "paths": [
           {
             "role": "cache",
-            "share": "cache",
+            "share": "ramcache",
             "sub_path": "data"
           }
         ],

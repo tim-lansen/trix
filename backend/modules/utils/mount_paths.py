@@ -36,13 +36,17 @@ def mount_share(server: TRIX_CONFIG.Storage.Server, share: str, mounts):
         res = proc.communicate()
         mounts = dict(parse.findall(res[0].decode()))
 
+    np = server.network_address(share)
+    mount_point = server.local_address(share)
+    Logger.critical('NP: {}  MP: {}\n'.format(np, mount_point))
+    # if server.hostname == platform.node():
+        # Locally [create and] link resources
+
     # Special case for cache host
     # if share == 'cache' and server.hostname == platform.node():
     #     np = 'ramfs'
     # else:
-    np = server.network_address(share)
-    mount_point = server.local_address(share)
-    Logger.critical('NP: {}  MP: {}\n'.format(np, mount_point))
+
     return
     if np in mounts:
         # Mount point must match desired pattern
