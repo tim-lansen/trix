@@ -61,13 +61,12 @@ def get_mounts():
 
 
 def mount_share(server: TRIX_CONFIG.Storage.Server, share: str):
-    Logger.error('Share: {}  server: {}  Mount point: {}\n'.format(share, server.hostname, server.mount_point(share)))
-    return
     mounts = get_mounts()
 
-    np = server.network_address(share)
+    network_address = server.network_address(share)
     mount_point = server.mount_point(share)
-    Logger.critical('NP: {}  MP: {}\n'.format(np, mount_point))
+    Logger.error('Share: {}  server: {}  address: {}  mount point: {}\n'.format(share, server.hostname, network_address, mount_point))
+    return
     # if server.hostname == platform.node():
         # Locally [create and] link resources
 
