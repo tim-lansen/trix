@@ -49,7 +49,9 @@ def get_mounts():
     parse = re.compile(r'^(.+?)\s+on\s+(.+?)\s', re.M)
     proc = Popen("mount", stdout=PIPE, stderr=PIPE)
     res = proc.communicate()
-    mounts = dict(parse.findall(res[0].decode()))
+    x = parse.findall(res[0].decode())
+    mounts = dict(x)
+    Logger.critical('{}\n'.format(x))
     return mounts
 
 
@@ -122,6 +124,8 @@ def local_share(server: TRIX_CONFIG.Storage.Server, share: str):
                 # Mount RAMFS
                 _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', local_path])
                 _wrap_call_(command=['chown', 'tim', local_path])
+        # else:
+
     else:
         # Check if local path is a directory
         if os.path.exists(local_path):
