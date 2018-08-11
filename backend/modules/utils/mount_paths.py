@@ -56,9 +56,10 @@ def get_mounts():
         if m[0] not in mounts:
             mounts[m[0]] = set([])
         mounts[m[0]].add(m[1])
-    # rmounts = {_[1]: _[0] for _ in x}
+    rmounts = {_[1]: _[0] for _ in x}
     # mounts = dict(x)
-    Logger.error('{}\n'. format(pformat(mounts)))
+    Logger.error('{}\n'.format(pformat(mounts)))
+    Logger.error('{}\n'.format(pformat(rmounts)))
     return mounts
 
 
