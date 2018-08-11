@@ -193,10 +193,10 @@ def mount_paths(roles: set = None):
         paths = [_ for _ in server.paths if roles is None or _.role in dr]
         for path in paths:
             Logger.warning('{}\n'.format(path.dumps()))
+            dirs_to_create.add(path.abs_path)
             if server.hostname == platform.node():
                 local_share(server, path.share)
             else:
-                dirs_to_create.add(path.abs_path)
                 # Excluding unnecessary calls to mount_share()
                 sid = '{}:{}'.format(server.hostname, path.share)
                 shares_to_mount[sid] = [server, path.share]
