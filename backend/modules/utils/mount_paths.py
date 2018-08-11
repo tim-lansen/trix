@@ -8,6 +8,7 @@ import platform
 from subprocess import call, Popen, PIPE
 from modules.config.trix_config import TrixConfig, TRIX_CONFIG
 from modules.utils.log_console import Logger
+from pprint import pformat
 
 
 def _wrap_call_(command, need_root=True, stdin_pass=False, error=None, std=None):
@@ -49,9 +50,15 @@ def get_mounts():
     parse = re.compile(r'^(.+?)\s+on\s+(.+?)\s', re.M)
     proc = Popen("mount", stdout=PIPE, stderr=PIPE)
     res = proc.communicate()
-    x = parse.findall(res[0].decode())
-    mounts = dict(x)
-    Logger.critical('{}\n'.format(x))
+    x = [parse.findall(res[0].decode())]
+    mounts = {}
+    for m in x:
+        if m[0] not in mounts:
+            mounts[m[0]] = set([])
+        mounts[m[0]].add(m[1])
+    # rmounts = {_[1]: _[0] for _ in x}
+    # mounts = dict(x)
+    Logger.error('{}\n'. format(pformat(mounts)))
     return mounts
 
 
@@ -115,17 +122,20 @@ def local_share(server: TRIX_CONFIG.Storage.Server, share: str):
 
     if share == 'ramcache':
         if 'ramfs' in mounts:
-            if local_path == mounts['ramfs']:
+            if local_path in mounts['ramfs'] and len(mounts['ramfs']) == 1:
                 Logger.log('RAMFS is already mounted to {}\n'.format(local_path))
             else:
                 Logger.warning('RAMFS is mounted to {} (must be {})\n'.format(mounts['ramfs'], local_path))
-                # Release RAMFS
-                _wrap_call_(command=['umount', mounts['ramfs']])
+                # Release all RAMFS mounts
+                for m in mounts['ramfs']:
+                    _wrap_call_(command=['umount', mounts['ramfs']])
                 # Mount RAMFS
                 _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', local_path])
                 _wrap_call_(command=['chown', 'tim', local_path])
-        # else:
-
+        else:
+            # Mount RAMFS
+            _wrap_call_(command=['mount', '-t', 'ramfs', 'ramfs', local_path])
+            _wrap_call_(command=['chown', 'tim', local_path])
     else:
         # Check if local path is a directory
         if os.path.exists(local_path):
