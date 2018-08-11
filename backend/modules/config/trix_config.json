@@ -34,7 +34,7 @@
     }
   },
   "apiServer": {
-    "host": "10.10.14.32",
+    "host": "192.168.33.142",
     "port": 9001
   },
   "nodes": {
@@ -46,10 +46,11 @@
   "storage": {
     "servers": [
       {
-        "name": "server1",
-        "id": "server1_id",
-        "hostname": "10.10.14.32",
-        "filesystem": "cifs",
+        "name": "trix1",
+        "id": "trix1",
+        "hostname": "trix-office-1",
+        "filesystem": "sshfs",
+        "comment.filesystem": "cifs|nfs|sshfs",
         "shares": {
           "crude": "/shared",
           "store": "/shared",
@@ -71,7 +72,7 @@
             "role": "preview",
             "share": "web",
             "sub_path": "preview",
-            "web_path": "http://trix-nginx/media"
+            "web_path": "http://trix-office-1/media"
           },
           {
             "role": "transit",
@@ -91,10 +92,10 @@
       {
         "name": "cache_server",
         "id": "cs",
-        "hostname": "trix-worker-20",
+        "hostname": "trix-office-1",
         "filesystem": "sshfs",
         "shares": {
-          "cache": "/mnt/trix-worker-20"
+          "cache": "/mnt/cache"
         },
         "paths": [
           {
@@ -110,7 +111,7 @@
     "watchfolders": [
       {
         "action": "ingest",
-        "server_id": "server1_id",
+        "server_id": "trix1",
         "share": "crude",
         "sub_path": "crude/watch"
       }
