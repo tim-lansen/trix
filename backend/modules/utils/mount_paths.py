@@ -60,9 +60,9 @@ def get_mounts():
     return mounts
 
 
-@tracer
 def mount_share(server: TRIX_CONFIG.Storage.Server, share: str):
-    exit(2)
+    Logger.error('Share: {}  server: {}  Mount point: {}\n'.format(share, server.hostname, server.mount_point(share)))
+    return
     mounts = get_mounts()
 
     np = server.network_address(share)
@@ -196,8 +196,7 @@ def mount_paths(roles: set = None):
 
     for sid in shares_to_mount:
         server, share = shares_to_mount[sid]
-        Logger.error('Share: {}  server: {}  Mount point: {}\n'.format(share, server.hostname, server.mount_point('')))
-        # mount_share(server, share)
+        mount_share(server, share)
 
     # for dtc in dirs_to_create:
     #     _make_dirs_(dtc)
