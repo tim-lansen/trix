@@ -44,6 +44,8 @@ def merge_assets(assets):
                 _ass.append(_cs)
         return _ass
 
+    Logger.trace('merge_assets:\n{}\n'.format(pformat(assets)))
+
     asset: Asset = Asset(program_name=', '.join([_['programName'] for _ in assets]))
     vii = 0
     aii = 0
