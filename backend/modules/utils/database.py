@@ -214,7 +214,7 @@ class DBInterface:
 
     @staticmethod
     def connect(user=USER):
-        if user not in DBInterface.CONNECTIONS or DBInterface.CONNECTIONS[user] is None:
+        if user not in DBInterface.CONNECTIONS or DBInterface.CONNECTIONS[user] is None or DBInterface.CONNECTIONS[user].closed:
             params = {
                 'host': TRIX_CONFIG.dBase.connection.host,
                 'port': TRIX_CONFIG.dBase.connection.port,
