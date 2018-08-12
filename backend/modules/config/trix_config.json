@@ -74,7 +74,7 @@
             "role": "preview",
             "share": "web",
             "sub_path": "preview",
-            "web_path": "http://trix-office-1/media"
+            "web_path": "http://192.168.33.142/preview"
           },
           {
             "role": "transit",
