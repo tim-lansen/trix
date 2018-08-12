@@ -54,7 +54,7 @@
         "comment.filesystem": "cifs|nfs|sshfs",
         "comment.shares": "<share name>: <server's local path>",
         "shares": {
-          "crude": "/mnt/data/shared",
+          "crude": "/mnt/data/crude",
           "store": "/mnt/data/shared",
           "web": "/mnt/data/html"
         },
