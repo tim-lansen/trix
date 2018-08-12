@@ -44,7 +44,7 @@ def merge_assets(assets):
                 _ass.append(_cs)
         return _ass
 
-    asset: Asset = Asset(program_name=', '.join([_.programName for _ in assets]))
+    asset: Asset = Asset(program_name=', '.join([_['programName'] for _ in assets]))
     vii = 0
     aii = 0
     sii = 0
