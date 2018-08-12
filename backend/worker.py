@@ -12,7 +12,7 @@ import time
 import shutil
 import platform
 from multiprocessing import Process, Event, Queue
-import modules.utils.mount_paths
+from modules.utils import mount_paths
 # from modules.utils.non_daemonic_pool import NonDaemonicPool
 # from typing import List
 from modules.config import *
@@ -202,7 +202,7 @@ def launch_node(node_index, abilities):
 
 
 def run_worker(limit_node_count=16):
-    if not modules.utils.mount_paths.abs_paths():
+    if not mount_paths():
         Logger.critical('Failed to mount all necessary paths\n')
         exit(1)
     abilities = node_abilities()
