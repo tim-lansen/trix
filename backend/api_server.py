@@ -1,4 +1,6 @@
+#!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
+# tim.lansen@gmail.com
 
 from modules.utils.api_trix import ApiTrix, ApiClient, WebsocketServer
 from modules.config import TRIX_CONFIG
