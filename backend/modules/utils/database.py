@@ -223,7 +223,7 @@ class DBInterface:
                 'password': TRIX_CONFIG.dBase.users[user]['password']
             }
             DBInterface.CONNECTIONS[user] = connect_to_db(params)
-        # Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
+            Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
         return DBInterface.CONNECTIONS[user]
 
     @staticmethod
@@ -617,7 +617,7 @@ class DBInterface:
                 setup=setup,
                 uid=uid
             )
-            return DBInterface.request_db(request, DBInterface.Node.USER)
+            return DBInterface.request_db(request)
 
         @staticmethod
         def set_status(uid, status):
