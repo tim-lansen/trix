@@ -384,7 +384,7 @@ class DBInterface:
             relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
             condition=" OR ".join(["guid='{}'".format(_) for _ in ids])
         )
-        result = DBInterface.request_db(user, request)
+        result = DBInterface.request_db_fetch(user, request)
         return result
 
     @staticmethod
