@@ -40,7 +40,7 @@ class Stream(JSONer):
         self.program_in = None
         self.program_out = None
         self.sync: self.Sync = self.Sync()
-        self.collector: self.Collector = self.Collector()
+        self.collector: self.Collector = self.Collector(0)
 
 
 class Asset(Record):

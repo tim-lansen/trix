@@ -1100,7 +1100,7 @@ class JobUtils:
         @staticmethod
         def create_archive_with_asset(asset: Asset):
             # Here we have an asset delivered from interface
-            Logger.error('{}\n'.format(asset.dumps(indent=2)))
+            Logger.info('JobUtils.CreateJob.create_archive_with_asset(asset):\n{}\n'.format(asset.dumps(indent=2)))
 
             # Plan jobs
             task_id = str(asset.taskId)
@@ -1405,7 +1405,7 @@ class JobUtils:
                 Logger.info('{}\n'.format(emit.dumps()))
                 r = emit.results[idx]
                 mf: MediaFile = r.data
-                Logger.error('{}\n{}\n'.format(mf.dumps(indent=2), mf.__dict__.keys()))
+                Logger.info('{}\n{}\n'.format(mf.dumps(indent=2), mf.__dict__.keys()))
                 # exit(1)
                 DBInterface.MediaFile.set(mf)
 
