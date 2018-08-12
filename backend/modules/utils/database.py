@@ -617,7 +617,7 @@ class DBInterface:
                 setup=setup,
                 uid=uid
             )
-            return DBInterface.request_db(request)
+            return DBInterface.request_db(request, DBInterface.Node.USER)
 
         @staticmethod
         def set_status(uid, status):
