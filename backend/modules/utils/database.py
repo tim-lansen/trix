@@ -223,7 +223,7 @@ class DBInterface:
                 'password': TRIX_CONFIG.dBase.users[user]['password']
             }
             DBInterface.CONNECTIONS[user] = connect_to_db(params)
-        Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
+            Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
         return DBInterface.CONNECTIONS[user]
 
     @staticmethod
@@ -677,6 +677,15 @@ class DBInterface:
                     break
 
             return notifications
+
+        @staticmethod
+        def set_job_progress(uid, progress):
+            request = "UPDATE {relname} SET {setup} WHERE guid='{uid}';".format(
+                relname=TRIX_CONFIG.dBase.tables['Job']['relname'],
+                setup='mtime=localtimestamp,progress={}'.format(progress),
+                uid=uid
+            )
+            return DBInterface.request_db(request, DBInterface.Node.USER)
 
     class Job:
         USER = 'node'

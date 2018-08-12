@@ -73,7 +73,7 @@ class Worker:
         # TODO: update status, job status/progress
         if self.node.status == Node.Status.BUSY:
             progress = self.job_executor.progress()
-            DBInterface.Job.set_fields(self.node.job, {'progress': progress})
+            DBInterface.Node.set_job_progress(self.node.job, progress)
 
     def _revert_(self, msg, revert_job=True):
         Logger.debug(msg, Logger.LogLevel.LOG_ERR)
