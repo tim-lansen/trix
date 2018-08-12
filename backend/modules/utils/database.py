@@ -55,29 +55,29 @@ def request_db(cur, req, exit_on_fail=False):
 # Execute a request using supplied cursor, table data (from config, including fields list) and condition string
 # Condition has SQL form, for example 'WHERE status=1'
 # return [{field:value, ...}, ...]
-def request_db_return_dl(cur, tdata, fields, condition):
-    # We must have list of column names to build dict
-    # if fields is None:
-    #     fields = [f[0] for f in tdata['fields']]
-    # request = "SELECT {fields} FROM {relname}{cond};".format(fields=', '.join(fields), relname=tdata['relname'], cond=condition)
-    if fields is None:
-        fstr = '*'
-        fields = [f[0] for f in tdata['fields']]
-    else:
-        fstr = ','.join(fields)
-    request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
-    Logger.debug('Request: {}\n'.format(request), Logger.LogLevel.LOG_NOTICE)
-    result = []
-    try:
-        cur.execute(request)
-    except psycopg2.Error as e:
-        Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
-        Logger.traceback(Logger.LogLevel.LOG_ERR)
-    else:
-        rows = cur.fetchall()
-        for row in rows:
-            result.append(dict(zip(fields, row)))
-    return result
+# def request_db_return_dl(cur, tdata, fields, condition):
+#     # We must have list of column names to build dict
+#     # if fields is None:
+#     #     fields = [f[0] for f in tdata['fields']]
+#     # request = "SELECT {fields} FROM {relname}{cond};".format(fields=', '.join(fields), relname=tdata['relname'], cond=condition)
+#     if fields is None:
+#         fstr = '*'
+#         fields = [f[0] for f in tdata['fields']]
+#     else:
+#         fstr = ','.join(fields)
+#     request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
+#     Logger.debug('Request: {}\n'.format(request), Logger.LogLevel.LOG_NOTICE)
+#     result = []
+#     try:
+#         cur.execute(request)
+#     except psycopg2.Error as e:
+#         Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
+#         Logger.traceback(Logger.LogLevel.LOG_ERR)
+#         return None
+#     rows = cur.fetchall()
+#     for row in rows:
+#         result.append(dict(zip(fields, row)))
+#     return result
 
 
 # Execute a request using supplied cursor, table data (from config, including fields list) and condition string
@@ -113,9 +113,90 @@ def request_db_return_dict(cur, tdata, key=None, fields=None, condition=''):
 
 class DBInterface:
     # CONN = None
+    TRIES = 2
     CONNECTIONS = {}
     USER = 'backend'
     SUPERUSER = 'superuser'
+
+    @staticmethod
+    def connect(user=USER):
+        if user not in DBInterface.CONNECTIONS or DBInterface.CONNECTIONS[user] is None or DBInterface.CONNECTIONS[user].closed:
+            params = {
+                'host': TRIX_CONFIG.dBase.connection.host,
+                'port': TRIX_CONFIG.dBase.connection.port,
+                'dbname': TRIX_CONFIG.dBase.connection.dbname,
+                'user': TRIX_CONFIG.dBase.users[user]['login'],
+                'password': TRIX_CONFIG.dBase.users[user]['password']
+            }
+            DBInterface.CONNECTIONS[user] = connect_to_db(params)
+            Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
+        return DBInterface.CONNECTIONS[user]
+
+    @staticmethod
+    def disconnect(user=USER):
+        if user in DBInterface.CONNECTIONS and DBInterface.CONNECTIONS[user] is not None:
+            DBInterface.CONNECTIONS[user].close()
+            DBInterface.CONNECTIONS[user] = None
+            Logger.log("DBInterface.disconnect('{}')\n".format(user))
+
+    @staticmethod
+    def request_db_fetch(user, request, fetchall=False, exit_on_fail=False):
+        Logger.debug('Request:\n{}\n'.format(request), Logger.LogLevel.LOG_NOTICE)
+        result = None if fetchall else False
+        failed = True
+        for _ in range(DBInterface.TRIES):
+            try:
+                conn = DBInterface.connect(user)
+                cur = conn.cursor()
+                cur.execute(request)
+                if fetchall:
+                    result = cur.fetchall()
+                else:
+                    result = True
+                cur.close()
+                failed = False
+                break
+            except psycopg2.Error as e:
+                Logger.error('Failed to execute request\n{}\n{}\n'.format(e.pgerror, e.diag.message_detail))
+                Logger.error('{}\n'.format(request), Logger.LogLevel.LOG_ERR)
+                Logger.traceback(Logger.LogLevel.LOG_ERR)
+        if failed and exit_on_fail:
+            sys.exit(1)
+        return result
+
+
+    # Execute a request using supplied cursor, table data (from config, including fields list) and condition string
+    # Condition has SQL form, for example 'WHERE status=1'
+    # return [{field:value, ...}, ...]
+    @staticmethod
+    def request_db_return_dl(user, tdata, fields, condition):
+        # We must have list of column names to build dict
+        # if fields is None:
+        #     fields = [f[0] for f in tdata['fields']]
+        # request = "SELECT {fields} FROM {relname}{cond};".format(fields=', '.join(fields), relname=tdata['relname'], cond=condition)
+        if fields is None:
+            fstr = '*'
+            fields = [f[0] for f in tdata['fields']]
+        else:
+            fstr = ','.join(fields)
+        request = "SELECT {fields} FROM {relname}{cond};".format(fields=fstr, relname=tdata['relname'], cond=condition)
+        Logger.debug('Request: {}\n'.format(request), Logger.LogLevel.LOG_NOTICE)
+        failed = True
+        rows = []
+        for _ in range(DBInterface.TRIES):
+            try:
+                conn = DBInterface.connect(user)
+                cur = conn.cursor()
+                cur.execute(request)
+                rows = cur.fetchall()
+                cur.close()
+                failed = False
+                break
+            except psycopg2.Error as e:
+                Logger.error('Failed to execute request\n{0}\n{1}\n'.format(e.pgerror, e.diag.message_detail))
+                Logger.traceback(Logger.LogLevel.LOG_ERR)
+        result = None if failed else [dict(zip(fields, row)) for row in rows]
+        return result
 
     @staticmethod
     def initialize():
@@ -213,59 +294,28 @@ class DBInterface:
         conn.close()
 
     @staticmethod
-    def connect(user=USER):
-        if user not in DBInterface.CONNECTIONS or DBInterface.CONNECTIONS[user] is None or DBInterface.CONNECTIONS[user].closed:
-            params = {
-                'host': TRIX_CONFIG.dBase.connection.host,
-                'port': TRIX_CONFIG.dBase.connection.port,
-                'dbname': TRIX_CONFIG.dBase.connection.dbname,
-                'user': TRIX_CONFIG.dBase.users[user]['login'],
-                'password': TRIX_CONFIG.dBase.users[user]['password']
-            }
-            DBInterface.CONNECTIONS[user] = connect_to_db(params)
-            Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
-        return DBInterface.CONNECTIONS[user]
-
-    @staticmethod
-    def disconnect(user=USER):
-        if user in DBInterface.CONNECTIONS and DBInterface.CONNECTIONS[user] is not None:
-            DBInterface.CONNECTIONS[user].close()
-            DBInterface.CONNECTIONS[user] = None
-            Logger.log("DBInterface.disconnect('{}')\n".format(user))
-
-    @staticmethod
     def request_db(request, user=USER):
-        result = False
-        conn = DBInterface.connect(user)
-        if conn is not None:
-            cur = conn.cursor()
-            result = request_db(cur, request)
-        return result
+        return DBInterface.request_db_fetch(user, request)
 
     # Get records from table filtered by status or status list
     # status may be single value, or list of values: [1, 3, 4]
     # cond is a list of filtering conditions: ['type=2', 'priority>3']
     @staticmethod
     def get_records(table_name, fields=None, status=None, sort=None, cond=None, limit=None, user=USER):
-        result = None
-        conn = DBInterface.connect(user)
-        if conn is not None:
-            cur = conn.cursor()
-            if cond is None:
-                cond = []
-            if type(status) is int:
-                cond.append('status={}'.format(status))
-            elif type(status) is list:
-                cond.append(' OR '.join(['status={}'.format(s) for s in status]))
-            condition = ''
-            if len(cond):
-                condition = ' WHERE ' + ' AND '.join(cond)
-            if sort is not None:
-                condition += ' ORDER BY {}'.format(', '.join(sort))
-            if type(limit) is int:
-                condition += ' LIMIT {}'.format(limit)
-            result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], fields, condition)
-            cur.close()
+        if cond is None:
+            cond = []
+        if type(status) is int:
+            cond.append('status={}'.format(status))
+        elif type(status) is list:
+            cond.append(' OR '.join(['status={}'.format(s) for s in status]))
+        condition = ''
+        if len(cond):
+            condition = ' WHERE ' + ' AND '.join(cond)
+        if sort is not None:
+            condition += ' ORDER BY {}'.format(', '.join(sort))
+        if type(limit) is int:
+            condition += ' LIMIT {}'.format(limit)
+        result = DBInterface.request_db_return_dl(user, TRIX_CONFIG.dBase.tables[table_name], fields, condition)
         Logger.debug('{}\n'.format(pformat(result), Logger.LogLevel.LOG_INFO))
         return result
 
@@ -293,28 +343,18 @@ class DBInterface:
     # Get records from table filtered by status
     @staticmethod
     def get_record(table_name, uid, user=USER):
-        result = None
-        conn = DBInterface.connect(user)
-        if conn is not None:
-            cur = conn.cursor()
-            result = request_db_return_dl(cur, TRIX_CONFIG.dBase.tables[table_name], None, " WHERE guid='{}'".format(uid))
-            cur.close()
+        result = DBInterface.request_db_return_dl(user, TRIX_CONFIG.dBase.tables[table_name], None, " WHERE guid='{}'".format(uid))
         Logger.debug('{}\n'.format(pformat(result), Logger.LogLevel.LOG_INFO))
         return result
 
     @staticmethod
     def get_record_by_field(table_name, field, value, user=USER):
-        result = None
-        conn = DBInterface.connect(user)
-        if conn is not None:
-            cur = conn.cursor()
-            result = request_db_return_dl(
-                cur,
-                TRIX_CONFIG.dBase.tables[table_name],
-                None,
-                " WHERE {}='{}'".format(field, value)
-            )
-            cur.close()
+        result = DBInterface.request_db_return_dl(
+            user,
+            TRIX_CONFIG.dBase.tables[table_name],
+            None,
+            " WHERE {}='{}'".format(field, value)
+        )
         Logger.debug('{}\n'.format(pformat(result), Logger.LogLevel.LOG_INFO))
         return result
 
@@ -340,71 +380,57 @@ class DBInterface:
 
     @staticmethod
     def delete_records(table_name, ids, user=USER):
-        result = False
-        conn = DBInterface.connect(user)
-        if conn is not Node:
-            request = "DELETE FROM {relname} WHERE {condition};".format(
-                relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
-                condition=" OR ".join(["guid='{}'".format(_) for _ in ids])
-            )
-
-            cur = conn.cursor()
-            result = request_db(cur, request)
-            cur.close()
+        request = "DELETE FROM {relname} WHERE {condition};".format(
+            relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
+            condition=" OR ".join(["guid='{}'".format(_) for _ in ids])
+        )
+        result = DBInterface.request_db(user, request)
         return result
 
     @staticmethod
     def register_record(rec: Record, user=USER):
         result = False
-        conn = DBInterface.connect(user)
-        if conn is not None:
-            cur = conn.cursor()
-            request = 'SELECT localtimestamp;'
-            if request_db(cur, request):
-                rows = cur.fetchall()
-                rec.ctime = str(rows[0][0])
-                rec.mtime = str(rows[0][0])
-                if rec.guid is None:
-                    rec.guid = Guid(0)
-                # Select table and fields
-                rd = rec.__dict__
-                table_name = rec.__class__.__name__
-                tdata = TRIX_CONFIG.dBase.tables[table_name]
-                fields = [f[0] for f in tdata['fields'] if rd[f[0]] is not None and not (type(rd[f[0]]) is list and len(rd[f[0]]) == 0)]
-                # Build request
-                request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
-                    relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
-                    fields=','.join(fields),
-                    values=','.join([rec.db_value(f) for f in fields])
-                )
-                # Register node
-                result = request_db(cur, request)
-            cur.close()
+        request = 'SELECT localtimestamp;'
+        rows = DBInterface.request_db_fetch(user, request, fetchall=True)
+        if rows:
+            rec.ctime = str(rows[0][0])
+            rec.mtime = str(rows[0][0])
+            if rec.guid is None:
+                rec.guid = Guid(0)
+            # Select table and fields
+            rd = rec.__dict__
+            table_name = rec.__class__.__name__
+            tdata = TRIX_CONFIG.dBase.tables[table_name]
+            fields = [f[0] for f in tdata['fields'] if rd[f[0]] is not None and not (type(rd[f[0]]) is list and len(rd[f[0]]) == 0)]
+            # Build request
+            request = "INSERT INTO {relname} ({fields}) VALUES ({values});".format(
+                relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
+                fields=','.join(fields),
+                values=','.join([rec.db_value(f) for f in fields])
+            )
+            # Register node
+            result = DBInterface.request_db_fetch(user, request)
         return result
 
     @staticmethod
     def update_record(rec: Record, field_set: set, user=USER):
         result = False
-        conn = DBInterface.connect(user)
-        if conn is not None:
-            cur = conn.cursor()
-            request = 'SELECT localtimestamp;'
-            if request_db(cur, request):
-                rows = cur.fetchall()
-                rec.mtime = str(rows[0][0])
-                if rec.guid is None:
-                    rec.guid = Guid(0)
-                # Select table and fields
-                rd = rec.__dict__
-                table_name = rec.__class__.__name__
-                # Build request
-                request = "UPDATE {relname} SET {setup};".format(
-                    relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
-                    setup=','.join(['{}={}'.format(f, rec.db_value(f)) for f in field_set if rd[f] is not None])
-                )
-                # Register node
-                result = request_db(cur, request)
-            cur.close()
+        request = 'SELECT localtimestamp;'
+        rows = DBInterface.request_db_fetch(user, request, fetchall=True)
+        if rows:
+            rec.mtime = str(rows[0][0])
+            if rec.guid is None:
+                rec.guid = Guid(0)
+            # Select table and fields
+            rd = rec.__dict__
+            table_name = rec.__class__.__name__
+            # Build request
+            request = "UPDATE {relname} SET {setup};".format(
+                relname=TRIX_CONFIG.dBase.tables[table_name]['relname'],
+                setup=','.join(['{}={}'.format(f, rec.db_value(f)) for f in field_set if rd[f] is not None])
+            )
+            # Register node
+            result = DBInterface.request_db_fetch(user, request)
         return result
 
     @staticmethod
@@ -445,9 +471,7 @@ class DBInterface:
         # Lock the interaction
         @staticmethod
         def lock(uid):
-            conn = DBInterface.connect()
-            cur = conn.cursor()
-            # First, try to lock an interaction
+            # Try to lock an interaction
             table_name = TRIX_CONFIG.dBase.tables['Interaction']['relname']
             new_status = Interaction.Status.LOCK
             req = "UPDATE {tname} SET status={status} WHERE guid='{guid}' AND status<>{status};".format(
@@ -455,13 +479,11 @@ class DBInterface:
                 status=new_status,
                 guid=uid
             )
-            return request_db(cur, req)
+            return DBInterface.request_db_fetch(DBInterface.USER, req)
 
         @staticmethod
         def unlock(uid):
-            conn = DBInterface.connect()
-            cur = conn.cursor()
-            # First, try to lock an interaction
+            # Try to unlock an interaction
             table_name = TRIX_CONFIG.dBase.tables['Interaction']['relname']
             new_status = Interaction.Status.FREE
             req = "UPDATE {tname} SET status={status} WHERE guid='{guid}' AND status<>{status};".format(
@@ -469,7 +491,7 @@ class DBInterface:
                 status=new_status,
                 guid=uid
             )
-            return request_db(cur, req)
+            return DBInterface.request_db_fetch(DBInterface.USER, req)
 
         # @staticmethod
         # def get_all_sorted():
@@ -592,18 +614,12 @@ class DBInterface:
         # Unregister node
         @staticmethod
         def remove(node: Node, backend=True):
-            conn = DBInterface.connect(DBInterface.USER if backend else DBInterface.Node.USER)
-            if conn is None:
-                Logger.warning('DBInterface.Node.register({}): connection is None\n'.format(node.name))
-                return False
-            # Ask server time
-            cur = conn.cursor()
+            user = DBInterface.USER if backend else DBInterface.Node.USER
             request = "DELETE FROM {relname} WHERE guid='{uid}';".format(
                 relname=TRIX_CONFIG.dBase.tables['Node']['relname'],
                 uid=node.guid
             )
-            result = request_db(cur, request)
-            cur.close()
+            result = DBInterface.request_db_fetch(user, request)
             if not backend:
                 DBInterface.disconnect(DBInterface.Node.USER)
             return result
@@ -625,16 +641,10 @@ class DBInterface:
 
         @staticmethod
         def pong(node: Node):
-            conn = DBInterface.connect(DBInterface.Node.USER)
-            if conn is None:
-                Logger.warning('DBInterface.Node.register({}): DBInterface.CONN is None\n'.format(node.name))
-                return False
-            # Ask server time
-            cur = conn.cursor()
             request = 'SELECT localtimestamp;'
             result = False
-            if request_db(cur, request):
-                rows = cur.fetchall()
+            rows = DBInterface.request_db_fetch(DBInterface.Node.USER, request, fetchall=True)
+            if rows:
                 node.mtime = str(rows[0][0])
                 # Update node's mtime
                 request = "UPDATE {relname} SET mtime=localtimestamp,status={status} WHERE guid='{node_id}';".format(
@@ -643,8 +653,7 @@ class DBInterface:
                     status=node.status,
                     node_id=node.guid
                 )
-                result = request_db(cur, request)
-            cur.close()
+                result = DBInterface.request_db_fetch(DBInterface.Node.USER, request)
             return result
 
         @staticmethod
@@ -841,15 +850,10 @@ class DBInterface:
 
         @staticmethod
         def remove_by_names(names: List[str]):
-            conn = DBInterface.connect(DBInterface.Fileset.USER)
-            if conn is None:
-                return False
-            cur = conn.cursor()
             request = "DELETE FROM {relname} WHERE name=ANY('{{{names}}}'::name[]);".format(
                 relname=TRIX_CONFIG.dBase.tables['Fileset']['relname'],
                 names=','.join(names)
             )
-            result = request_db(cur, request)
-            cur.close()
+            result = DBInterface.request_db_fetch(DBInterface.Fileset.USER, request)
             return result
 
