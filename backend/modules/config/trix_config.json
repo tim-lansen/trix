@@ -49,6 +49,7 @@
         "name": "trix1",
         "id": "trix1",
         "hostname": "trix-office-1",
+        "ip": "192.168.33.142",
         "filesystem": "sshfs",
         "comment.filesystem": "cifs|nfs|sshfs",
         "comment.shares": "<share name>: <server's local path>",
@@ -94,6 +95,7 @@
         "name": "cache_server",
         "id": "cs",
         "hostname": "trix-office-1",
+        "ip": "192.168.33.142",
         "filesystem": "sshfs",
         "shares": {
           "ramcache": "/mnt/cache"

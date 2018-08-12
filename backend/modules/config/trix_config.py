@@ -196,7 +196,7 @@ class TrixConfig(JSONer):
             def __init__(self):
                 super().__init__()
                 self.name = None
-                # self.id = None
+                self.ip = None
                 self.hostname = None
                 self.filesystem = None
                 # Typical 'share' element example:
@@ -212,10 +212,10 @@ class TrixConfig(JSONer):
                 if share in self.shares:
                     if self.filesystem == 'cifs':
                         # example: //TLANSEN/web
-                        return '//{}/{}'.format(self.hostname, share)
+                        return '//{}/{}'.format(self.ip, share)
                     elif self.filesystem == 'nfs' or self.filesystem == 'sshfs':
                         # example: TLANSEN:/mnt/data/shared
-                        return '{}:{}'.format(self.hostname, self.shares[share])
+                        return '{}:{}'.format(self.ip, self.shares[share])
                 return None
 
             def mount_point(self, subdir=None):
