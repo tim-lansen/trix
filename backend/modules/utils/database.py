@@ -4,6 +4,8 @@
 # PostgreSQL interface
 # Users, tables, etc.: look trix_config.json
 # CLI interface: "C:\Program Files\PostgreSQL\9.6\bin\psql.exe" --username=trix --host=localhost trix_db
+# su - trix
+# psql trix_db
 
 
 import re
