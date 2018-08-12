@@ -611,8 +611,8 @@ class JobUtils:
                     a_stream.program_in = 0
                     a_stream.program_out = a.duration
                     a_stream.layout = a.channel_layout
-                    if ti == 0:
-                        a_stream.collector.new()
+                    # if ti == 0:
+                    a_stream.collector.new()
                     if a.tags and a.tags.language:
                         a_stream.language = a.tags.language
                     for ci in range(a.channels):
