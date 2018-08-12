@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
+# tim.lansen@gmail.com
 
 from modules.utils.database import DBInterface
 from modules.models.asset import Asset

@@ -505,9 +505,7 @@ class DBInterface:
         def records(uids):
             fields = TRIX_CONFIG.dBase.fields('Asset')
             condition = ["guid=ANY('{{{}}}'::uuid[])".format(','.join(uids))]
-            return DBInterface.get_records('Asset',
-                                           fields=fields,
-                                           cond=condition)
+            return DBInterface.get_records('Asset', fields=fields, cond=condition)
 
         @staticmethod
         def get(uid):
