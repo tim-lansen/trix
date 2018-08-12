@@ -12,7 +12,7 @@ import time
 import shutil
 import platform
 from multiprocessing import Process, Event, Queue
-from modules.utils import mount_paths
+from modules.utils.mount_paths import mount_paths
 # from modules.utils.non_daemonic_pool import NonDaemonicPool
 # from typing import List
 from modules.config import *
