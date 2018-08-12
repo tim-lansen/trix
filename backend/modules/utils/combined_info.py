@@ -690,7 +690,7 @@ def combined_info(mf: MediaFile, path=None):
             return
     ffstr = get_ffprobe_info(path)
     mistr = get_media_info(path)
-    Logger.log('\n{}\n\n{}\n\n'.format(ffstr, mistr))
+    # Logger.info('\n{}\n\n{}\n\n'.format(ffstr, mistr))
     combined = combine_ffprobe_mediainfo(ffstr, mistr)
     mf.update_json(combined)
     mf.source.path = path
