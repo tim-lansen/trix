@@ -1130,9 +1130,9 @@ class JobUtils:
             def audio_mfindex(atindex):
                 for _i, _mf in enumerate(media_files):
                     if atindex < len(_mf.audioTracks):
-                        return _i, atindex
+                        return [_i, atindex]
                     atindex -= len(_mf.audioTracks)
-                return None, None
+                return [None, None]
             def video_mfindex(vtindex):
                 for _i, _mf in enumerate(media_files):
                     if vtindex < len(_mf.videoTracks):
@@ -1180,7 +1180,7 @@ class JobUtils:
                 audio_dur = (video_stream.program_out - video_stream.program_in) * sync_tempo_encoded
 
                 # Collect source media files, re-index inputs
-                source_mediafiles_streams = [audio_mfindex(ch.src_stream_index) + (ch.src_channel_index,) for ch in audio_stream.channels]
+                source_mediafiles_streams = [audio_mfindex(ch.src_stream_index) + [ch.src_channel_index] for ch in audio_stream.channels]
                 smss = sorted(list(set([_[0] for _ in source_mediafiles_streams])))
                 offsets = []
                 idx = 0
