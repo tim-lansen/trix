@@ -605,7 +605,7 @@ class JobUtils:
                             audio_filter = '[0:a:{ti}]pan=mono|c0=c{ci}[ap_{ti:02d}_{ci:02d}]'.format(ti=ti, ci=ci)
                         filters.append(audio_filter)
                         audio_filter = None
-                        outputs.append('-map [ap_{ti:02d}_{ci:02d}] -c:a eac3 -b:a 48k {path}'.format(ti=ti, ci=ci, path=audio_preview.source.path))
+                        outputs.append('-map [ap_{ti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(ti=ti, ci=ci, path=audio_preview.source.path))
                         previews.append(audio_preview)
 
                     # Create AudioStream for asset
