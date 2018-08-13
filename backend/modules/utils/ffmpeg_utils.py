@@ -213,7 +213,7 @@ def ffmpeg_create_preview_extract_audio_subtitles(mediafile: MediaFile, dir_tran
                 audio_filter = '[0:a:{sti}]pan=mono|c0=c{ci}[ap_{sti:02d}_{ci:02d}]'.format(sti=sti, ci=ci)
             filters.append(audio_filter)
             audio_filter = None
-            outputs.append('-map [ap_{sti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(sti=sti, ci=ci, path=audio_preview.source.path))
+            outputs.append('-map [ap_{sti:02d}_{ci:02d}] -c:a eac3 -b:a 48k {path}'.format(sti=sti, ci=ci, path=audio_preview.source.path))
             at.previews.append(str(audio_preview.guid))
 
     # Finally, compose the command
@@ -447,7 +447,7 @@ def ffmpeg_create_archive_preview_extract_audio_subtitles(mediafile: MediaFile, 
                 audio_filter = '[0:a:{sti}]pan=mono|c0=c{ci}[ap_{sti:02d}_{ci:02d}]'.format(sti=sti, ci=ci)
             filters.append(audio_filter)
             audio_filter = None
-            outputs.append('-map [ap_{sti:02d}_{ci:02d}] -strict -2 -c:a aac -b:a 48k {path}'.format(sti=sti, ci=ci,
+            outputs.append('-map [ap_{sti:02d}_{ci:02d}] -c:a eac3 -b:a 48k {path}'.format(sti=sti, ci=ci,
                                                                                                      path=audio_preview.source.path))
             at.previews.append(str(audio_preview.guid))
 
