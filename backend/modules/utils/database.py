@@ -9,6 +9,7 @@
 
 
 import re
+import os
 import sys
 import uuid
 import select
@@ -120,7 +121,8 @@ class DBInterface:
 
     @staticmethod
     def connect(user=USER):
-        if user not in DBInterface.CONNECTIONS or DBInterface.CONNECTIONS[user] is None or DBInterface.CONNECTIONS[user].closed:
+        key = '{}:{}'.format(os.getpid(), user)
+        if key not in DBInterface.CONNECTIONS or DBInterface.CONNECTIONS[key] is None or DBInterface.CONNECTIONS[key].closed:
             params = {
                 'host': TRIX_CONFIG.dBase.connection.host,
                 'port': TRIX_CONFIG.dBase.connection.port,
@@ -128,9 +130,9 @@ class DBInterface:
                 'user': TRIX_CONFIG.dBase.users[user]['login'],
                 'password': TRIX_CONFIG.dBase.users[user]['password']
             }
-            DBInterface.CONNECTIONS[user] = connect_to_db(params)
-            Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[user]))
-        return DBInterface.CONNECTIONS[user]
+            DBInterface.CONNECTIONS[key] = connect_to_db(params)
+            Logger.log("DBInterface.connect('{}'): {}\n".format(user, DBInterface.CONNECTIONS[key]))
+        return DBInterface.CONNECTIONS[key]
 
     @staticmethod
     def disconnect(user=USER):
