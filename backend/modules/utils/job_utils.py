@@ -17,7 +17,7 @@ from modules.utils.database import DBInterface
 from .log_console import Logger, tracer
 from .storage import Storage
 from .parsers import astats_to_model, Parsers
-from .types import Guid, Rational
+from .ttypes import Guid, Rational
 from modules.models.collector import Collector
 from .exchange import Exchange
 

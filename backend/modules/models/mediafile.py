@@ -3,7 +3,7 @@
 
 from typing import List
 from modules.models.record import *
-from modules.utils.types import Rational
+from modules.utils import Rational
 
 
 class MediaFile(Record):

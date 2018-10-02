@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
 
-from modules.utils.jsoner import JSONer
-from modules.utils.types import Guid
+from modules.utils import Guid, JSONer
 
 
 # Database record template
@@ -10,7 +9,6 @@ class Record(JSONer):
     # ELEMENT_TYPES = {
     #     'guid': 'uuid'
     # }
-
 
     def __init__(self, name=None, guid=None):
         super().__init__()

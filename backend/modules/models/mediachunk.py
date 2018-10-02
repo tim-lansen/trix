@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # tim.lansen@gmail.com
 
-from modules.utils.types import Guid
 from modules.models.record import *
 
 

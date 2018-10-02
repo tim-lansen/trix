@@ -2,9 +2,10 @@
 # The Trix API
 # Each request must contain 'method': <method name>, 'guid': <request guid>
 # Method data should be in 'data': {<method data>}
-# Methods may be cascaded: interaction.getList.filter
+# Methods may be cascaded: interaction.get_list.filter
 
 import sys
+print(sys.path)
 from concurrent.futures import ThreadPoolExecutor
 from modules.utils.log_console import Logger, tracer
 from modules.utils.database import DBInterface
@@ -17,14 +18,6 @@ from modules.websocket_server import ApiClassBase, ApiClientClassBase, Websocket
 from modules.models import Asset, Stream, Collector, MediaFile, Fileset
 from modules.utils.job_utils import JobUtils
 from modules.utils.watch import Fileset, TRIX_CONFIG
-import traceback
-
-
-# def traceback_debug():
-#     Logger.debug('===traceback===\n')
-#     for frame in traceback.extract_tb(sys.exc_info()[2]):
-#         Logger.debug('{}\n'.format(frame))
-#     Logger.debug('===============\n')
 
 
 class ApiClient(ApiClientClassBase):
@@ -78,7 +71,7 @@ class ApiTrix(ApiClassBase):
     # Trix API
     # Every class' subclass is [sub]method name
     # 'handler' is a method handler
-    # For example, if method is 'interaction.getList', then dispatcher calls
+    # For example, if method is 'interaction.get_list', then dispatcher calls
     #               ApiTrix.Request.Interaction.GetList.handler(request['data'])
 
     Pool = ThreadPoolExecutor(max_workers=128)
@@ -112,7 +105,7 @@ class ApiTrix(ApiClassBase):
                 def handler(*args):
                     return DBInterface.Interaction.unlock(args[0]['guid'])
 
-            class getList(meth):
+            class get_list(meth):
                 @staticmethod
                 def handler(*args):
                     """:param must contain""" \
@@ -243,7 +236,7 @@ class ApiTrix(ApiClassBase):
         #             return asset
 
         class fileset:
-            class getList(meth):
+            class get_list(meth):
                 @staticmethod
                 def handler(*args):
                     fsdb = DBInterface.Fileset.records_fields(Fileset.FIELDS_FOR_LIST)
@@ -304,3 +297,19 @@ class ApiTrix(ApiClassBase):
 
     def message_received(self, client: ApiClient, server, msg):
         self.dispatch(msg, client)
+
+
+def api_list_methods():
+    print('Trix API methods:')
+
+    def _dig_(path, t):
+        if hasattr(t, 'handler'):
+            print('.'.join(path))
+        else:
+            try:
+                for m in t.__dict__:
+                    _dig_(path + [m], t.__dict__[m])
+            except:
+                pass
+
+    _dig_([], ApiTrix.Request)

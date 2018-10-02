@@ -12,7 +12,7 @@ from subprocess import Popen, PIPE
 
 from modules.models.mediafile import MediaFile
 from .jsoner import JSONer
-from .types import Guid, Rational, guess_type
+from .ttypes import Rational, guess_type
 from .log_console import Logger, tracer
 
 

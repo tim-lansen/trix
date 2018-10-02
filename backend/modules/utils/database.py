@@ -19,7 +19,7 @@ import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from .log_console import Logger, tracer
-from .types import Guid
+from .ttypes import Guid
 from modules.config import TRIX_CONFIG
 from modules.models import Asset, Interaction, Job, Task, MediaChunk, MediaFile, Machine, Node, Record, Collector, Fileset
 

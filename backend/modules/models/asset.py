@@ -3,7 +3,7 @@
 
 import os
 from typing import List
-from modules.utils.types import Rational
+from modules.utils import Rational
 from modules.models.record import *
 
 
